@@ -146,6 +146,6 @@ Stanford/Columbia 의 2026 년 논문이다 ([arXiv 2607.25798](https://arxiv.or
 
 | 파일 | 내용 |
 |---|---|
-| `results/progress.html` | 지금까지의 진행 경로 — 된 것 / 안 된 것 / 다음 |
+| `results/overview.html` | 지금까지의 진행 경로 — 된 것 / 안 된 것 / 다음 |
 | `results/tt_vs_rl.html` | 1 단계 구조 — 논문 방식과 우리 방식이 어디서 갈라지는지 |
 | `results/tt_vs_rl_walk.mp4` | 두 방식이 만든 로봇이 나란히 걷는 영상 |

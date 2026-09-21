@@ -1,0 +1,96 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Learned Guidance for Robot Co-Design — Progress",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "reproduced",
+        "label": "What works",
+        "focus": ["assets", "tt_row", "rl_row", "verdict"],
+        "note": "The paper's numbers were reproduced, and swapping the gradient for a learned policy still yields valid designs."
+      },
+      {
+        "id": "diagnosis",
+        "label": "Why the verdict is held",
+        "focus": ["pf1", "pf2", "effect", "verdict"],
+        "note": "Two training attempts failed. The cause was the operating point, not the method — the paper's own guidance has no effect there."
+      },
+      {
+        "id": "rebuild",
+        "label": "Reward rebuilt",
+        "focus": ["reward_old", "reward_new", "pi_theta"],
+        "note": "The controller-training reward was wrongly used to score morphologies. Replaced with an outcome-based one."
+      }
+    ],
+    "output": "/mnt/gstore/home/xiangyue/RL/tt_codesign/results/overview.html"
+  },
+  "lanes": [
+    { "id": "s1", "label": "Stage 1 · Can RL replace the gradient?  (motion tracking)" },
+    { "id": "diag", "label": "Diagnosis · two failed attempts", "variant": "exception" },
+    { "id": "s2", "label": "Stage 2 · Rewards the gradient cannot score  (forward walking)" }
+  ],
+  "phases": [
+    { "id": "setup", "label": "Setup", "fromCol": 0, "toCol": 0 },
+    { "id": "repro", "label": "Reproduce, then swap", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "fix", "label": "Rebuild", "fromCol": 3, "toCol": 4, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "table4", "label": "Same protocol as the paper", "lane": "s1", "fromCol": 1, "toCol": 2, "variant": "emphasis" },
+    { "id": "pf_fail", "label": "Guidance policy did not learn", "lane": "diag", "fromCol": 1, "toCol": 2, "variant": "security" }
+  ],
+  "mainPath": ["assets", "tt_row", "rl_row", "verdict"],
+  "nodes": [
+    { "id": "assets", "lane": "s1", "col": 0, "type": "database", "label": "Released assets", "sublabel": "128 RL experts", "tag": "9.3 GB", "width": 132 },
+    { "id": "tt_row", "lane": "s1", "col": 1, "type": "backend", "label": "Baseline reproduced", "sublabel": "3.0 cm · 99.4 %", "tag": "paper 2.6 / 99.4", "width": 132 },
+    { "id": "rl_row", "lane": "s1", "col": 2, "type": "backend", "label": "Guidance swapped", "sublabel": "3.0 cm · 97.8 %", "tag": "designs stay valid", "width": 132 },
+    { "id": "verdict", "lane": "s1", "col": 3, "type": "security", "label": "Verdict held", "sublabel": "pipeline yes, learning no", "width": 132 },
+    { "id": "pf1", "lane": "diag", "col": 1, "type": "messagebus", "label": "Attempt 1", "sublabel": "REINFORCE", "tag": "66,940-dim action", "width": 132 },
+    { "id": "pf2", "lane": "diag", "col": 2, "type": "messagebus", "label": "Attempt 2", "sublabel": "learned critic", "tag": "explains 8 % of variance", "width": 132 },
+    { "id": "effect", "lane": "diag", "col": 3, "type": "external", "label": "Root cause", "sublabel": "60 paired trials", "tag": "paper's guidance: no effect", "width": 132 },
+    { "id": "reward_old", "lane": "s2", "col": 2, "type": "security", "label": "Reward discarded", "sublabel": "controller-training reward", "tag": "penalised walking", "width": 132 },
+    { "id": "reward_new", "lane": "s2", "col": 3, "type": "frontend", "label": "Reward redefined", "sublabel": "contact stop + 1 m goal", "tag": "0.15 vs 0.38", "width": 132 },
+    { "id": "pi_theta", "lane": "s2", "col": 4, "type": "cloud", "label": "Controller retrained", "sublabel": "one fixed morphology", "tag": "running", "width": 132 }
+  ],
+  "edges": [
+    { "id": "e1", "from": "assets", "to": "tt_row", "variant": "default" },
+    { "id": "e2", "from": "tt_row", "to": "rl_row", "label": "gradient to policy", "variant": "emphasis" },
+    { "id": "e3", "from": "rl_row", "to": "verdict", "variant": "default" },
+    { "id": "e4", "from": "tt_row", "to": "pf1", "variant": "dashed" },
+    { "id": "e5", "from": "pf1", "to": "pf2", "label": "change method", "variant": "security" },
+    { "id": "e6", "from": "pf2", "to": "effect", "label": "why no signal", "variant": "security" },
+    { "id": "e7", "from": "effect", "to": "verdict", "variant": "dashed" },
+    { "id": "e8", "from": "effect", "to": "reward_old", "variant": "dashed" },
+    { "id": "e9", "from": "reward_old", "to": "reward_new", "label": "outcome only", "variant": "emphasis" },
+    { "id": "e10", "from": "reward_new", "to": "pi_theta", "variant": "default" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Established",
+      "items": [
+        "Paper baseline reproduced — 3.0 cm tracking error, 99.4 % survival (paper: 2.6 / 99.4)",
+        "Replacing the analytic gradient with a learned policy keeps the pipeline intact",
+        "New reward structurally rules out designs that crawl instead of walking"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Open",
+      "items": [
+        "The guidance policy did not learn — two attempts, two failures",
+        "Cause is the operating point, not the method: guidance has zero effect there",
+        "The paper states it too — with enough samples, guided and unguided are indistinguishable"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "The task differs per stage",
+      "items": [
+        "Stage 1 = tracking 20 held-out human demonstrations, exactly the paper's protocol",
+        "Stage 2 = walking 1 m forward without falling, a reward the gradient cannot score"
+      ]
+    }
+  ]
+}
