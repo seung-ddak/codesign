@@ -2,7 +2,7 @@
   "schema_version": 2,
   "diagram_type": "workflow",
   "meta": {
-    "title": "TT vs RL — guidance swap (stage 1)",
+    "title": "1 단계 구조 — 논문 방식과 우리 방식은 어디서 갈라지나",
     "quality_profile": "showcase",
     "views": [
       {
@@ -35,35 +35,35 @@
   "lanes": [
     {
       "id": "gen",
-      "label": "Generation (frozen prior)"
+      "label": "로봇을 그리는 과정 (논문 것 그대로)"
     },
     {
       "id": "guide",
-      "label": "Guidance — the swapped part",
+      "label": "다듬는 방향을 정하는 부분 — 여기만 교체한다",
       "variant": "exception"
     },
     {
       "id": "eval",
-      "label": "Evaluation (RL experts)"
+      "label": "성능 측정 (양쪽 동일)"
     }
   ],
   "phases": [
     {
       "id": "sample",
-      "label": "Sample",
+      "label": "과제 입력",
       "fromCol": 0,
       "toCol": 1
     },
     {
       "id": "steer",
-      "label": "Steer last 10 of 100 steps",
+      "label": "100 번 중 마지막 10 번만 개입",
       "fromCol": 2,
       "toCol": 2,
       "variant": "emphasis"
     },
     {
       "id": "measure",
-      "label": "Measure",
+      "label": "측정",
       "fromCol": 3,
       "toCol": 5,
       "variant": "dashed"
@@ -72,7 +72,7 @@
   "groups": [
     {
       "id": "swap_box",
-      "label": "TT vs RL",
+      "label": "교체 지점",
       "lane": "guide",
       "fromCol": 0,
       "toCol": 2,
@@ -93,18 +93,19 @@
       "lane": "gen",
       "col": 0,
       "type": "external",
-      "label": "UMI trajectory",
-      "sublabel": "20 held-out skills",
-      "width": 140
+      "label": "사람 손동작",
+      "sublabel": "20 종, 학습에 안 쓴 것",
+      "width": 140,
+      "tag": "과제 입력"
     },
     {
       "id": "prior",
       "lane": "gen",
       "col": 1,
       "type": "backend",
-      "label": "TT prior",
-      "sublabel": "xrh4wk4l frozen",
-      "tag": "not trained",
+      "label": "로봇 생성 모델",
+      "sublabel": "논문 것 그대로, 고정",
+      "tag": "학습 안 함",
       "width": 140
     },
     {
@@ -112,8 +113,8 @@
       "lane": "gen",
       "col": 2,
       "type": "backend",
-      "label": "Denoising",
-      "sublabel": "100 steps, eta 1.0",
+      "label": "100 번 다듬기",
+      "sublabel": "잡음에서 로봇으로",
       "width": 140
     },
     {
@@ -121,8 +122,8 @@
       "lane": "gen",
       "col": 3,
       "type": "frontend",
-      "label": "Robot design",
-      "sublabel": "choices + seed",
+      "label": "완성된 로봇",
+      "sublabel": "몸 설계 1 대",
       "width": 140
     },
     {
@@ -130,9 +131,9 @@
       "lane": "guide",
       "col": 0,
       "type": "security",
-      "label": "TT — DSG",
-      "sublabel": "scale x grad R-hat",
-      "tag": "no training",
+      "label": "논문 방식",
+      "sublabel": "수식을 미분해 방향 계산",
+      "tag": "학습 불필요",
       "width": 140
     },
     {
@@ -140,9 +141,9 @@
       "lane": "guide",
       "col": 2,
       "type": "messagebus",
-      "label": "RL — pi_phi",
-      "sublabel": "learned residual",
-      "tag": "33.7k params",
+      "label": "우리 방식",
+      "sublabel": "학습된 신경망이 방향 결정",
+      "tag": "3.4 만 파라미터",
       "width": 140
     },
     {
@@ -150,9 +151,9 @@
       "lane": "guide",
       "col": 1,
       "type": "database",
-      "label": "Critic Q",
-      "sublabel": "learns from outcomes",
-      "tag": "no gradient needed",
+      "label": "채점 보조 신경망",
+      "sublabel": "결과로부터 배운다",
+      "tag": "미분 없이도 가능",
       "width": 140
     },
     {
@@ -160,19 +161,20 @@
       "lane": "eval",
       "col": 4,
       "type": "cloud",
-      "label": "RL expert",
-      "sublabel": "1 of 128 per choice",
-      "width": 140
+      "label": "조종 신경망",
+      "sublabel": "로봇 형태에 맞는 것 선택",
+      "width": 140,
+      "tag": "논문 공개본 128 개 중"
     },
     {
       "id": "rollout",
       "lane": "eval",
       "col": 5,
       "type": "backend",
-      "label": "Rollout + metrics",
-      "sublabel": "9 seeds, Table 4",
+      "label": "시뮬레이터 실행",
+      "sublabel": "시드 9 개 평균",
       "width": 140,
-      "tag": "TT 3.0cm / 99.4%"
+      "tag": "오차 3.0cm · 99.4%"
     }
   ],
   "edges": [
@@ -186,42 +188,42 @@
       "id": "e2",
       "from": "prior",
       "to": "denoise",
-      "label": "noise to tokens",
+      "label": "잡음에서 시작",
       "variant": "default"
     },
     {
       "id": "e3",
       "from": "denoise",
       "to": "design",
-      "label": "detokenize",
+      "label": "로봇으로 변환",
       "variant": "emphasis"
     },
     {
       "id": "e4",
       "from": "dsg",
       "to": "denoise",
-      "label": "TT nudge",
+      "label": "논문의 힘",
       "variant": "security"
     },
     {
       "id": "e5",
       "from": "pi_phi",
       "to": "denoise",
-      "label": "RL nudge",
+      "label": "학습된 힘",
       "variant": "emphasis"
     },
     {
       "id": "e6",
       "from": "critic",
       "to": "pi_phi",
-      "label": "grad of Q",
+      "label": "방향 알려줌",
       "variant": "default"
     },
     {
       "id": "e7",
       "from": "design",
       "to": "expert",
-      "label": "match choice",
+      "label": "형태에 맞춰",
       "variant": "default"
     },
     {
@@ -234,19 +236,27 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "Only one thing differs",
+      "title": "다른 것은 딱 하나",
       "items": [
-        "Prior, sampler, evaluator, metrics and seeds are identical",
-        "TT differentiates its predicted reward; RL learns the nudge from outcomes"
+        "로봇 생성 모델·다듬는 절차·조종 신경망·측정 방법·실험 조건 모두 동일",
+        "논문은 수식을 미분해 방향을 얻고, 우리는 실제 결과로부터 배운다"
       ]
     },
     {
       "dot": "rose",
-      "title": "Why a critic",
+      "title": "왜 채점 보조 신경망이 필요한가",
       "items": [
-        "Action is 6,694 dims per step over the last 10 of 100 steps",
-        "REINFORCE drowned in that variance; grad of Q works without a differentiable reward",
-        "Q is fit to rollout outcomes, so the reward need not be analytic"
+        "한 번 다듬을 때 조정하는 숫자가 6,694 개, 10 번이면 6 만 개가 넘는다",
+        "돌아오는 점수는 '몇 점' 하나뿐이라 무엇이 좋았는지 알 수 없다",
+        "보조 신경망이 그 6 천 개 각각에 방향을 알려준다 — 점수가 수식이 아니어도 된다"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "이건 1 단계 그림이다",
+      "items": [
+        "과제 = 사람 손동작 따라하기. 논문 결과를 그대로 재현하기 위한 조건",
+        "2 단계는 앞으로 걷기로 바뀐다 — progress.html 참조"
       ]
     }
   ]

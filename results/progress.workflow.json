@@ -1,0 +1,299 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "진행 상황 — 로봇 몸을 AI 가 설계하게 하기 (2026-09-21)",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "done",
+        "label": "재현은 됐다",
+        "focus": [
+          "assets",
+          "tt_row",
+          "rl_row",
+          "verdict"
+        ],
+        "note": "논문이 보고한 수치를 우리 환경에서 복원했고, 우리 방식으로 바꿔도 로봇이 정상으로 나왔다."
+      },
+      {
+        "id": "failed",
+        "label": "왜 판정을 보류했나",
+        "focus": [
+          "pf1",
+          "pf2",
+          "effect",
+          "verdict"
+        ],
+        "note": "밀어주는 신경망이 학습되지 않았다. 알고 보니 논문 방식조차 효과가 없는 조건이었다."
+      },
+      {
+        "id": "next",
+        "label": "점수 기준을 다시 세웠다",
+        "focus": [
+          "reward_old",
+          "reward_new",
+          "pi_theta"
+        ],
+        "note": "로봇을 조종하는 법을 가르치는 점수를 몸 평가에 잘못 썼다. 결과 기반 하나로 교체."
+      }
+    ],
+    "output": "/mnt/gstore/home/xiangyue/RL/tt_codesign/results/progress.html"
+  },
+  "lanes": [
+    {
+      "id": "s1",
+      "label": "1 단계 · 논문 방식을 대체할 수 있나 (손동작 따라하기)"
+    },
+    {
+      "id": "diag",
+      "label": "원인 규명 · 두 번의 실패",
+      "variant": "exception"
+    },
+    {
+      "id": "s2",
+      "label": "2 단계 · 논문이 못 하는 것으로 (앞으로 걷기)"
+    }
+  ],
+  "phases": [
+    {
+      "id": "setup",
+      "label": "준비",
+      "fromCol": 0,
+      "toCol": 0
+    },
+    {
+      "id": "repro",
+      "label": "재현 후 교체",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "fix",
+      "label": "다시 세우기",
+      "fromCol": 3,
+      "toCol": 4,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "table4",
+      "label": "논문과 같은 조건",
+      "lane": "s1",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "pf_fail",
+      "label": "밀어주는 신경망 학습 실패",
+      "lane": "diag",
+      "fromCol": 1,
+      "toCol": 2,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "assets",
+    "tt_row",
+    "rl_row",
+    "verdict"
+  ],
+  "nodes": [
+    {
+      "id": "assets",
+      "lane": "s1",
+      "col": 0,
+      "type": "database",
+      "label": "공개 자산 확보",
+      "sublabel": "조종 신경망 128 개",
+      "tag": "9.3 GB",
+      "width": 132
+    },
+    {
+      "id": "tt_row",
+      "lane": "s1",
+      "col": 1,
+      "type": "backend",
+      "label": "논문 재현 성공",
+      "sublabel": "오차 3.0cm · 완주 99.4%",
+      "tag": "논문 2.6 / 99.4",
+      "width": 132
+    },
+    {
+      "id": "rl_row",
+      "lane": "s1",
+      "col": 2,
+      "type": "backend",
+      "label": "우리 방식으로 교체",
+      "sublabel": "오차 3.0cm · 완주 97.8%",
+      "tag": "로봇은 정상 생성",
+      "width": 132
+    },
+    {
+      "id": "verdict",
+      "lane": "s1",
+      "col": 3,
+      "type": "security",
+      "label": "대체 가능 판정 보류",
+      "sublabel": "구조만 성립, 학습은 아직",
+      "width": 132
+    },
+    {
+      "id": "pf1",
+      "lane": "diag",
+      "col": 1,
+      "type": "messagebus",
+      "label": "학습 시도 1",
+      "sublabel": "전체를 한 점수로",
+      "tag": "6 만 개 중 뭐가 좋은지 모름",
+      "width": 132
+    },
+    {
+      "id": "pf2",
+      "lane": "diag",
+      "col": 2,
+      "type": "messagebus",
+      "label": "학습 시도 2",
+      "sublabel": "채점 보조 신경망",
+      "tag": "분산의 8 %만 설명",
+      "width": 132
+    },
+    {
+      "id": "effect",
+      "lane": "diag",
+      "col": 3,
+      "type": "external",
+      "label": "원인 규명",
+      "sublabel": "같은 조건 60 쌍 비교",
+      "tag": "논문 방식도 효과 0",
+      "width": 132
+    },
+    {
+      "id": "reward_old",
+      "lane": "s2",
+      "col": 2,
+      "type": "security",
+      "label": "첫 점수 기준 폐기",
+      "sublabel": "조종 학습용을 잘못 씀",
+      "tag": "걷는 것이 감점됐다",
+      "width": 132
+    },
+    {
+      "id": "reward_new",
+      "lane": "s2",
+      "col": 3,
+      "type": "frontend",
+      "label": "새 점수 기준 확정",
+      "sublabel": "바닥 닿으면 실패 + 1m 주파",
+      "tag": "두 로봇 0.15 vs 0.38",
+      "width": 132
+    },
+    {
+      "id": "pi_theta",
+      "lane": "s2",
+      "col": 4,
+      "type": "cloud",
+      "label": "조종 신경망 재학습",
+      "sublabel": "그 몸 하나에 맞춤",
+      "tag": "진행 중",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "assets",
+      "to": "tt_row",
+      "variant": "default"
+    },
+    {
+      "id": "e2",
+      "from": "tt_row",
+      "to": "rl_row",
+      "label": "미분 → 학습",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e3",
+      "from": "rl_row",
+      "to": "verdict",
+      "variant": "default"
+    },
+    {
+      "id": "e4",
+      "from": "tt_row",
+      "to": "pf1",
+      "variant": "dashed"
+    },
+    {
+      "id": "e5",
+      "from": "pf1",
+      "to": "pf2",
+      "label": "방법 교체",
+      "variant": "security"
+    },
+    {
+      "id": "e6",
+      "from": "pf2",
+      "to": "effect",
+      "label": "왜 안 배우나",
+      "variant": "security"
+    },
+    {
+      "id": "e7",
+      "from": "effect",
+      "to": "verdict",
+      "variant": "dashed"
+    },
+    {
+      "id": "e8",
+      "from": "effect",
+      "to": "reward_old",
+      "variant": "dashed"
+    },
+    {
+      "id": "e9",
+      "from": "reward_old",
+      "to": "reward_new",
+      "label": "결과만으로",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e10",
+      "from": "reward_new",
+      "to": "pi_theta",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "된 것",
+      "items": [
+        "논문 재현 — 손끝 오차 3.0cm, 넘어지지 않은 비율 99.4 % (논문 2.6 / 99.4)",
+        "미분 대신 신경망을 끼워도 파이프라인이 깨지지 않는다",
+        "새 점수 기준이 배를 깔고 미끄러지는 해법을 원천 차단한다"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "안 된 것과 이유",
+      "items": [
+        "밀어주는 신경망이 학습되지 않았다 — 두 번 시도, 두 번 실패",
+        "원인은 방법이 아니라 실험 조건. 그 조건에선 논문 방식도 효과가 0 이다",
+        "논문 본문도 '충분히 많이 뽑아 고르면 둘은 구분되지 않는다' 고 쓰고 있다"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "단계마다 시키는 일이 다르다",
+      "items": [
+        "1 단계 = 사람 손동작 20 종 따라하기 (논문과 같은 조건)",
+        "2 단계 = 앞으로 1 미터 걷기 (논문 방식으로는 점수를 매길 수 없는 과제)"
+      ]
+    }
+  ]
+}

@@ -21,6 +21,9 @@ PKL="${4:-data/flat_walk_long.pkl}"   # task = 전진 보행 (EE 목표가 +x �
 
 [ -e "$ZARR" ] || { echo "[중단] zarr 없음: $ZARR"; exit 1; }
 [ -e "$EXPERT" ] || { echo "[중단] expert 없음: $EXPERT"; exit 1; }
+# orbax 는 체크포인트 경로가 **절대경로**여야 한다 (상대경로면 ValueError)
+ZARR="$(cd "$(dirname "$ZARR")" && pwd)/$(basename "$ZARR")"
+EXPERT="$(cd "$(dirname "$EXPERT")" && pwd)/$(basename "$EXPERT")"
 
 echo "=== π_θ fine-tune | $(basename "$ZARR") | steps ${STEPS} | $(date '+%H:%M:%S') ==="
 CUDA_VISIBLE_DEVICES=0 WANDB_MODE=offline .venv/bin/python \

@@ -1,8 +1,11 @@
-# codesign — TT 확장 연구 (2026-09-19 ~)
+# codesign — 로봇의 몸을 AI 가 설계하게 하기 (2026-09-19 ~)
 
-Transformer-Transformer(TT)의 **형상 생성 guidance 를 gradient 에서 RL 로 치환**하는 연구의
-코드·기록 저장소. 연구 결정과 실험 결과의 **정본은 [`remind.md`](remind.md)** 이고,
-이 저장소는 그것을 재현할 수 있는 최소 집합이다.
+로봇을 만들 때 "어떤 몸을 만들지" 와 "어떻게 움직일지" 를 **함께** 설계하는 연구다.
+출발점은 [Transformer Transformer](https://arxiv.org/abs/2607.25798) 논문이고,
+그 논문이 **수식 미분으로** 하던 일을 **강화학습으로** 대체할 수 있는지를 확인한다.
+
+**처음 읽는다면 [`OVERVIEW.md`](OVERVIEW.md) 부터.** 배경지식 없이 읽을 수 있게 썼다.
+[`remind.md`](remind.md) 는 작업 기록 정본인데 내부용 속기라 용어가 압축돼 있다.
 
 > 큰 자산(체크포인트 7.3 GB · RL expert 9.3 GB · 데이터 288 MB)은 **여기 없다.**
 > 전부 공개 URL 에서 받을 수 있고, 절차는 [`SETUP.md`](SETUP.md) 에 있다.
