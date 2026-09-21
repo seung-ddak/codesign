@@ -7,8 +7,12 @@ seed 를 `range(num_hardware)` 로 훑지 않고 **우리 설계의 seed 만** �
 
   .venv/bin/python tt_codesign/code/enumerate_design_store.py \\
       --choices 00000000 --seed 12345 \\
-      --out /mnt/gstore/home/xiangyue/RL/tt_codesign/assets/design_00000000_12345.zarr
+      --out $CODESIGN_ROOT/assets/design_00000000_12345.zarr
 """
+
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
 
 import argparse
 import os
@@ -19,7 +23,7 @@ import zarr
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
+TT = _TT
 os.chdir(TT)
 sys.path.insert(0, f"{TT}/scripts")
 

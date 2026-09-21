@@ -1,11 +1,15 @@
 """L0~L3 best design 비교 figure (측면 / 정면 / 사시 3 뷰 + 라벨)."""
+
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
 import os, json
 os.environ["MUJOCO_GL"] = "egl"
 import numpy as np, mujoco
 from PIL import Image, ImageDraw, ImageFont
 
-SC = "/mnt/gstore/tmp/claude-1000/-mnt-gstore-home-xiangyue-RL/a2ea98c9-3261-4f2d-b674-52ae9f8190cc/scratchpad/designs"
-OUT = "/mnt/gstore/home/xiangyue/RL/tt_codesign/results"
+SC = _os.path.join(_R, "results", "designs")
+OUT = _os.path.join(_R, "results")
 os.makedirs(OUT, exist_ok=True)
 W = H = 560
 VIEWS = [("측면", 90, -8), ("정면", 180, -8), ("사시", 140, -22)]
@@ -21,7 +25,7 @@ EXTRA = """
   </worldbody>
 """
 rows = {json.loads(l)["stage"]: json.loads(l)
-        for l in open("/mnt/gstore/home/xiangyue/RL/transformer-transformer/design_search_walk.jsonl")}
+        for l in open(f"{_TT}/design_search_walk.jsonl")}
 LBL = {"L0": "L0 prior 무작위", "L1": "L1 CMA-ES", "L2": "L2 prior 재학습", "L3": "L3 residual guidance (우리)"}
 
 try:

@@ -9,6 +9,10 @@
   .venv/bin/python tt_codesign/code/guidance_effect.py --n-traj 20 --n-seed 3 --batch 1
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import argparse
 import json
 import os
@@ -23,8 +27,8 @@ import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-OUT = "/mnt/gstore/home/xiangyue/RL/tt_codesign/results"
+TT = _TT
+OUT = _os.path.join(_R, "results")
 os.chdir(TT)
 
 from t2.eval.rl_guidance import RLResidualGuidance
@@ -85,7 +89,7 @@ def main():
     p.add_argument("--eta", type=float, default=1.0)
     p.add_argument("--scale", type=float, default=100.0)
     p.add_argument("--pi-phi",
-                   default="/mnt/gstore/home/xiangyue/RL/tt_codesign/runs/pi_phi_try2/policy.pt")
+                   default=f"{_R}/runs/pi_phi_try2/policy.pt")
     p.add_argument("--ckpt", default="checkpoints/umi_on_legs_plus_plus/xrh4wk4l/040.pt")
     p.add_argument("--pkl", default="data/july25th2025-huy-20skills-test.pkl")
     p.add_argument("--out-name", default="guidance_effect")

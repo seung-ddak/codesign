@@ -11,7 +11,7 @@
 #   bash tt_codesign/code/finetune_pi_theta.sh <zarr> <expert_ckpt> [timesteps]
 
 set -u
-TT=/mnt/gstore/home/xiangyue/RL/transformer-transformer
+TT="${CODESIGN_TT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/transformer-transformer}"
 cd "$TT"
 
 ZARR="${1:?형상 zarr 경로}"

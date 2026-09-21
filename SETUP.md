@@ -52,13 +52,19 @@ cp -r "$CODESIGN/tt_patch/scripts" "$TT/"
 cd "$TT" && git apply "$CODESIGN/tt_patch/train.py.diff"
 ```
 
-`code/` 의 스크립트들은 경로를 절대경로로 들고 있다. 머신이 다르면 각 파일 상단의
-`TT = "..."`, `OUT = "..."`, `CODE = "..."` 를 새 경로로 바꾼다.
+경로는 **환경변수로 잡는다** — 파일을 고칠 필요 없다.
+
+```sh
+cd "$CODESIGN" && source env.sh          # CODESIGN_ROOT / CODESIGN_TT 설정
+```
+
+기본값은 "이 저장소가 `<어디든>/codesign`, TT 레포가 그 옆 `<어디든>/transformer-transformer`"
+다. 다르게 두려면 `export CODESIGN_TT=/실제/경로` 를 먼저 하면 된다.
 
 ## 5. 동작 확인
 
 ```sh
-cd "$TT"
+cd "$CODESIGN" && source env.sh && cd "$CODESIGN_TT"
 # ① TT 행 재현 — Pos Err 2.6~3.0 cm / Survival 99.4 % 근처면 배선 정상 (약 55 분)
 bash "$CODESIGN/code/repro_table4_TT.sh" 16
 
@@ -74,6 +80,8 @@ bash "$CODESIGN/code/repro_table4_TT.sh" 16
 `bash scripts/tmux_run.sh <세션> "<명령>"` 을 썼다.
 
 ## 주요 스크립트
+
+`env.sh` 를 source 한 뒤에는 `code/` 의 스크립트를 어느 디렉터리에서 호출해도 된다.
 
 | 파일 | 하는 일 |
 |---|---|

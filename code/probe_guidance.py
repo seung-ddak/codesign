@@ -6,6 +6,10 @@ D11 은 "마지막 10 denoising step 에만 residual" 인데, hardware gen 모�
   .venv/bin/python tt_codesign/code/probe_guidance.py
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import os
 import pickle
 
@@ -16,7 +20,7 @@ import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
+TT = _TT
 os.chdir(TT)
 
 from t2.model.t2 import setup_decoder

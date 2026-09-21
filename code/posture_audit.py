@@ -13,6 +13,10 @@ L0~L3 의 성공 판정은 `distance = max_x - start_x >= goal` 뿐이라 **자�
   .venv/bin/python tt_codesign/code/posture_audit.py [--n-prior 12]
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import argparse
 import json
 import os
@@ -25,8 +29,8 @@ import numpy as np
 import torch
 import mujoco
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-OUT = "/mnt/gstore/home/xiangyue/RL/tt_codesign/results"
+TT = _TT
+OUT = _os.path.join(_R, "results")
 os.chdir(TT)
 
 from t2.eval.batched_ctrl import BatchedCtrlRollout

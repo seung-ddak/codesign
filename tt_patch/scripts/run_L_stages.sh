@@ -7,8 +7,8 @@
 # 먼저 고쳐야 하므로 L1 이후를 돌리지 않고 멈춘다 (§4.3 L0 목적).
 set -u
 
-TT_DIR="/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-RL_DIR="/mnt/gstore/home/xiangyue/RL"
+TT_DIR="${CODESIGN_TT}"
+RL_DIR="${CODESIGN_ROOT}"
 SESSION="${1:-stair_pi_theta}"
 RUN_DIR="${2:-}"
 BUDGET="${3:-4096}"

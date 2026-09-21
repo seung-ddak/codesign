@@ -2,8 +2,8 @@
 # remind.md §4.3 : L0 -> L1 -> L2 -> L3 순차 실행 (T1 보행, TT ctrl 평가기).
 # 네 단 모두 같은 예산·같은 성공 판정·같은 평가기를 쓴다.
 set -u
-TT=/mnt/gstore/home/xiangyue/RL/transformer-transformer
-RL=/mnt/gstore/home/xiangyue/RL
+TT="${CODESIGN_TT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/transformer-transformer}"
+RL="${CODESIGN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$TT"
 
 BUDGET="${1:-256}"

@@ -5,6 +5,10 @@
   .venv/bin/python tt_codesign/code/eval_design_d22.py --spec results/compare_designs.json
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import argparse
 import json
 import os
@@ -17,8 +21,8 @@ import hydra
 import numpy as np
 from hydra import compose, initialize_config_dir
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-CODE = "/mnt/gstore/home/xiangyue/RL/tt_codesign/code"
+TT = _TT
+CODE = _os.path.join(_R, "code")
 os.chdir(TT)
 sys.path.insert(0, CODE)
 
@@ -69,7 +73,7 @@ def score(runner, hardware_seed, traj_idx, max_steps):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--spec", default="/mnt/gstore/home/xiangyue/RL/tt_codesign/results/compare_designs.json")
+    p.add_argument("--spec", default=f"{_R}/results/compare_designs.json")
     p.add_argument("--traj", type=int, default=1)
     p.add_argument("--steps", type=int, default=600)
     p.add_argument("--pkl", default="data/flat_walk_long.pkl")

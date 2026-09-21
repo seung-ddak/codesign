@@ -14,7 +14,7 @@
 #     optimizer : guided_diffusion (TT/DSG, 기본) | zeroth_order (기준선)
 
 set -u
-TT=/mnt/gstore/home/xiangyue/RL/transformer-transformer
+TT="${CODESIGN_TT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/transformer-transformer}"
 cd "$TT"
 
 N="${1:-16}"

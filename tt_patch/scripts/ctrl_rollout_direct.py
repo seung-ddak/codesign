@@ -10,6 +10,10 @@ TT 의 평가 파이프라인(`evaluate_ctrl.py`)은 ray actor + policy server �
   python scripts/ctrl_rollout_direct.py --env <env config> --pkl <궤적> --traj 0
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import argparse
 import pickle
 import time
@@ -25,7 +29,7 @@ from t2.eval.ctrl import env_obs_to_batch
 from t2.model.t2 import setup_decoder
 from t2.train.augment import AddPositionId
 
-CFG_DIR = "/mnt/gstore/home/xiangyue/RL/transformer-transformer/config"
+CFG_DIR = f"{_TT}/config"
 
 
 def build(args, num_inference_steps=None, half=False):

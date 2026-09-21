@@ -15,6 +15,10 @@ critic 구조:
   .venv/bin/python tt_codesign/code/train_pi_phi_critic.py --updates 300 --batch 16
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import argparse
 import json
 import os
@@ -29,8 +33,8 @@ import torch
 from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-OUT = "/mnt/gstore/home/xiangyue/RL/tt_codesign/runs"
+TT = _TT
+OUT = _os.path.join(_R, "runs")
 os.chdir(TT)
 
 from t2.eval.rl_guidance import (

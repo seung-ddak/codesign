@@ -35,9 +35,14 @@ TT  : guidance = scale · ∇_x R̂(x̂)      모델 예측 reward 를 미분   
 
 다음 할 일은 `remind.md` §7.
 
-## 이어서 하기
+## 이어서 하기 (다른 컴퓨터)
 
 ```sh
 git clone https://github.com/seung-ddak/codesign.git
-cd codesign && less SETUP.md
+cd codesign
+source env.sh          # 경로 설정 — 스크립트를 고칠 필요 없다
+less SETUP.md          # TT 레포 + 공개 자산 16 GB 받는 절차
 ```
+
+이어받은 뒤 **가장 먼저 할 것**: `remind.md` §0(연구 구조 2 단) → §1(결정 D1~D25) → §7(다음 할 일).
+배선이 살아 있는지는 `code/eval_design_d22.py` 로 40 초면 확인된다.

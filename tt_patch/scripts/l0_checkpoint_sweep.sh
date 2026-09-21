@@ -6,8 +6,8 @@
 #   bash scripts/l0_checkpoint_sweep.sh <run_dir> "<목표 step 목록>" [budget] [seeds]
 set -u
 
-TT_DIR="/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-RL_DIR="/mnt/gstore/home/xiangyue/RL"
+TT_DIR="${CODESIGN_TT}"
+RL_DIR="${CODESIGN_ROOT}"
 RUN_DIR="${1:-}"
 TARGETS="${2:-40000000 100000000 200000000}"
 BUDGET="${3:-512}"

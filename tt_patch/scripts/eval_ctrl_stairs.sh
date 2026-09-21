@@ -2,7 +2,7 @@
 # TT ctrl 정책이 계단을 오르는지 확인한다.
 #   bash scripts/eval_ctrl_stairs.sh <궤적 pkl> [명령속도 인덱스들]
 set -u
-TT=/mnt/gstore/home/xiangyue/RL/transformer-transformer
+TT="${CODESIGN_TT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/transformer-transformer}"
 PKL="${1:-data/stair_walk_r05.pkl}"
 IDXS="${2:-0 1 2}"
 SPEEDS=(0.05 0.10 0.15)

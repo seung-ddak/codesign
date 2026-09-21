@@ -6,6 +6,10 @@
   .venv/bin/python tt_codesign/code/rollout_video_L0_L3.py
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import argparse
 import json
 import os
@@ -20,8 +24,8 @@ import mujoco
 import imageio.v2 as imageio
 from PIL import Image, ImageDraw, ImageFont
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-OUT = "/mnt/gstore/home/xiangyue/RL/tt_codesign/results"
+TT = _TT
+OUT = _os.path.join(_R, "results")
 os.chdir(TT)
 
 from t2.eval.batched_ctrl import BatchedCtrlRollout

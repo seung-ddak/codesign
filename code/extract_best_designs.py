@@ -11,6 +11,10 @@
       --run wandb/offline-run-20260921_074342-rpeb5lrm --top 3
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import argparse
 import glob
 import json
@@ -20,8 +24,8 @@ os.environ.setdefault("CUDA_VISIBLE_DEVICES", "0")
 
 import torch
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-OUT = "/mnt/gstore/home/xiangyue/RL/tt_codesign/results"
+TT = _TT
+OUT = _os.path.join(_R, "results")
 os.chdir(TT)
 
 from t2.eval.hardware_decoding import hardware_to_nearest_neighbor_params

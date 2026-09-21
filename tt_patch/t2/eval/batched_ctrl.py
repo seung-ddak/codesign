@@ -14,6 +14,10 @@
 denoising 은 5 → 2 회로 줄여도 결과가 사실상 동일하다 (이동 1.025 vs 1.027 m).
 """
 
+import os as _os
+_R = _os.environ.get("CODESIGN_ROOT", _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+_TT = _os.environ.get("CODESIGN_TT", _os.path.join(_os.path.dirname(_R), "transformer-transformer"))
+
 import copy
 import pickle
 import time
@@ -31,7 +35,7 @@ from t2.model.t2 import setup_decoder
 from t2.robogen.umi_on_legs_plus_plus import umi_on_legs_plus_plus_from_params
 from t2.train.augment import AddPositionId
 
-CFG_DIR = "/mnt/gstore/home/xiangyue/RL/transformer-transformer/config"
+CFG_DIR = f"{_TT}/config"
 CHOICES = [0] * 8
 
 

@@ -11,11 +11,11 @@
 #   bash tt_codesign/code/repro_table4_RL.sh [num_seeds] [policy_ckpt]
 
 set -u
-TT=/mnt/gstore/home/xiangyue/RL/transformer-transformer
+TT="${CODESIGN_TT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/transformer-transformer}"
 cd "$TT"
 
 N="${1:-16}"
-POLICY="${2:-/mnt/gstore/home/xiangyue/RL/tt_codesign/runs/pi_phi_try2/policy.pt}"
+POLICY="${2:-${CODESIGN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}/runs/pi_phi_try2/policy.pt}"
 CKPT=checkpoints/umi_on_legs_plus_plus/xrh4wk4l/040.pt
 PKL=data/july25th2025-huy-20skills-test.pkl
 
