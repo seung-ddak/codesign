@@ -1,0 +1,66 @@
+defaults:
+  - env: mjx_stairs
+  - env@eval_env: mjx_stairs_eval
+  - _self_
+  - override hydra/job_logging: custom
+
+mj_model_data_path: ???
+wandb:
+  tags: null
+
+observe_domain_randomized_attrs: true
+
+seed: 0
+render_on_checkpoint: false
+full_reset: true
+
+extra_obs_attrs:
+  - body_mass
+  - body_pos
+  - body_quat
+  - body_inertia
+  - geom_size
+
+train:
+  _convert_: all
+  _target_: t2.mjx_env.train.train
+  num_timesteps: 400000000
+  num_evals: 20
+  num_eval_envs: 256
+  reward_scaling: 1.0
+  clipping_epsilon: 0.2
+  episode_length: ${env.max_episode_length}
+  normalize_observations: true
+  action_repeat: 1
+  unroll_length: 24
+  num_minibatches: 4
+  num_updates_per_batch: 4
+  discounting: 0.99
+  learning_rate: 3e-4
+  entropy_cost: 5e-3
+  gae_lambda: 0.95
+  num_envs: 4096
+  batch_size: 1024
+  max_grad_norm: 1.0
+  deterministic_eval: true
+  log_training_metrics: false
+  training_metrics_steps: null
+  seed: ${seed}
+  network_factory:
+    _partial_: true
+    _target_: brax.training.agents.ppo.networks.make_ppo_networks
+    state_dependent_std: false
+    init_noise_std: 1.0
+    noise_std_type: scalar
+    distribution_type: normal
+    activation:
+      _target_: flax.linen.elu
+      _partial_: true
+    policy_hidden_layer_sizes:
+      - 256
+      - 128
+      - 64
+    value_hidden_layer_sizes:
+      - 256
+      - 128
+      - 64

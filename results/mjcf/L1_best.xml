@@ -1,0 +1,592 @@
+<mujoco model="umi_on_legs_plus_plus">
+  <compiler autolimits="true" angle="radian"/>
+  <default>
+    <default class="/"/>
+    <default class="quadruped_manipulator/">
+      <joint axis="0 1 0" solreflimit="0.0050000000000000001 1" armature="0.001" damping="0.01" frictionloss="0.050000000000000003"/>
+      <geom type="capsule" condim="1" group="3" size="0.012" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" friction="1" density="14.109999999999999" shellinertia="true"/>
+      <site group="0"/>
+      <equality solref="0.0050000000000000001 1"/>
+      <default class="quadruped_manipulator/small_geom">
+        <geom size="0.0080000000000000002"/>
+      </default>
+      <default class="quadruped_manipulator/motor">
+        <geom type="cylinder" rgba="0.26000000000000001 0.39000000000000001 0.84999999999999998 1" density="3000" shellinertia="false"/>
+        <default class="quadruped_manipulator/big_motor">
+          <geom size="0.045999999999999999 0.02"/>
+        </default>
+        <default class="quadruped_manipulator/small_motor">
+          <geom size="0.028000000000000001 0.02"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/TPU gripper">
+        <geom type="box" size="0.0099267899999999996 0.017050570000000001 0.05582194" rgba="1 0.54000000000000004 0 1" density="200" shellinertia="false" pos="-5.7683616700000003e-05 -0.0164222581 0.069732168299999994" quat="0.99765110999999995 -0.068500030000000003 0 0"/>
+      </default>
+      <default class="quadruped_manipulator/camera">
+        <geom rgba="0.10000000000000001 0.10000000000000001 0.10000000000000001 1"/>
+      </default>
+      <default class="quadruped_manipulator/battery">
+        <geom type="box" size="0.050000000000000003 0.034750000000000003 0.037999999999999999" rgba="0 1 0.54000000000000004 1" density="600" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/foot">
+        <geom type="sphere" condim="3" size="0.02" friction="0.80000000000000004 0.02 0.01" mass="0.10000000000000001" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/abduction">
+        <joint axis="1 0 0" range="-1.0471999999999999 1.0471999999999999"/>
+        <position ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+      </default>
+      <default class="quadruped_manipulator/hip">
+        <position ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+        <default class="quadruped_manipulator/front_hip">
+          <joint range="-1.5708 3.4906999999999999"/>
+        </default>
+        <default class="quadruped_manipulator/back_hip">
+          <joint range="-0.52359999999999995 4.5378999999999996"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/knee">
+        <joint range="-2.7227000000000001 -0"/>
+        <position ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43"/>
+      </default>
+    </default>
+    <default class="quadruped_manipulator/left_leg/">
+      <joint axis="0 1 0" solreflimit="0.0050000000000000001 1" armature="0.001" damping="0.01" frictionloss="0.050000000000000003"/>
+      <geom type="capsule" condim="1" group="3" size="0.012" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" friction="1" density="14.109999999999999" shellinertia="true"/>
+      <site group="0"/>
+      <equality solref="0.0050000000000000001 1"/>
+      <default class="quadruped_manipulator/left_leg/small_geom">
+        <geom size="0.0080000000000000002"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg/motor">
+        <geom type="cylinder" rgba="0.26000000000000001 0.39000000000000001 0.84999999999999998 1" density="3000" shellinertia="false"/>
+        <default class="quadruped_manipulator/left_leg/big_motor">
+          <geom size="0.045999999999999999 0.02"/>
+        </default>
+        <default class="quadruped_manipulator/left_leg/small_motor">
+          <geom size="0.028000000000000001 0.02"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/left_leg/TPU gripper">
+        <geom type="box" size="0.0099267899999999996 0.017050570000000001 0.05582194" rgba="1 0.54000000000000004 0 1" density="200" shellinertia="false" pos="-5.7683616700000003e-05 -0.0164222581 0.069732168299999994" quat="0.99765110999999995 -0.068500030000000003 0 0"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg/camera">
+        <geom rgba="0.10000000000000001 0.10000000000000001 0.10000000000000001 1"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg/battery">
+        <geom type="box" size="0.050000000000000003 0.034750000000000003 0.037999999999999999" rgba="0 1 0.54000000000000004 1" density="600" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg/foot">
+        <geom type="sphere" condim="3" size="0.02" friction="0.80000000000000004 0.02 0.01" mass="0.10000000000000001" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg/abduction">
+        <joint axis="1 0 0" range="-1.0471999999999999 1.0471999999999999"/>
+        <position ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg/hip">
+        <position ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+        <default class="quadruped_manipulator/left_leg/front_hip">
+          <joint range="-1.5708 3.4906999999999999"/>
+        </default>
+        <default class="quadruped_manipulator/left_leg/back_hip">
+          <joint range="-0.52359999999999995 4.5378999999999996"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/left_leg/knee">
+        <joint range="-2.7227000000000001 -0"/>
+        <position ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43"/>
+      </default>
+    </default>
+    <default class="quadruped_manipulator/right_leg/">
+      <joint axis="0 1 0" solreflimit="0.0050000000000000001 1" armature="0.001" damping="0.01" frictionloss="0.050000000000000003"/>
+      <geom type="capsule" condim="1" group="3" size="0.012" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" friction="1" density="14.109999999999999" shellinertia="true"/>
+      <site group="0"/>
+      <equality solref="0.0050000000000000001 1"/>
+      <default class="quadruped_manipulator/right_leg/small_geom">
+        <geom size="0.0080000000000000002"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg/motor">
+        <geom type="cylinder" rgba="0.26000000000000001 0.39000000000000001 0.84999999999999998 1" density="3000" shellinertia="false"/>
+        <default class="quadruped_manipulator/right_leg/big_motor">
+          <geom size="0.045999999999999999 0.02"/>
+        </default>
+        <default class="quadruped_manipulator/right_leg/small_motor">
+          <geom size="0.028000000000000001 0.02"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/right_leg/TPU gripper">
+        <geom type="box" size="0.0099267899999999996 0.017050570000000001 0.05582194" rgba="1 0.54000000000000004 0 1" density="200" shellinertia="false" pos="-5.7683616700000003e-05 -0.0164222581 0.069732168299999994" quat="0.99765110999999995 -0.068500030000000003 0 0"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg/camera">
+        <geom rgba="0.10000000000000001 0.10000000000000001 0.10000000000000001 1"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg/battery">
+        <geom type="box" size="0.050000000000000003 0.034750000000000003 0.037999999999999999" rgba="0 1 0.54000000000000004 1" density="600" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg/foot">
+        <geom type="sphere" condim="3" size="0.02" friction="0.80000000000000004 0.02 0.01" mass="0.10000000000000001" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg/abduction">
+        <joint axis="1 0 0" range="-1.0471999999999999 1.0471999999999999"/>
+        <position ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg/hip">
+        <position ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+        <default class="quadruped_manipulator/right_leg/front_hip">
+          <joint range="-1.5708 3.4906999999999999"/>
+        </default>
+        <default class="quadruped_manipulator/right_leg/back_hip">
+          <joint range="-0.52359999999999995 4.5378999999999996"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/right_leg/knee">
+        <joint range="-2.7227000000000001 -0"/>
+        <position ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43"/>
+      </default>
+    </default>
+    <default class="quadruped_manipulator/left_leg_1/">
+      <joint axis="0 1 0" solreflimit="0.0050000000000000001 1" armature="0.001" damping="0.01" frictionloss="0.050000000000000003"/>
+      <geom type="capsule" condim="1" group="3" size="0.012" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" friction="1" density="14.109999999999999" shellinertia="true"/>
+      <site group="0"/>
+      <equality solref="0.0050000000000000001 1"/>
+      <default class="quadruped_manipulator/left_leg_1/small_geom">
+        <geom size="0.0080000000000000002"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/motor">
+        <geom type="cylinder" rgba="0.26000000000000001 0.39000000000000001 0.84999999999999998 1" density="3000" shellinertia="false"/>
+        <default class="quadruped_manipulator/left_leg_1/big_motor">
+          <geom size="0.045999999999999999 0.02"/>
+        </default>
+        <default class="quadruped_manipulator/left_leg_1/small_motor">
+          <geom size="0.028000000000000001 0.02"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/TPU gripper">
+        <geom type="box" size="0.0099267899999999996 0.017050570000000001 0.05582194" rgba="1 0.54000000000000004 0 1" density="200" shellinertia="false" pos="-5.7683616700000003e-05 -0.0164222581 0.069732168299999994" quat="0.99765110999999995 -0.068500030000000003 0 0"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/camera">
+        <geom rgba="0.10000000000000001 0.10000000000000001 0.10000000000000001 1"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/battery">
+        <geom type="box" size="0.050000000000000003 0.034750000000000003 0.037999999999999999" rgba="0 1 0.54000000000000004 1" density="600" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/foot">
+        <geom type="sphere" condim="3" size="0.02" friction="0.80000000000000004 0.02 0.01" mass="0.10000000000000001" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/abduction">
+        <joint axis="1 0 0" range="-1.0471999999999999 1.0471999999999999"/>
+        <position ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/hip">
+        <position ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+        <default class="quadruped_manipulator/left_leg_1/front_hip">
+          <joint range="-1.5708 3.4906999999999999"/>
+        </default>
+        <default class="quadruped_manipulator/left_leg_1/back_hip">
+          <joint range="-0.52359999999999995 4.5378999999999996"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/left_leg_1/knee">
+        <joint range="-2.7227000000000001 -0"/>
+        <position ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43"/>
+      </default>
+    </default>
+    <default class="quadruped_manipulator/right_leg_1/">
+      <joint axis="0 1 0" solreflimit="0.0050000000000000001 1" armature="0.001" damping="0.01" frictionloss="0.050000000000000003"/>
+      <geom type="capsule" condim="1" group="3" size="0.012" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" friction="1" density="14.109999999999999" shellinertia="true"/>
+      <site group="0"/>
+      <equality solref="0.0050000000000000001 1"/>
+      <default class="quadruped_manipulator/right_leg_1/small_geom">
+        <geom size="0.0080000000000000002"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/motor">
+        <geom type="cylinder" rgba="0.26000000000000001 0.39000000000000001 0.84999999999999998 1" density="3000" shellinertia="false"/>
+        <default class="quadruped_manipulator/right_leg_1/big_motor">
+          <geom size="0.045999999999999999 0.02"/>
+        </default>
+        <default class="quadruped_manipulator/right_leg_1/small_motor">
+          <geom size="0.028000000000000001 0.02"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/TPU gripper">
+        <geom type="box" size="0.0099267899999999996 0.017050570000000001 0.05582194" rgba="1 0.54000000000000004 0 1" density="200" shellinertia="false" pos="-5.7683616700000003e-05 -0.0164222581 0.069732168299999994" quat="0.99765110999999995 -0.068500030000000003 0 0"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/camera">
+        <geom rgba="0.10000000000000001 0.10000000000000001 0.10000000000000001 1"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/battery">
+        <geom type="box" size="0.050000000000000003 0.034750000000000003 0.037999999999999999" rgba="0 1 0.54000000000000004 1" density="600" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/foot">
+        <geom type="sphere" condim="3" size="0.02" friction="0.80000000000000004 0.02 0.01" mass="0.10000000000000001" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/abduction">
+        <joint axis="1 0 0" range="-1.0471999999999999 1.0471999999999999"/>
+        <position ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/hip">
+        <position ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+        <default class="quadruped_manipulator/right_leg_1/front_hip">
+          <joint range="-1.5708 3.4906999999999999"/>
+        </default>
+        <default class="quadruped_manipulator/right_leg_1/back_hip">
+          <joint range="-0.52359999999999995 4.5378999999999996"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/right_leg_1/knee">
+        <joint range="-2.7227000000000001 -0"/>
+        <position ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43"/>
+      </default>
+    </default>
+    <default class="quadruped_manipulator/arx5/">
+      <joint axis="0 1 0" solreflimit="0.0050000000000000001 1" armature="0.001" damping="0.01" frictionloss="0.050000000000000003"/>
+      <geom type="capsule" condim="1" group="3" size="0.012" rgba="0.94999999999999996 0.94999999999999996 0.94999999999999996 1" friction="1" density="14.109999999999999" shellinertia="true"/>
+      <site group="0"/>
+      <equality solref="0.0050000000000000001 1"/>
+      <default class="quadruped_manipulator/arx5/small_geom">
+        <geom size="0.0080000000000000002"/>
+      </default>
+      <default class="quadruped_manipulator/arx5/motor">
+        <geom type="cylinder" rgba="0.26000000000000001 0.39000000000000001 0.84999999999999998 1" density="3000" shellinertia="false"/>
+        <default class="quadruped_manipulator/arx5/big_motor">
+          <geom size="0.045999999999999999 0.02"/>
+        </default>
+        <default class="quadruped_manipulator/arx5/small_motor">
+          <geom size="0.028000000000000001 0.02"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/arx5/TPU gripper">
+        <geom type="box" size="0.0099267899999999996 0.017050570000000001 0.05582194" rgba="1 0.54000000000000004 0 1" density="200" shellinertia="false" pos="-5.7683616700000003e-05 -0.0164222581 0.069732168299999994" quat="0.99765110999999995 -0.068500030000000003 0 0"/>
+      </default>
+      <default class="quadruped_manipulator/arx5/camera">
+        <geom rgba="0.10000000000000001 0.10000000000000001 0.10000000000000001 1"/>
+      </default>
+      <default class="quadruped_manipulator/arx5/battery">
+        <geom type="box" size="0.050000000000000003 0.034750000000000003 0.037999999999999999" rgba="0 1 0.54000000000000004 1" density="600" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/arx5/foot">
+        <geom type="sphere" condim="3" size="0.02" friction="0.80000000000000004 0.02 0.01" mass="0.10000000000000001" shellinertia="false"/>
+      </default>
+      <default class="quadruped_manipulator/arx5/abduction">
+        <joint axis="1 0 0" range="-1.0471999999999999 1.0471999999999999"/>
+        <position ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+      </default>
+      <default class="quadruped_manipulator/arx5/hip">
+        <position ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999"/>
+        <default class="quadruped_manipulator/arx5/front_hip">
+          <joint range="-1.5708 3.4906999999999999"/>
+        </default>
+        <default class="quadruped_manipulator/arx5/back_hip">
+          <joint range="-0.52359999999999995 4.5378999999999996"/>
+        </default>
+      </default>
+      <default class="quadruped_manipulator/arx5/knee">
+        <joint range="-2.7227000000000001 -0"/>
+        <position ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43"/>
+      </default>
+    </default>
+  </default>
+  <custom>
+    <numeric name="quadruped_manipulator/arx5@arx5_base_link\body\pos\0\range\y" size="2" data="-0.20000000000000001 0.20000000000000001"/>
+    <numeric name="quadruped_manipulator/battery\geom\pos\0\range\y" size="2" data="-0.20000000000000001 0.20000000000000001"/>
+    <numeric name="quadruped_manipulator/base_geom_1\geom\fromto\3\range\y" size="2" data="0.050000000000000003 0.25"/>
+    <text name="quadruped_manipulator/scale_base_length" data="base_geom_1\geom\fromto\3\range\y;base_geom_1\geom\fromto\0\range\-y;base_geom_2\geom\fromto\3\range\y;base_geom_2\geom\fromto\0\range\-y;base_geom_3\geom\fromto\3\range\y;base_geom_3\geom\fromto\0\range\-y;base_geom_4\geom\fromto\3\range\y;base_geom_4\geom\fromto\0\range\-y;base_geom_5\geom\fromto\3\range\y;base_geom_5\geom\fromto\0\range\y;base_geom_6\geom\fromto\3\range\-y;base_geom_6\geom\fromto\0\range\-y;base_geom_7\geom\fromto\3\range\y;base_geom_7\geom\fromto\0\range\y;base_geom_8\geom\fromto\3\range\-y;base_geom_8\geom\fromto\0\range\-y;base_geom_9\geom\fromto\0\range\-y;base_geom_9\geom\fromto\3\range\-y;base_geom_10\geom\fromto\0\range\y;base_geom_10\geom\fromto\3\range\y;base_geom_11\geom\fromto\0\range\y;base_geom_11\geom\fromto\3\range\y;base_geom_12\geom\fromto\0\range\-y;base_geom_12\geom\fromto\3\range\-y;left_leg@left_leg\body\pos\0\range\y-0.1761+0.0339;right_leg@right_leg\body\pos\0\range\y-0.1761+0.0339;left_leg_1@left_leg\body\pos\0\range\-y-0.0339+0.1761;right_leg_1@right_leg\body\pos\0\range\-y-0.0339+0.1761;battery\geom\pos\0\range\max(min(x,y-0.05),-y+0.05);arx5@arx5_base_link\body\pos\0\range\max(min(x,y-0.028),-y+0.028)"/>
+    <numeric name="quadruped_manipulator/left_leg@thigh_joint\joint\axis\1\choice\y" size="2" data="-1 1"/>
+    <text name="quadruped_manipulator/flip_front_knees_together" data="left_leg@thigh_joint\joint\axis\1\choice\y;left_leg@calf_joint\joint\axis\1\choice\y;right_leg@thigh_joint\joint\axis\1\choice\y;right_leg@calf_joint\joint\axis\1\choice\y"/>
+    <numeric name="quadruped_manipulator/left_leg_1@thigh_joint\joint\axis\1\choice\y" size="2" data="-1 1"/>
+    <text name="quadruped_manipulator/flip_rear_knees_together" data="left_leg_1@thigh_joint\joint\axis\1\choice\y;left_leg_1@calf_joint\joint\axis\1\choice\y;right_leg_1@thigh_joint\joint\axis\1\choice\y;right_leg_1@calf_joint\joint\axis\1\choice\y"/>
+    <numeric name="quadruped_manipulator/left_leg@calf\body\pos\2\range\y" size="2" data="-0.29999999999999999 -0.10000000000000001"/>
+    <text name="quadruped_manipulator/front_thigh_length" data="left_leg@calf\body\pos\2\range\y;left_leg@thigh_geom_2\geom\fromto\5\range\y+0.004;left_leg@thigh_geom_1\geom\fromto\5\range\y+0.004;right_leg@calf\body\pos\2\range\y;right_leg@thigh_geom_2\geom\fromto\5\range\y+0.004;right_leg@thigh_geom_1\geom\fromto\5\range\y+0.004"/>
+    <numeric name="quadruped_manipulator/left_leg_1@calf\body\pos\2\range\y" size="2" data="-0.29999999999999999 -0.10000000000000001"/>
+    <text name="quadruped_manipulator/rear_thigh_length" data="left_leg_1@calf\body\pos\2\range\y;left_leg_1@thigh_geom_2\geom\fromto\5\range\y+0.004;left_leg_1@thigh_geom_1\geom\fromto\5\range\y+0.004;right_leg_1@calf\body\pos\2\range\y;right_leg_1@thigh_geom_2\geom\fromto\5\range\y+0.004;right_leg_1@thigh_geom_1\geom\fromto\5\range\y+0.004"/>
+    <numeric name="quadruped_manipulator/left_leg@left_leg\body\euler\2\range\y" size="2" data="-0.69999999999999996 0.69999999999999996"/>
+    <numeric name="quadruped_manipulator/right_leg@right_leg\body\euler\2\range\y" size="2" data="-0.69999999999999996 0.69999999999999996"/>
+    <numeric name="quadruped_manipulator/left_leg_1@left_leg\body\euler\2\range\y" size="2" data="-0.69999999999999996 0.69999999999999996"/>
+    <numeric name="quadruped_manipulator/right_leg_1@right_leg\body\euler\2\range\y" size="2" data="-0.69999999999999996 0.69999999999999996"/>
+    <numeric name="quadruped_manipulator/right_leg@calf_geom\geom\fromto\5\range\y" size="2" data="-0.10000000000000001 -0.25"/>
+    <text name="quadruped_manipulator/front_calf" data="right_leg@calf_geom\geom\fromto\5\range\y;right_leg@foot\body\pos\2\range\y;left_leg@calf_geom\geom\fromto\5\range\y;left_leg@foot\body\pos\2\range\y"/>
+    <numeric name="quadruped_manipulator/right_leg_1@calf_geom\geom\fromto\5\range\y" size="2" data="-0.10000000000000001 -0.25"/>
+    <text name="quadruped_manipulator/rear_calf" data="right_leg_1@calf_geom\geom\fromto\5\range\y;right_leg_1@foot\body\pos\2\range\y;left_leg_1@calf_geom\geom\fromto\5\range\y;left_leg_1@foot\body\pos\2\range\y"/>
+    <numeric name="quadruped_manipulator/arx5/link3\body\pos\0\range\y" size="2" data="-0.10000000000000001 -0.40000000000000002"/>
+    <text name="quadruped_manipulator/arx5/link2_length" data="link3\body\pos\0\range\y;link2_geom_1\geom\fromto\3\range\y;link2_geom_2\geom\fromto\3\range\y;link2_geom_3\geom\fromto\3\range\y;link2_geom_4\geom\fromto\3\range\y"/>
+    <numeric name="quadruped_manipulator/arx5/link4\body\pos\0\range\y" size="2" data="0.10000000000000001 0.40000000000000002"/>
+    <text name="quadruped_manipulator/arx5/link3_length" data="link4\body\pos\0\range\y;link3_geom_1\geom\fromto\3\range\y;link3_geom_2\geom\fromto\3\range\y;link3_geom_3\geom\fromto\3\range\y;link3_geom_4\geom\fromto\3\range\y;link4_motor_1\geom\pos\0\range\y"/>
+  </custom>
+  <worldbody>
+    <body name="base">
+      <freejoint name="//unnamed_joint_0"/>
+      <site name="quadruped_manipulator|quadruped_manipulator_flipped_legs|wheeled_quadruped_manipulator_mount" class="/"/>
+      <body name="quadruped_manipulator/">
+        <body name="quadruped_manipulator/quadruped_body">
+          <geom name="quadruped_manipulator/base_geom_1" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 0.04675 0.050000000000000003 0.0966836142213435 0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_2" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 -0.04675 0.050000000000000003 0.0966836142213435 -0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_3" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 0.04675 -0.050000000000000003 0.0966836142213435 0.04675 -0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_4" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 -0.04675 -0.050000000000000003 0.0966836142213435 -0.04675 -0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_5" class="quadruped_manipulator/" type="capsule" fromto="0.0966836142213435 -0.04675 -0.050000000000000003 0.0966836142213435 0.04675 -0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_6" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 0.04675 -0.050000000000000003 -0.0966836142213435 -0.04675 -0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_7" class="quadruped_manipulator/" type="capsule" fromto="0.0966836142213435 -0.04675 0.050000000000000003 0.0966836142213435 0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_8" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 0.04675 0.050000000000000003 -0.0966836142213435 -0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_9" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 -0.04675 -0.050000000000000003 -0.0966836142213435 -0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_10" class="quadruped_manipulator/" type="capsule" fromto="0.0966836142213435 -0.04675 -0.050000000000000003 0.0966836142213435 -0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_11" class="quadruped_manipulator/" type="capsule" fromto="0.0966836142213435 0.04675 -0.050000000000000003 0.0966836142213435 0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/base_geom_12" class="quadruped_manipulator/" type="capsule" fromto="-0.0966836142213435 0.04675 -0.050000000000000003 -0.0966836142213435 0.04675 0.050000000000000003"/>
+          <geom name="quadruped_manipulator/battery" class="quadruped_manipulator/battery" size="0.050000000000000003 0.034750000000000003 0.037999999999999999" pos="0.046683614221343497 0 0"/>
+          <site name="quadruped_manipulator/FL:left_leg|left_linkage_leg_mount" class="quadruped_manipulator/" pos="0.19339999999999999 0.059999999999999998 0" euler="0 0 0"/>
+          <body pos="0.19339999999999999 0.059999999999999998 0" euler="0 0 0" name="quadruped_manipulator/left_leg/">
+            <body name="quadruped_manipulator/left_leg/left_leg" pos="-0.045516385778656507 0 0" euler="0 0 0.35554369321765078">
+              <geom name="quadruped_manipulator/left_leg/hip_motor" class="quadruped_manipulator/left_leg/big_motor" pos="0.02 0 0" euler="0 1.5707963267948966 0"/>
+              <joint name="quadruped_manipulator/left_leg/hip_joint" class="quadruped_manipulator/left_leg/abduction"/>
+              <geom name="quadruped_manipulator/left_leg//unnamed_geom_1" class="quadruped_manipulator/left_leg/big_motor" size="0.045999999999999999 0.02" pos="0 0.080000000000000002 0" quat="1 1 0 0"/>
+              <body name="quadruped_manipulator/left_leg/thigh" pos="0 0.080000000000000002 0">
+                <joint name="quadruped_manipulator/left_leg/thigh_joint" class="quadruped_manipulator/left_leg/front_hip" axis="0 -1 0"/>
+                <geom name="quadruped_manipulator/left_leg/thigh_geom_1" class="quadruped_manipulator/left_leg/" type="cylinder" fromto="0.035000000000000003 0 -0 0.017999999999999999 0 -0.15804047632204338"/>
+                <geom name="quadruped_manipulator/left_leg/thigh_geom_2" class="quadruped_manipulator/left_leg/" type="cylinder" fromto="-0.035000000000000003 0 -0 -0.017999999999999999 0 -0.15804047632204338"/>
+                <body name="quadruped_manipulator/left_leg/calf" pos="0 0 -0.16204047632204338">
+                  <joint name="quadruped_manipulator/left_leg/calf_joint" class="quadruped_manipulator/left_leg/knee" axis="0 -1 0"/>
+                  <geom name="quadruped_manipulator/left_leg/calf_motor" class="quadruped_manipulator/left_leg/small_motor" quat="1 1 0 0"/>
+                  <geom name="quadruped_manipulator/left_leg/calf_geom" class="quadruped_manipulator/left_leg/" type="cylinder" fromto="0 0 0 0 0 -0.24345697879166558"/>
+                  <body name="quadruped_manipulator/left_leg/foot" pos="0 0 -0.24345697879166558">
+                    <geom name="quadruped_manipulator/left_leg/foot" class="quadruped_manipulator/left_leg/foot"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <site name="quadruped_manipulator/FR:right_leg|right_linkage_leg_mount" class="quadruped_manipulator/" pos="0.19339999999999999 -0.059999999999999998 0" euler="0 0 0"/>
+          <body pos="0.19339999999999999 -0.059999999999999998 0" euler="0 0 0" name="quadruped_manipulator/right_leg/">
+            <body name="quadruped_manipulator/right_leg/right_leg" pos="-0.045516385778656507 0 0" euler="0 0 0.20594473467504126">
+              <geom name="quadruped_manipulator/right_leg/hip_motor" class="quadruped_manipulator/right_leg/big_motor" pos="0.02 0 0" euler="0 1.5707963267948966 0"/>
+              <joint name="quadruped_manipulator/right_leg/hip_joint" class="quadruped_manipulator/right_leg/abduction"/>
+              <geom name="quadruped_manipulator/right_leg//unnamed_geom_1" class="quadruped_manipulator/right_leg/big_motor" size="0.045999999999999999 0.02" pos="0 -0.080000000000000002 0" quat="1 1 0 0"/>
+              <body name="quadruped_manipulator/right_leg/thigh" pos="0 -0.080000000000000002 0">
+                <joint name="quadruped_manipulator/right_leg/thigh_joint" class="quadruped_manipulator/right_leg/front_hip" axis="0 -1 0"/>
+                <geom name="quadruped_manipulator/right_leg/thigh_geom_1" class="quadruped_manipulator/right_leg/" type="cylinder" fromto="0.035000000000000003 0 -0 0.017999999999999999 0 -0.15804047632204338"/>
+                <geom name="quadruped_manipulator/right_leg/thigh_geom_2" class="quadruped_manipulator/right_leg/" type="cylinder" fromto="-0.035000000000000003 0 -0 -0.017999999999999999 0 -0.15804047632204338"/>
+                <body name="quadruped_manipulator/right_leg/calf" pos="0 0 -0.16204047632204338">
+                  <joint name="quadruped_manipulator/right_leg/calf_joint" class="quadruped_manipulator/right_leg/knee" axis="0 -1 0"/>
+                  <geom name="quadruped_manipulator/right_leg/calf_motor" class="quadruped_manipulator/right_leg/small_motor" quat="1 1 0 0"/>
+                  <geom name="quadruped_manipulator/right_leg/calf_geom" class="quadruped_manipulator/right_leg/" type="cylinder" fromto="0 0 0 0 0 -0.24345697879166558"/>
+                  <body name="quadruped_manipulator/right_leg/foot" pos="0 0 -0.24345697879166558">
+                    <geom name="quadruped_manipulator/right_leg/foot" class="quadruped_manipulator/right_leg/foot"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <site name="quadruped_manipulator/RL:left_leg|left_linkage_leg_mount" class="quadruped_manipulator/" pos="-0.19339999999999999 0.059999999999999998 0"/>
+          <body pos="-0.19339999999999999 0.059999999999999998 0" name="quadruped_manipulator/left_leg_1/">
+            <body name="quadruped_manipulator/left_leg_1/left_leg" pos="0.045516385778656493 0 0" euler="0 0 0.049545005709136003">
+              <geom name="quadruped_manipulator/left_leg_1/hip_motor" class="quadruped_manipulator/left_leg_1/big_motor" pos="0.02 0 0" euler="0 1.5707963267948966 0"/>
+              <joint name="quadruped_manipulator/left_leg_1/hip_joint" class="quadruped_manipulator/left_leg_1/abduction"/>
+              <geom name="quadruped_manipulator/left_leg_1//unnamed_geom_1" class="quadruped_manipulator/left_leg_1/big_motor" size="0.045999999999999999 0.02" pos="0 0.080000000000000002 0" quat="1 1 0 0"/>
+              <body name="quadruped_manipulator/left_leg_1/thigh" pos="0 0.080000000000000002 0">
+                <joint name="quadruped_manipulator/left_leg_1/thigh_joint" class="quadruped_manipulator/left_leg_1/front_hip" axis="0 -1 0"/>
+                <geom name="quadruped_manipulator/left_leg_1/thigh_geom_1" class="quadruped_manipulator/left_leg_1/" type="cylinder" fromto="0.035000000000000003 0 -0 0.017999999999999999 0 -0.097280593180592179"/>
+                <geom name="quadruped_manipulator/left_leg_1/thigh_geom_2" class="quadruped_manipulator/left_leg_1/" type="cylinder" fromto="-0.035000000000000003 0 -0 -0.017999999999999999 0 -0.097280593180592179"/>
+                <body name="quadruped_manipulator/left_leg_1/calf" pos="0 0 -0.10128059318059218">
+                  <joint name="quadruped_manipulator/left_leg_1/calf_joint" class="quadruped_manipulator/left_leg_1/knee" axis="0 -1 0"/>
+                  <geom name="quadruped_manipulator/left_leg_1/calf_motor" class="quadruped_manipulator/left_leg_1/small_motor" quat="1 1 0 0"/>
+                  <geom name="quadruped_manipulator/left_leg_1/calf_geom" class="quadruped_manipulator/left_leg_1/" type="cylinder" fromto="0 0 0 0 0 -0.1517625877733362"/>
+                  <body name="quadruped_manipulator/left_leg_1/foot" pos="0 0 -0.1517625877733362">
+                    <geom name="quadruped_manipulator/left_leg_1/foot" class="quadruped_manipulator/left_leg_1/foot"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <site name="quadruped_manipulator/RR:right_leg|right_linkage_leg_mount" class="quadruped_manipulator/" pos="-0.19339999999999999 -0.059999999999999998 0"/>
+          <body pos="-0.19339999999999999 -0.059999999999999998 0" name="quadruped_manipulator/right_leg_1/">
+            <body name="quadruped_manipulator/right_leg_1/right_leg" pos="0.045516385778656493 0 0" euler="0 0 -0.040250520781688892">
+              <geom name="quadruped_manipulator/right_leg_1/hip_motor" class="quadruped_manipulator/right_leg_1/big_motor" pos="0.02 0 0" euler="0 1.5707963267948966 0"/>
+              <joint name="quadruped_manipulator/right_leg_1/hip_joint" class="quadruped_manipulator/right_leg_1/abduction"/>
+              <geom name="quadruped_manipulator/right_leg_1//unnamed_geom_1" class="quadruped_manipulator/right_leg_1/big_motor" size="0.045999999999999999 0.02" pos="0 -0.080000000000000002 0" quat="1 1 0 0"/>
+              <body name="quadruped_manipulator/right_leg_1/thigh" pos="0 -0.080000000000000002 0">
+                <joint name="quadruped_manipulator/right_leg_1/thigh_joint" class="quadruped_manipulator/right_leg_1/front_hip" axis="0 -1 0"/>
+                <geom name="quadruped_manipulator/right_leg_1/thigh_geom_1" class="quadruped_manipulator/right_leg_1/" type="cylinder" fromto="0.035000000000000003 0 -0 0.017999999999999999 0 -0.097280593180592179"/>
+                <geom name="quadruped_manipulator/right_leg_1/thigh_geom_2" class="quadruped_manipulator/right_leg_1/" type="cylinder" fromto="-0.035000000000000003 0 -0 -0.017999999999999999 0 -0.097280593180592179"/>
+                <body name="quadruped_manipulator/right_leg_1/calf" pos="0 0 -0.10128059318059218">
+                  <joint name="quadruped_manipulator/right_leg_1/calf_joint" class="quadruped_manipulator/right_leg_1/knee" axis="0 -1 0"/>
+                  <geom name="quadruped_manipulator/right_leg_1/calf_motor" class="quadruped_manipulator/right_leg_1/small_motor" quat="1 1 0 0"/>
+                  <geom name="quadruped_manipulator/right_leg_1/calf_geom" class="quadruped_manipulator/right_leg_1/" type="cylinder" fromto="0 0 0 0 0 -0.1517625877733362"/>
+                  <body name="quadruped_manipulator/right_leg_1/foot" pos="0 0 -0.1517625877733362">
+                    <geom name="quadruped_manipulator/right_leg_1/foot" class="quadruped_manipulator/right_leg_1/foot"/>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+          <site name="quadruped_manipulator/arx5|rail_mount" class="quadruped_manipulator/"/>
+          <body name="quadruped_manipulator/arx5/">
+            <body name="quadruped_manipulator/arx5/arx5_base_link" pos="0.068683614221343503 0 0.094" euler="0 0 0">
+              <geom name="quadruped_manipulator/arx5/link1_motor" class="quadruped_manipulator/arx5/small_motor" pos="0 0 -0.014999999999999999"/>
+              <joint name="quadruped_manipulator/arx5/joint1" class="quadruped_manipulator/arx5/" axis="0 0 1" range="-3.1415926535897931 3.1415926535897931"/>
+              <body name="quadruped_manipulator/arx5/link2" pos="0.02 0 0.0402">
+                <geom name="quadruped_manipulator/arx5/link2_motor_1" class="quadruped_manipulator/arx5/small_motor" pos="-0.02 0 0" euler="1.57079632679 0 0"/>
+                <joint name="quadruped_manipulator/arx5/joint2" class="quadruped_manipulator/arx5/" pos="-0.02 0 0" axis="0 1 0" range="0 3.6651899999999999"/>
+                <geom name="quadruped_manipulator/arx5/link2_geom_1" class="quadruped_manipulator/arx5/small_geom" fromto="-0.02 0.012 -0.02 -0.27947520796107095 0.012 -0.02"/>
+                <geom name="quadruped_manipulator/arx5/link2_geom_2" class="quadruped_manipulator/arx5/small_geom" fromto="-0.02 -0.012 -0.02 -0.27947520796107095 -0.012 -0.02"/>
+                <geom name="quadruped_manipulator/arx5/link2_geom_3" class="quadruped_manipulator/arx5/small_geom" fromto="-0.02 0.012 0.02 -0.27947520796107095 0.012 0.02"/>
+                <geom name="quadruped_manipulator/arx5/link2_geom_4" class="quadruped_manipulator/arx5/small_geom" fromto="-0.02 -0.012 0.02 -0.27947520796107095 -0.012 0.02"/>
+                <body name="quadruped_manipulator/arx5/link3" pos="-0.27947520796107095 0 0" euler="-3.1415999999999999 0 0">
+                  <geom name="quadruped_manipulator/arx5/link3_motor_1" class="quadruped_manipulator/arx5/small_motor" pos="0 0 0" euler="1.57079632679 0 0"/>
+                  <joint name="quadruped_manipulator/arx5/joint3" class="quadruped_manipulator/arx5/" axis="0 1 0" range="0 3.1415926535897931"/>
+                  <geom name="quadruped_manipulator/arx5/link4_motor_1" class="quadruped_manipulator/arx5/small_motor" pos="0.23444203981465664 0 -0.056000000000000001" euler="1.57079632679 0 0"/>
+                  <geom name="quadruped_manipulator/arx5/link3_geom_1" class="quadruped_manipulator/arx5/small_geom" fromto="0.0050000000000000001 -0.012 -0.035999999999999997 0.23444203981465664 -0.012 -0.035999999999999997"/>
+                  <geom name="quadruped_manipulator/arx5/link3_geom_2" class="quadruped_manipulator/arx5/small_geom" fromto="0.0050000000000000001 0.012 -0.035999999999999997 0.23444203981465664 0.012 -0.035999999999999997"/>
+                  <geom name="quadruped_manipulator/arx5/link3_geom_3" class="quadruped_manipulator/arx5/small_geom" fromto="0.040000000000000001 -0.012 -0.075999999999999998 0.23444203981465664 -0.012 -0.075999999999999998"/>
+                  <geom name="quadruped_manipulator/arx5/link3_geom_4" class="quadruped_manipulator/arx5/small_geom" fromto="0.040000000000000001 0.012 -0.075999999999999998 0.23444203981465664 0.012 -0.075999999999999998"/>
+                  <geom name="quadruped_manipulator/arx5/link3_geom_5" class="quadruped_manipulator/arx5/small_geom" fromto="0.040000000000000001 -0.012 -0.075999999999999998 -0.017000000000000001 -0.012 -0.01"/>
+                  <geom name="quadruped_manipulator/arx5/link3_geom_6" class="quadruped_manipulator/arx5/small_geom" fromto="0.040000000000000001 0.012 -0.075999999999999998 -0.017000000000000001 0.012 -0.01"/>
+                  <body name="quadruped_manipulator/arx5/link4" pos="0.23444203981465664 0 -0.056000000000000001">
+                    <joint name="quadruped_manipulator/arx5/joint4" class="quadruped_manipulator/arx5/" axis="0 1 0" range="-1.57079632679 1.57079632679"/>
+                    <geom name="quadruped_manipulator/arx5/link5_motor_1" class="quadruped_manipulator/arx5/small_motor" pos="0.065750000000000003 0 -0.059999999999999998" euler="0 0 0"/>
+                    <body name="quadruped_manipulator/arx5/link5" pos="0.065750000000000003 -0.001 -0.082500000000000004">
+                      <geom name="quadruped_manipulator/arx5/link6_motor_1" class="quadruped_manipulator/arx5/small_motor" pos="0 0 0.082500000000000004" euler="0 1.57079632679 0"/>
+                      <joint name="quadruped_manipulator/arx5/joint5" class="quadruped_manipulator/arx5/" axis="0 0 1" range="-1.57079632679 1.57079632679"/>
+                      <body name="quadruped_manipulator/arx5/link6" pos="0.02845 0 0.082500000000000004" euler="-3.1415999999999999 0 0">
+                        <geom name="quadruped_manipulator/arx5/gripper_motor_1" class="quadruped_manipulator/arx5/small_motor" pos="0.02 0 0" euler="0 1.57079632679 0"/>
+                        <site name="quadruped_manipulator/arx5/end_effector" class="quadruped_manipulator/arx5/" group="1" pos="0.22 0 0" euler="0 1.57079632679 -1.57079632679"/>
+                        <joint name="quadruped_manipulator/arx5/joint6" class="quadruped_manipulator/arx5/" axis="1 0 0" range="-1.57079632679 1.57079632679"/>
+                        <geom name="quadruped_manipulator/arx5//unnamed_geom_17" class="quadruped_manipulator/arx5/small_geom" type="box" size="0.01 0.089999999999999997 0.0080000000000000002" pos="0.059999999999999998 0 0" quat="1 0 1 0"/>
+                        <body name="quadruped_manipulator/arx5/gopro" pos="0.017999999999999999 -0.02 0.044999999999999998" euler="0 1.57079632679 -1.57079632679">
+                          <geom name="quadruped_manipulator/arx5//unnamed_geom_18" class="quadruped_manipulator/arx5/camera" type="box" size="0.037999999999999999 0.029999999999999999 0.012999999999999999" pos="0 -0.029000000000000001 0.002"/>
+                        </body>
+                        <body name="quadruped_manipulator/arx5/left_finger" pos="0.071999999999999995 0 0" euler="3.1415926535900001 1.57079632679 0">
+                          <geom name="quadruped_manipulator/arx5/left_finger_geom" class="quadruped_manipulator/arx5/TPU gripper"/>
+                        </body>
+                        <body name="quadruped_manipulator/arx5/right_finger" pos="0.071999999999999995 0 0" euler="0 1.57079632679 0">
+                          <geom name="quadruped_manipulator/arx5/right_finger_geom" class="quadruped_manipulator/arx5/TPU gripper"/>
+                        </body>
+                        <geom name="quadruped_manipulator/arx5/gripper_collider_1" class="quadruped_manipulator/arx5/" type="capsule" contype="0" conaffinity="0" group="5" size="0.040000000000000001" mass="0" fromto="0 0 0 0.20000000000000001 0 0"/>
+                        <geom name="quadruped_manipulator/arx5/gripper_collider_2" class="quadruped_manipulator/arx5/" type="capsule" contype="0" conaffinity="0" group="5" size="0.01" mass="0" fromto="0.059999999999999998 -0.089999999999999997 0 0.059999999999999998 0.089999999999999997 0"/>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+      <camera name="body_cam" class="/" mode="trackcom" pos="1.2 1.2 0.5" xyaxes="-0.76600000000000001 0.64300000000000002 -0 -0.127 -0.151 0.97999999999999998"/>
+    </body>
+  </worldbody>
+  <contact>
+    <exclude name="quadruped_manipulator//unnamed_contact_0" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/left_leg/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_1" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/left_leg/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_2" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/left_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_3" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/right_leg/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_4" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/right_leg/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_5" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/right_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_6" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/left_leg_1/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_7" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_8" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_9" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_10" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_11" body1="quadruped_manipulator/quadruped_body" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_12" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/left_leg/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_13" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/left_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_14" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/right_leg/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_15" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/right_leg/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_16" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/right_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_17" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/left_leg_1/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_18" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_19" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_20" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_21" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_22" body1="quadruped_manipulator/left_leg/left_leg" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_23" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/left_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_24" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/right_leg/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_25" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/right_leg/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_26" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/right_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_27" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/left_leg_1/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_28" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_29" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_30" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_31" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_32" body1="quadruped_manipulator/left_leg/thigh" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_33" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/right_leg/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_34" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/right_leg/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_35" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/right_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_36" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/left_leg_1/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_37" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_38" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_39" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_40" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_41" body1="quadruped_manipulator/left_leg/calf" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_42" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/right_leg/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_43" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/right_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_44" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/left_leg_1/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_45" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_46" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_47" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_48" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_49" body1="quadruped_manipulator/right_leg/right_leg" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_50" body1="quadruped_manipulator/right_leg/thigh" body2="quadruped_manipulator/right_leg/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_51" body1="quadruped_manipulator/right_leg/thigh" body2="quadruped_manipulator/left_leg_1/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_52" body1="quadruped_manipulator/right_leg/thigh" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_53" body1="quadruped_manipulator/right_leg/thigh" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_54" body1="quadruped_manipulator/right_leg/thigh" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_55" body1="quadruped_manipulator/right_leg/thigh" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_56" body1="quadruped_manipulator/right_leg/thigh" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_57" body1="quadruped_manipulator/right_leg/calf" body2="quadruped_manipulator/left_leg_1/left_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_58" body1="quadruped_manipulator/right_leg/calf" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_59" body1="quadruped_manipulator/right_leg/calf" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_60" body1="quadruped_manipulator/right_leg/calf" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_61" body1="quadruped_manipulator/right_leg/calf" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_62" body1="quadruped_manipulator/right_leg/calf" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_63" body1="quadruped_manipulator/left_leg_1/left_leg" body2="quadruped_manipulator/left_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_64" body1="quadruped_manipulator/left_leg_1/left_leg" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_65" body1="quadruped_manipulator/left_leg_1/left_leg" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_66" body1="quadruped_manipulator/left_leg_1/left_leg" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_67" body1="quadruped_manipulator/left_leg_1/left_leg" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_68" body1="quadruped_manipulator/left_leg_1/thigh" body2="quadruped_manipulator/left_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_69" body1="quadruped_manipulator/left_leg_1/thigh" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_70" body1="quadruped_manipulator/left_leg_1/thigh" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_71" body1="quadruped_manipulator/left_leg_1/thigh" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_72" body1="quadruped_manipulator/left_leg_1/calf" body2="quadruped_manipulator/right_leg_1/right_leg"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_73" body1="quadruped_manipulator/left_leg_1/calf" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_74" body1="quadruped_manipulator/left_leg_1/calf" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_75" body1="quadruped_manipulator/right_leg_1/right_leg" body2="quadruped_manipulator/right_leg_1/thigh"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_76" body1="quadruped_manipulator/right_leg_1/right_leg" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator//unnamed_contact_77" body1="quadruped_manipulator/right_leg_1/thigh" body2="quadruped_manipulator/right_leg_1/calf"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_0" body1="quadruped_manipulator/arx5/arx5_base_link" body2="quadruped_manipulator/arx5/link2"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_1" body1="quadruped_manipulator/arx5/arx5_base_link" body2="quadruped_manipulator/arx5/link3"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_2" body1="quadruped_manipulator/arx5/arx5_base_link" body2="quadruped_manipulator/arx5/link4"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_3" body1="quadruped_manipulator/arx5/arx5_base_link" body2="quadruped_manipulator/arx5/link5"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_4" body1="quadruped_manipulator/arx5/arx5_base_link" body2="quadruped_manipulator/arx5/link6"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_5" body1="quadruped_manipulator/arx5/link2" body2="quadruped_manipulator/arx5/link3"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_6" body1="quadruped_manipulator/arx5/link2" body2="quadruped_manipulator/arx5/link4"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_7" body1="quadruped_manipulator/arx5/link2" body2="quadruped_manipulator/arx5/link5"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_8" body1="quadruped_manipulator/arx5/link2" body2="quadruped_manipulator/arx5/link6"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_9" body1="quadruped_manipulator/arx5/link3" body2="quadruped_manipulator/arx5/link4"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_10" body1="quadruped_manipulator/arx5/link3" body2="quadruped_manipulator/arx5/link5"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_11" body1="quadruped_manipulator/arx5/link3" body2="quadruped_manipulator/arx5/link6"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_12" body1="quadruped_manipulator/arx5/link4" body2="quadruped_manipulator/arx5/link5"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_13" body1="quadruped_manipulator/arx5/link4" body2="quadruped_manipulator/arx5/link6"/>
+    <exclude name="quadruped_manipulator/arx5//unnamed_contact_14" body1="quadruped_manipulator/arx5/link5" body2="quadruped_manipulator/arx5/link6"/>
+  </contact>
+  <actuator>
+    <position name="quadruped_manipulator/left_leg/hip_joint" class="quadruped_manipulator/left_leg/" ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/left_leg/hip_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/left_leg/thigh_joint" class="quadruped_manipulator/left_leg/" ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/left_leg/thigh_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/left_leg/calf_joint" class="quadruped_manipulator/left_leg/" ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43" joint="quadruped_manipulator/left_leg/calf_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/right_leg/hip_joint" class="quadruped_manipulator/right_leg/" ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/right_leg/hip_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/right_leg/thigh_joint" class="quadruped_manipulator/right_leg/" ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/right_leg/thigh_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/right_leg/calf_joint" class="quadruped_manipulator/right_leg/" ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43" joint="quadruped_manipulator/right_leg/calf_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/left_leg_1/hip_joint" class="quadruped_manipulator/left_leg_1/" ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/left_leg_1/hip_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/left_leg_1/thigh_joint" class="quadruped_manipulator/left_leg_1/" ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/left_leg_1/thigh_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/left_leg_1/calf_joint" class="quadruped_manipulator/left_leg_1/" ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43" joint="quadruped_manipulator/left_leg_1/calf_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/right_leg_1/hip_joint" class="quadruped_manipulator/right_leg_1/" ctrlrange="-1.0471999999999999 1.0471999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/right_leg_1/hip_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/right_leg_1/thigh_joint" class="quadruped_manipulator/right_leg_1/" ctrlrange="-1.5708 3.4906999999999999" forcerange="-23.699999999999999 23.699999999999999" joint="quadruped_manipulator/right_leg_1/thigh_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/right_leg_1/calf_joint" class="quadruped_manipulator/right_leg_1/" ctrlrange="-2.7227000000000001 -0" forcerange="-45.43 45.43" joint="quadruped_manipulator/right_leg_1/calf_joint" kp="30" kv="0.5"/>
+    <position name="quadruped_manipulator/arx5/joint1" class="quadruped_manipulator/arx5/" ctrlrange="-3.1415926535897931 3.1415926535897931" forcerange="-45.43 45.43" joint="quadruped_manipulator/arx5/joint1" kp="20" kv="0.40000000000000002"/>
+    <position name="quadruped_manipulator/arx5/joint2" class="quadruped_manipulator/arx5/" ctrlrange="0 3.6651899999999999" forcerange="-45.43 45.43" joint="quadruped_manipulator/arx5/joint2" kp="20" kv="0.40000000000000002"/>
+    <position name="quadruped_manipulator/arx5/joint3" class="quadruped_manipulator/arx5/" ctrlrange="0 3.1415926535897931" forcerange="-45.43 45.43" joint="quadruped_manipulator/arx5/joint3" kp="20" kv="0.40000000000000002"/>
+    <position name="quadruped_manipulator/arx5/joint4" class="quadruped_manipulator/arx5/" ctrlrange="-1.57079632679 1.57079632679" forcerange="-45.43 45.43" joint="quadruped_manipulator/arx5/joint4" kp="5" kv="0.050000000000000003"/>
+    <position name="quadruped_manipulator/arx5/joint5" class="quadruped_manipulator/arx5/" ctrlrange="-1.57079632679 1.57079632679" forcerange="-45.43 45.43" joint="quadruped_manipulator/arx5/joint5" kp="5" kv="0.050000000000000003"/>
+    <position name="quadruped_manipulator/arx5/joint6" class="quadruped_manipulator/arx5/" ctrlrange="-1.57079632679 1.57079632679" forcerange="-45.43 45.43" joint="quadruped_manipulator/arx5/joint6" kp="5" kv="0.050000000000000003"/>
+  </actuator>
+  <keyframe>
+    <key name="home" qpos="-0.5 0 0.29999999999999999 1 0 0 0 0 0.90000000000000002 -1.8 0 0.90000000000000002 -1.8 0 0.90000000000000002 -1.8 0 0.90000000000000002 -1.8 0 0.29999999999999999 0.5 0 0 0" ctrl="0 0.90000000000000002 -1.8 0 0.90000000000000002 -1.8 0 0.90000000000000002 -1.8 0 0.90000000000000002 -1.8 0 0.29999999999999999 0.5 0 0 0"/>
+    <key name="penalty_default_qpos_weight" qpos="0 0 0 0 0 0 0 0.5 0.5 0.10000000000000001 0.5 0.5 0.10000000000000001 0.5 0.5 0.10000000000000001 0.5 0.5 0.10000000000000001 0.5 0 0 0 0.5 0"/>
+  </keyframe>
+</mujoco>

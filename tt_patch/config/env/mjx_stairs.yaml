@@ -1,0 +1,50 @@
+_target_: t2.mjx_env.stair_env.StairMjxEnv
+max_episode_length: 1000
+ctrl_dt: 0.02
+sim_dt: 0.005
+impratio: 1
+solver_iterations: 5
+solver_ls_iterations: 7
+action_scale: 0.25
+impl: jax
+clip_actions:
+  - -4.0
+  - 4.0
+
+mj_model_fn: ???
+
+# remind.md §4.2 -- must match t2.mjx_env.stair_env.DEFAULT_STAIRS
+num_stairs: 10
+stair_rise: 0.10
+stair_run: 0.28
+stair_start_x: 0.5
+goal_margin: 0.5
+
+max_progress_speed: 0.6
+reward_progress: 2.0
+reward_alive: 0.1
+reward_success: 300.0
+
+penalty_orientation: -1.0
+penalty_action_rate: -0.002
+penalty_torque: -0.00005
+penalty_joint_vel: -0.002
+penalty_joint_limit: -1.0
+penalty_termination: -100.0
+soft_joint_pos_limit_factor: 0.95
+
+termination_upright: 0.5
+termination_height: 0.12
+
+reset_xy_noise: 0.1
+reset_yaw_noise: 0.2
+reset_qpos_noise: 0.1
+reset_qvel_noise: 0.1
+
+obs_noise:
+  gravity: 0.05
+  ang_vel: 0.2
+  lin_vel: 0.1
+  joint_pos: 0.03
+  joint_vel: 1.5
+  goal: 0.0

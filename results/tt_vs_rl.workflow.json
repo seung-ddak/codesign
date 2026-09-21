@@ -1,0 +1,253 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "TT vs RL — guidance swap (stage 1)",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "shared",
+        "label": "Shared spine",
+        "focus": [
+          "traj",
+          "prior",
+          "denoise",
+          "design",
+          "expert",
+          "rollout"
+        ],
+        "note": "Both conditions share the prior, the sampler, the RL expert evaluator and the metrics."
+      },
+      {
+        "id": "swap",
+        "label": "The only difference",
+        "focus": [
+          "dsg",
+          "pi_phi",
+          "critic",
+          "denoise"
+        ],
+        "note": "DSG differentiates a predicted reward. RL learns the same nudge from outcomes."
+      }
+    ],
+    "output": "/mnt/gstore/home/xiangyue/RL/tt_codesign/results/tt_vs_rl.html"
+  },
+  "lanes": [
+    {
+      "id": "gen",
+      "label": "Generation (frozen prior)"
+    },
+    {
+      "id": "guide",
+      "label": "Guidance — the swapped part",
+      "variant": "exception"
+    },
+    {
+      "id": "eval",
+      "label": "Evaluation (RL experts)"
+    }
+  ],
+  "phases": [
+    {
+      "id": "sample",
+      "label": "Sample",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "steer",
+      "label": "Steer last 10 of 100 steps",
+      "fromCol": 2,
+      "toCol": 2,
+      "variant": "emphasis"
+    },
+    {
+      "id": "measure",
+      "label": "Measure",
+      "fromCol": 3,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "swap_box",
+      "label": "TT vs RL",
+      "lane": "guide",
+      "fromCol": 0,
+      "toCol": 2,
+      "variant": "security"
+    }
+  ],
+  "mainPath": [
+    "traj",
+    "prior",
+    "denoise",
+    "design",
+    "expert",
+    "rollout"
+  ],
+  "nodes": [
+    {
+      "id": "traj",
+      "lane": "gen",
+      "col": 0,
+      "type": "external",
+      "label": "UMI trajectory",
+      "sublabel": "20 held-out skills",
+      "width": 140
+    },
+    {
+      "id": "prior",
+      "lane": "gen",
+      "col": 1,
+      "type": "backend",
+      "label": "TT prior",
+      "sublabel": "xrh4wk4l frozen",
+      "tag": "not trained",
+      "width": 140
+    },
+    {
+      "id": "denoise",
+      "lane": "gen",
+      "col": 2,
+      "type": "backend",
+      "label": "Denoising",
+      "sublabel": "100 steps, eta 1.0",
+      "width": 140
+    },
+    {
+      "id": "design",
+      "lane": "gen",
+      "col": 3,
+      "type": "frontend",
+      "label": "Robot design",
+      "sublabel": "choices + seed",
+      "width": 140
+    },
+    {
+      "id": "dsg",
+      "lane": "guide",
+      "col": 0,
+      "type": "security",
+      "label": "TT — DSG",
+      "sublabel": "scale x grad R-hat",
+      "tag": "no training",
+      "width": 140
+    },
+    {
+      "id": "pi_phi",
+      "lane": "guide",
+      "col": 2,
+      "type": "messagebus",
+      "label": "RL — pi_phi",
+      "sublabel": "learned residual",
+      "tag": "33.7k params",
+      "width": 140
+    },
+    {
+      "id": "critic",
+      "lane": "guide",
+      "col": 1,
+      "type": "database",
+      "label": "Critic Q",
+      "sublabel": "learns from outcomes",
+      "tag": "no gradient needed",
+      "width": 140
+    },
+    {
+      "id": "expert",
+      "lane": "eval",
+      "col": 4,
+      "type": "cloud",
+      "label": "RL expert",
+      "sublabel": "1 of 128 per choice",
+      "width": 140
+    },
+    {
+      "id": "rollout",
+      "lane": "eval",
+      "col": 5,
+      "type": "backend",
+      "label": "Rollout + metrics",
+      "sublabel": "9 seeds, Table 4",
+      "width": 140,
+      "tag": "TT 3.0cm / 99.4%"
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "traj",
+      "to": "prior",
+      "variant": "default"
+    },
+    {
+      "id": "e2",
+      "from": "prior",
+      "to": "denoise",
+      "label": "noise to tokens",
+      "variant": "default"
+    },
+    {
+      "id": "e3",
+      "from": "denoise",
+      "to": "design",
+      "label": "detokenize",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e4",
+      "from": "dsg",
+      "to": "denoise",
+      "label": "TT nudge",
+      "variant": "security"
+    },
+    {
+      "id": "e5",
+      "from": "pi_phi",
+      "to": "denoise",
+      "label": "RL nudge",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e6",
+      "from": "critic",
+      "to": "pi_phi",
+      "label": "grad of Q",
+      "variant": "default"
+    },
+    {
+      "id": "e7",
+      "from": "design",
+      "to": "expert",
+      "label": "match choice",
+      "variant": "default"
+    },
+    {
+      "id": "e8",
+      "from": "expert",
+      "to": "rollout",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Only one thing differs",
+      "items": [
+        "Prior, sampler, evaluator, metrics and seeds are identical",
+        "TT differentiates its predicted reward; RL learns the nudge from outcomes"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Why a critic",
+      "items": [
+        "Action is 6,694 dims per step over the last 10 of 100 steps",
+        "REINFORCE drowned in that variance; grad of Q works without a differentiable reward",
+        "Q is fit to rollout outcomes, so the reward need not be analytic"
+      ]
+    }
+  ]
+}

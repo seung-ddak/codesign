@@ -1,0 +1,21 @@
+diff --git a/t2/mjx_env/train.py b/t2/mjx_env/train.py
+index 70c5195..666fa87 100644
+--- a/t2/mjx_env/train.py
++++ b/t2/mjx_env/train.py
+@@ -638,8 +638,14 @@ def train(
+             {},
+         )
+ 
+-    training_state = jax.device_put_replicated(
+-        training_state, jax.local_devices()[:local_devices_to_use]
++    # jax >= 0.10 removed device_put_replicated. Stacking a leading device axis
++    # and pushing it through an identity pmap gives the same pmap-sharded layout
++    # the rest of this file expects.
++    _n_devices = len(jax.local_devices()[:local_devices_to_use])
++    training_state = jax.pmap(lambda x: x, axis_name=_PMAP_AXIS_NAME)(
++        jax.tree_util.tree_map(
++            lambda x: jnp.stack([x] * _n_devices), training_state
++        )
+     )
+ 
+     eval_env = _maybe_wrap_env(
