@@ -302,6 +302,13 @@ TT 형상 score **0.15** (298 step 종료) vs RL 형상 **0.38** (453 step) — 
 반증: "EE 추종이라 기어가도 된다" 는 틀렸다 — pos_err ↔ 접지율 **+0.790** (포복은 정책의 실패다). `results/posture_audit.json`.
 
 
+**5.25 π_θ fine-tune 1 차 실패 — warm start 가 무너졌다 (2026-09-21, RL 형상 40 M step)**
+출고 expert(pos_err **0.323** / orn_err 0.563) 에서 출발했는데 **40 M 내내 단 한 epoch 도 baseline 을 못 넘었다**
+(최종 0.594 / 2.529). ep_len 이 1754 ↔ 28 ↔ 2000 ↔ 20 으로 100 배 진동하고, **짧게 죽은 epoch 일수록 pos_err 이 낮다**
+— 낮은 pos_err 은 추종이 아니라 조기종료의 산물이다. orn_err 은 전 구간 미회복 = 이쪽이 진짜 신호.
+기록·체크포인트 `runs/pi_theta_RL4/`. 의심 순위 ① fine-tune LR 이 출고 학습값 그대로 ② D22 종료(bad_contact+fellover 0.1)가
+warm start 직후 상시 발동. **40 M 은 렌더 단계 X11 끊김으로 프로세스가 죽었을 뿐 학습은 완주**했다 (→ `MUJOCO_GL=egl` 고정).
+
 ---
 
 ## 6. 결정 로그
@@ -318,6 +325,7 @@ TT 형상 score **0.15** (298 step 종료) vs RL 형상 **0.38** (453 step) — 
 | 2026-09-21 | **정정**: "PPO expert 128 개는 없다" 는 틀렸다. `rl_policies.zip` 으로 받을 수 있다 (§5.9) |
 | 2026-09-21 | **D17** L0~L3 폐기 → **TT vs RL** 2 조건 비교. `rl_policies.zip` 9.3 GB 다운로드 착수 |
 | 2026-09-21 | 논문 정독 → **D18~D21** 신설 (평가 프로토콜·지표·종료·TT 경로). **2 단 구조를 §0 으로 승격**. D8 이탈 철회 |
+| 2026-09-21 | π_θ fine-tune 1 차 40 M 실패 (§5.25). LR·종료조건 재검토 후 2 차. 학습은 **`MUJOCO_GL=egl` 필수** |
 
 ---
 
@@ -331,5 +339,6 @@ TT 형상 score **0.15** (298 step 종료) vs RL 형상 **0.38** (453 step) — 
 3. **reward 하나 확정** — 걷기 + 무낙상, 결과 기반 (D22). 구체 임계값(도달 거리·기립도 τ·접지율 κ)은 Q14.
 4. **π_θ 를 그 reward 로 학습** — 형상 조건부, expert warm start, 2-timescale (D12·D25).
    배선 완료: `extract_best_designs.py` → `enumerate_design_store.py` → `finetune_pi_theta.sh`.
+   **1 차 40 M 는 실패** (§5.25). 2 차 전에 fine-tune LR 과 D22 종료조건을 먼저 정할 것.
 5. **π_φ 를 같은 reward 로 학습** — critic 구조 그대로, 원천만 rollout 으로 교체 (`d22_reward.py` 틀 재사용).
 6. 그 다음: Q6 (multi-task 합성식 G) → Q8 (topology 확장).

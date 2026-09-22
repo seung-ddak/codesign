@@ -48,8 +48,8 @@ cp -r "$CODESIGN/tt_patch/t2"      "$TT/"
 cp -r "$CODESIGN/tt_patch/config"  "$TT/"
 cp -r "$CODESIGN/tt_patch/scripts" "$TT/"
 
-# 기존 파일 수정분 (jax 0.10 호환 등)
-cd "$TT" && git apply "$CODESIGN/tt_patch/train.py.diff"
+# 기존 파일 수정분 (jax 0.10 호환 — train.py + track_env.py 2 곳)
+cd "$TT" && git apply "$CODESIGN/tt_patch/tt_compat.diff"
 ```
 
 경로는 **환경변수로 잡는다** — 파일을 고칠 필요 없다.
@@ -71,6 +71,22 @@ bash "$CODESIGN/code/repro_table4_TT.sh" 16
 # ② 2 단 reward 채점기 — 설계 2 개를 굴려 score 를 낸다 (약 40 초)
 .venv/bin/python "$CODESIGN/code/eval_design_d22.py"
 ```
+
+## 6. 끊긴 π_θ fine-tune 이어하기 (2026-09-21)
+
+`runs/pi_theta_RL4/checkpoint_40697856/` 가 **40 M step 까지 돈 결과물**이다 (2 MB, orbax).
+`runs/pi_theta_RL4/README.md` 에 epoch 별 수치가 있다. 이어 돌리려면:
+
+```sh
+source env.sh
+MUJOCO_GL=egl bash "$CODESIGN/code/finetune_pi_theta.sh" \
+  "$CODESIGN/assets/design_RL_best.zarr" \
+  "$CODESIGN_ROOT/runs/pi_theta_RL4/checkpoint_40697856" 40000000
+```
+
+처음부터(출고 expert) 다시 할 거면 두 번째 인자를
+`$CODESIGN_TT/umi_on_legs_plus_plus_rl_policies_11nov2025/run-20251110_145212-z08g0hc7/files/checkpoints/4006084608`
+로 준다. **단 40 M 결과가 baseline 보다 나빴다** — remind.md §5.25 를 먼저 읽을 것.
 
 ---
 
@@ -104,3 +120,8 @@ bash "$CODESIGN/code/repro_table4_TT.sh" 16
 - MuJoCo 오프스크린 렌더는 모델 XML 의 `offwidth`(기본 640)보다 크면 죽는다 →
   컴파일 후 `m.vis.global_.offwidth` 를 직접 키운다.
 - 로봇 링크 캡슐이 `group 3` 이라 `mjvOption.geomgroup` 기본값으로는 **안 보인다** → 전부 1 로.
+- jax 0.10 에서 `jnp.clip(..., a_min=)` 와 `jax.device_put_replicated` 가 **없어졌다** →
+  `tt_compat.diff` 가 두 곳을 고친다. 안 넣으면 학습이 첫 step 에서 `TypeError` 로 죽는다.
+- 학습 중 eval 영상 렌더가 **X11 로 나간다**. SSH X11 forwarding 이 끊기면
+  `XIO: fatal IO error on X server "localhost:10.0"` 로 **학습째로 죽는다** (실제로 9/21 에 당했다).
+  → 학습 명령 앞에 **`MUJOCO_GL=egl`** 를 붙여 headless 로 고정한다.

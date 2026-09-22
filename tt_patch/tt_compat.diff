@@ -1,3 +1,16 @@
+diff --git a/t2/mjx_env/track_env.py b/t2/mjx_env/track_env.py
+index 4e2b0cd..c1160b5 100644
+--- a/t2/mjx_env/track_env.py
++++ b/t2/mjx_env/track_env.py
+@@ -896,7 +896,7 @@ def contact_penalty(
+     is_penalized = jnp.where(in_bounds, penalized_keys[idx] == contact_keys, False)
+ 
+     # Penetration depth (positive if colliding)
+-    depth = jnp.clip(contact_threshold - contact_dists, a_min=0.0)
++    depth = jnp.clip(contact_threshold - contact_dists, 0.0)  # jax 0.10: a_min 제거됨
+ 
+     if mode == "hinge":
+         # linear penalty on depth
 diff --git a/t2/mjx_env/train.py b/t2/mjx_env/train.py
 index 70c5195..666fa87 100644
 --- a/t2/mjx_env/train.py
