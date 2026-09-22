@@ -1,0 +1,136 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "tt_vs_rl_sim — 조작 궤적 추종 비교",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "execution",
+        "label": "실제 실행 흐름",
+        "focus": ["spec", "runner", "rollout", "render"],
+        "note": "스크립트는 선택된 두 형상을 독립적인 MuJoCo 장면에서 실행하고 렌더링된 프레임만 합성한다."
+      },
+      {
+        "id": "boundary",
+        "label": "이 영상의 범위",
+        "focus": ["expert", "rollout", "render", "scope"],
+        "note": "이것은 조작 궤적 추종 비교이며 전진 보행 공진화나 정책 학습이 아니다."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "input", "label": "입력 및 설정" },
+    { "id": "sim", "label": "독립 시뮬레이션 분기", "variant": "exception" },
+    { "id": "output", "label": "렌더링 및 출력" }
+  ],
+  "phases": [
+    { "id": "configure", "label": "설정", "fromCol": 0, "toCol": 1 },
+    { "id": "simulate", "label": "롤아웃", "fromCol": 2, "toCol": 4, "variant": "emphasis" },
+    { "id": "compose", "label": "영상 생성", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "independent_scenes", "label": "물리 장면을 분리 실행", "lane": "sim", "fromCol": 2, "toCol": 4, "variant": "security" }
+  ],
+  "mainPath": ["spec", "config", "runner", "rollout", "render"],
+  "nodes": [
+    {
+      "id": "spec",
+      "lane": "input",
+      "col": 0,
+      "type": "external",
+      "label": "compare_designs.json",
+      "width": 160
+    },
+    {
+      "id": "trajectory",
+      "lane": "input",
+      "col": 1,
+      "type": "external",
+      "label": "UMI 목표 궤적",
+      "width": 160
+    },
+    {
+      "id": "config",
+      "lane": "input",
+      "col": 2,
+      "type": "backend",
+      "label": "Hydra 설정",
+      "width": 160
+    },
+    {
+      "id": "runner",
+      "lane": "sim",
+      "col": 2,
+      "type": "backend",
+      "label": "TT TrackEnv 러너",
+      "tag": "no training",
+      "width": 160
+    },
+    {
+      "id": "expert",
+      "lane": "sim",
+      "col": 3,
+      "type": "cloud",
+      "label": "선택별 expert 정책",
+      "width": 160
+    },
+    {
+      "id": "rollout",
+      "lane": "sim",
+      "col": 4,
+      "type": "backend",
+      "label": "독립 롤아웃",
+      "width": 160
+    },
+    {
+      "id": "render",
+      "lane": "output",
+      "col": 5,
+      "type": "frontend",
+      "label": "tt_vs_rl_sim.mp4",
+      "tag": "final artifact",
+      "width": 160
+    },
+    {
+      "id": "scope",
+      "lane": "input",
+      "col": 4,
+      "type": "security",
+      "label": "연구 범위 경계",
+      "tag": "important",
+      "width": 160
+    }
+  ],
+  "edges": [
+    { "id": "e_spec_config", "from": "spec", "to": "config", "label": "choice·seed 로드", "variant": "default" },
+    { "id": "e_traj_config", "from": "trajectory", "to": "config", "label": "궤적 인덱스 선택", "variant": "default" },
+    { "id": "e_config_runner", "from": "config", "to": "runner", "label": "러너 구성", "variant": "default" },
+    { "id": "e_spec_runner", "from": "spec", "to": "runner", "label": "choice·hardware seed 연결", "variant": "emphasis" },
+    { "id": "e_runner_expert", "from": "runner", "to": "expert", "label": "expert checkpoint 지정", "variant": "default" },
+    { "id": "e_runner_rollout", "from": "runner", "to": "rollout", "label": "두 분기 실행", "variant": "default" },
+    { "id": "e_expert_rollout", "from": "expert", "to": "rollout", "label": "default_policy → target_qpos", "variant": "emphasis" },
+    { "id": "e_rollout_render", "from": "rollout", "to": "render", "label": "렌더링 및 MP4 저장", "variant": "emphasis" },
+    { "id": "e_rollout_scope", "from": "rollout", "to": "scope", "label": "조작 추종 롤아웃", "variant": "security" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "실제로 비교하는 것",
+      "items": [
+        "TT와 RL은 compare_designs.json에서 미리 선택된 형상이다.",
+        "각 분기는 자신의 choice별 조작 expert를 사용한다.",
+        "두 MuJoCo 세계는 독립 실행되며 이미지만 합성한다."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "연구 범위",
+      "items": [
+        "UMI 목표는 그리퍼 조작 궤적이다.",
+        "이 스크립트는 pi_phi나 pi_theta를 학습하지 않는다.",
+        "이 영상은 전진 보행 공진화의 증거가 아니다."
+      ]
+    }
+  ]
+}

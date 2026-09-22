@@ -56,7 +56,7 @@
     },
     {
       "id": "steer",
-      "label": "Steer last 10 of 100 steps",
+      "label": "Guidance: DSG every step; RL final 10",
       "fromCol": 2,
       "toCol": 2,
       "variant": "emphasis"
@@ -234,10 +234,10 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "Only one thing differs",
+      "title": "Guidance differs",
       "items": [
         "Prior, sampler, evaluator, metrics and seeds are identical",
-        "TT differentiates its predicted reward; RL learns the nudge from outcomes"
+        "TT uses reward gradients at every step; RL uses learned residuals in the final 10"
       ]
     },
     {

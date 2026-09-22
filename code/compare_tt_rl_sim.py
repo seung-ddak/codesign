@@ -1,12 +1,13 @@
-"""TT 형상 + 그 expert 와 RL 형상 + 그 expert 를 **한 화면**에서 나란히 굴린다.
+"""TT-form and RL-form comparison rendered side by side.
 
-물리는 각자 독립으로 돌린다 (한 물리 씬에 둘을 넣으면 서로 충돌·간섭해서 비교가 깨진다).
-렌더링만 합쳐서, 같은 고정 카메라·같은 출발선·같은 궤적으로 보여준다. 깊이 합성이라
-가림 관계도 맞다.
+This is a comparison/debug script only. The main coevolution training remains
+untouched. To isolate morphology-generation effects from the forward-running RL
+reward, the default comparison objective is the TT tracking reward rather than
+any forward-locomotion reward.
 
   TT : choices 00010000 seed 5563   RL : choices 00011001 seed 1298   (둘 다 traj 9 의 최고 실측)
 
-  .venv/bin/python tt_codesign/code/compare_tt_rl_sim.py --traj 9
+  .venv/bin/python code/compare_tt_rl_sim.py --traj 9 --reward-fn tracking_only
 """
 
 import argparse
@@ -25,8 +26,9 @@ from hydra import compose, initialize_config_dir
 from omegaconf import OmegaConf
 from PIL import Image, ImageDraw, ImageFont
 
-TT = "/mnt/gstore/home/xiangyue/RL/transformer-transformer"
-OUT = "/mnt/gstore/home/xiangyue/RL/tt_codesign/results"
+ROOT = "/home/cgr-ugrad-2026/quad_ws/codesign"
+TT = "/home/cgr-ugrad-2026/quad_ws/transformer-transformer"
+OUT = os.path.join(ROOT, "results")
 os.chdir(TT)
 
 from t2.env.track_env import TrackEnv
@@ -38,13 +40,14 @@ COLORS = {"TT": (0.20, 0.72, 0.85), "RL": (0.98, 0.55, 0.15)}
 Y_OFFSET = {"TT": 0.45, "RL": -0.45}
 
 
-def build_runner(choices, expert_ckpt, traj_idx, pkl):
+def build_runner(choices, expert_ckpt, traj_idx, pkl, reward_fn="tracking_only"):
     with initialize_config_dir(config_dir=f"{TT}/config", version_base="1.3"):
         cfg = compose(
             config_name="evaluate_hardware_opt_rl",
             overrides=[
                 "ckpt_path=checkpoints/umi_on_legs_plus_plus/xrh4wk4l/040.pt",
                 f"pickle_path={pkl}",
+                f"reward_fns@eval_fn.hardware_optimizer_fn.reward_fns={reward_fn}",
             ],
         )
     rc = cfg.eval_fn.runner
@@ -95,7 +98,10 @@ def main():
     p.add_argument("--traj", type=int, default=9)
     p.add_argument("--steps", type=int, default=380)
     p.add_argument("--every", type=int, default=2)
-    p.add_argument("--designs", default=f"{OUT}/compare_designs.json")
+    p.add_argument("--reward-fn", type=str, default="tracking_only",
+                   help="TT comparison objective; default is the TT tracking reward. "
+                        "Set to a different reward to isolate the effect of the RL objective.")
+    p.add_argument("--designs", default=os.path.join(OUT, "compare_designs.json"))
     p.add_argument("--out-name", default="tt_vs_rl_sim")
     p.add_argument("--pkl", default="data/july25th2025-huy-20skills-test.pkl",
                    help="data/flat_walk_long.pkl 로 바꾸면 직선 전진 보행 task")
@@ -107,7 +113,7 @@ def main():
         s = spec[tag]
         print(f"[{tag}] choices {s['choices']} seed {s['seed']} expert {s['expert'][:60]}...",
               flush=True)
-        runner = build_runner(s["choices"], s["expert"], args.traj, args.pkl)
+        runner = build_runner(s["choices"], s["expert"], args.traj, args.pkl, reward_fn=args.reward_fn)
         env, q = rollout(runner, s["seed"], args.traj, args.steps)
         print(f"[{tag}] {len(q)} step, base x {q[0][0]:.3f} -> {q[-1][0]:.3f}", flush=True)
         runs[tag], models[tag], datas[tag] = runner, env.m, env.d

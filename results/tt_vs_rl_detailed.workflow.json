@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "TT vs RL — 형상 생성과 비교 실험",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "shared", "label": "형상 생성 루프와 공통 평가" }
+  ],
+  "mainPath": ["input", "transformer", "rl_guidance", "sampler", "design", "expert_eval"],
+  "nodes": [
+    { "id": "input", "lane": "shared", "col": 0, "type": "external", "label": "UMI 궤적 + 노이즈", "sublabel": "목표 추종 조건", "width": 145 },
+    { "id": "transformer", "lane": "shared", "col": 1, "type": "backend", "label": "고정 TT transformer", "sublabel": "현재 토큰 xₜ 입력", "width": 145 },
+    { "id": "tt_guidance", "lane": "shared", "col": 2, "type": "backend", "label": "TT · DSG", "sublabel": "매 step reward gradient", "width": 145, "yOffset": -55 },
+    { "id": "rl_guidance", "lane": "shared", "col": 2, "type": "backend", "label": "RL · πφ", "sublabel": "마지막 10 step residual", "width": 145, "yOffset": 55 },
+    { "id": "sampler", "lane": "shared", "col": 3, "type": "backend", "label": "공통 sampler", "sublabel": "xₜ → xₜ₋₁", "width": 145 },
+    { "id": "design", "lane": "shared", "col": 4, "type": "database", "label": "완성된 형상", "sublabel": "100 step 후 choice·seed", "width": 145 },
+    { "id": "expert_eval", "lane": "shared", "col": 5, "type": "backend", "label": "형상별 RL expert", "sublabel": "UMI tracking 평가", "width": 145 }
+  ],
+  "edges": [
+    { "from": "input", "to": "transformer", "label": "초기 xₜ" },
+    { "from": "transformer", "to": "tt_guidance", "label": "TT 선택", "role": "branch" },
+    { "from": "transformer", "to": "rl_guidance", "label": "RL 선택", "role": "branch" },
+    { "from": "tt_guidance", "to": "sampler", "label": "DSG 보정" },
+    { "from": "rl_guidance", "to": "sampler", "label": "πφ 보정" },
+    { "from": "sampler", "to": "transformer", "label": "다음 denoising step · 반복", "role": "return", "variant": "emphasis" },
+    { "from": "sampler", "to": "design", "label": "100 step 완료" },
+    { "from": "design", "to": "expert_eval", "label": "같은 seed·평가 지표" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "반복과 평가", "items": ["sampler의 토큰을 TT transformer에 다시 넣어 100 step 반복", "TT DSG는 매 step, 이 구현의 RL residual은 마지막 10 step", "expert 평가 결과는 이 비교 실행에서 prior를 재학습시키지 않음"] }
+  ]
+}

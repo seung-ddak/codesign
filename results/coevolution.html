@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="generator" content="archify 2.17.0-dev.1">
-  <title>Learned Guidance for Robot Co-Design — Progress Diagram</title>
+  <title>형상·보행 정책 공진화: 학습 순서 Diagram</title>
   <script>
     // Resolve the theme before first paint so light-preference users don't
     // see a dark flash. The toolbar script below re-applies with UI state.
@@ -5081,11 +5081,11 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
            data-preset-badge-blueprint="BLUEPRINT / REV 01"
            data-preset-badge-editorial="EDITORIAL / FIELD NOTE">
         <div class="pulse-dot"></div>
-        <h1>Learned Guidance for Robot Co-Design — Progress</h1>
+        <h1>형상·보행 정책 공진화: 학습 순서</h1>
       </div>
     </div>
 
-    <script id="archify-guided-views-data" type="application/json">[{"id":"reproduced","label":"What works","focus":["assets","tt_row","rl_row","verdict"],"note":"The paper's numbers were reproduced, and swapping the gradient for a learned policy still yields valid designs."},{"id":"diagnosis","label":"Why the verdict is held","focus":["pf1","pf2","effect","verdict"],"note":"Two training attempts failed. The cause was the operating point, not the method — the paper's own guidance has no effect there."},{"id":"rebuild","label":"Reward rebuilt","focus":["reward_old","reward_new","pi_theta"],"note":"The controller-training reward was wrongly used to score morphologies. Replaced with an outcome-based one."}]</script>
+    <script id="archify-guided-views-data" type="application/json">[]</script>
 
     <script id="archify-i18n-data" type="application/json">{"locale":"en","messages":{"viewer.kind.frontend":"Frontend","viewer.kind.backend":"Backend","viewer.kind.database":"Database","viewer.kind.cloud":"Cloud","viewer.kind.security":"Security","viewer.kind.messagebus":"Message bus","viewer.kind.external":"External","viewer.kind.neutral":"Neutral","viewer.kind.node":"Node","viewer.kind.start":"Start","viewer.kind.active":"Active","viewer.kind.waiting":"Waiting","viewer.kind.decision":"Decision","viewer.kind.success":"Success","viewer.kind.failure":"Failure","viewer.toolbar.actions":"Diagram actions","viewer.theme.toggle.title":"Toggle theme (T)","viewer.theme.toggle":"Toggle color theme","viewer.theme.dark":"Dark","viewer.theme.light":"Light","viewer.preset.choose.title":"Choose visual style (S cycles)","viewer.preset.choose":"Choose visual style","viewer.preset.style":"Style","viewer.preset.menu":"Visual style","viewer.preset.identity":"Visual identity","viewer.preset.cycles":"S cycles","viewer.preset.classic":"Classic","viewer.preset.classic.short":"Classic","viewer.preset.classic.hint":"Stable technical default","viewer.preset.flow":"Signal Flow","viewer.preset.flow.short":"Flow","viewer.preset.flow.hint":"Motion-forward presentation","viewer.preset.blueprint":"Blueprint","viewer.preset.blueprint.hint":"Engineering review","viewer.preset.editorial":"Editorial","viewer.preset.editorial.hint":"Publication and launch notes","viewer.preset.badge.signalFlow":"SIGNAL FLOW","viewer.preset.badge.blueprint":"BLUEPRINT / REV 01","viewer.preset.badge.editorial":"EDITORIAL / FIELD NOTE","viewer.preset.badge.editorialPlate":"ARCHIFY / PLATE 04","viewer.preset.current":"Visual style: {style}. Choose visual style","viewer.motion.live":"Live","viewer.motion.still":"Still","viewer.motion.pause":"Pause motion","viewer.motion.resume":"Resume motion","viewer.motion.reduced":"Motion paused by reduced-motion preference","viewer.motion.hidden":"Motion paused while this page is hidden","viewer.motion.yielding":"Pause motion; currently yielding to {owner}","viewer.motion.yielding.title":"Live preview enabled · yielding to {owner}","viewer.owner.story":"the guided story","viewer.owner.chapter":"the active chapter","viewer.owner.chapterPreview":"the chapter delta preview","viewer.owner.handoff":"the chapter handoff","viewer.owner.route":"Route Probe","viewer.owner.lens":"Semantic Lens","viewer.owner.relationship":"Relationship Preview","viewer.owner.intent":"Intent Trace","viewer.owner.focus":"semantic focus","viewer.owner.legend":"legend preview","viewer.owner.reader":"reader interaction","viewer.present.enter":"Enter presentation stage","viewer.present.enter.title":"Presentation stage (F)","viewer.present.exit":"Exit presentation stage","viewer.present.exit.title":"Exit presentation stage (F or Escape)","viewer.present.present":"Present","viewer.present.exit.label":"Exit","viewer.export.button":"Export","viewer.export.button.title":"Export diagram (E)","viewer.export.diagram":"Export diagram","viewer.export.menu":"Export","viewer.export.subtitle":"Portable, clean outputs","viewer.export.share":"Share","viewer.export.shareCard":"Share Card","viewer.export.routeShareCard":"Route Share Card","viewer.export.reachShareCard":"Reach Share Card","viewer.export.copyShareCard":"Copy Share Card","viewer.export.copyDiagram":"Copy diagram","viewer.export.clipboardPng":"PNG to clipboard","viewer.export.raster":"Raster images","viewer.export.image":"Image","viewer.export.lossless":"Lossless image","viewer.export.compact":"Compact image","viewer.export.modern":"Modern image","viewer.export.vectorMotion":"Vector and motion","viewer.export.vectorMotion.heading":"Vector \u0026 motion","viewer.export.editable":"Editable vector","viewer.export.motion6s":"6s motion","viewer.export.unsupported":"Not supported by this browser","viewer.export.clipboardUnsupported":"Clipboard image write not supported by this browser","viewer.export.clipboardUnsupported.period":"Clipboard image write not supported by this browser.","viewer.export.clipboardUnsupported.short":"Clipboard image write not supported in this browser.","viewer.export.motionUnavailable":"Motion capture unavailable in this browser","viewer.export.webmUnavailable":"WebM unavailable in this browser","viewer.export.failed":"Export failed: {message}","viewer.export.unknownVariant":"Unknown Share Card variant: {variant}","viewer.export.routeRequired":"Trace a route before exporting a Route Share Card","viewer.export.reachRequired":"Trace authored reach before exporting a Reach Share Card","viewer.export.unknown":"unknown","viewer.export.routeFailed":"Route Share Card export failed: {message}","viewer.export.reachFailed":"Reach Share Card export failed: {message}","viewer.export.copyFailed":"Copy failed: {message}","viewer.export.copiedPng":"Copied PNG to clipboard","viewer.export.copiedShare":"Copied Share Card","viewer.export.downloadedShare":"Downloaded Share Card","viewer.export.downloadedRoute":"Downloaded Route Share Card","viewer.export.downloadedReach":"Downloaded Reach Share Card","viewer.export.downloadedWebm":"Downloaded WebM","viewer.export.recording":"Recording 6 seconds of motion…","viewer.export.card.routeSummary.one":"Route: {source} → {target} · {count} directed hop","viewer.export.card.routeSummary.other":"Route: {source} → {target} · {count} directed hops","viewer.export.card.reachSummary":"Authored {direction} from {origin} · {nodes} · {links} · max {hops}","viewer.export.card.node.one":"{count} node","viewer.export.card.node.other":"{count} nodes","viewer.export.card.link.one":"{count} link","viewer.export.card.link.other":"{count} links","viewer.export.card.hop.one":"{count} hop","viewer.export.card.hop.other":"{count} hops","viewer.export.card.routeBadge":"ARCHIFY · ROUTE · {hops}","viewer.export.card.reachBadge":"ARCHIFY · {direction} REACH","viewer.export.card.defaultBadge":"ARCHIFY · {preset} · {theme}","viewer.export.direction.upstream":"Upstream","viewer.export.direction.downstream":"Downstream","viewer.export.error.canvasUnavailable":"Canvas unavailable for {label}","viewer.export.error.contextUnavailable":"2D canvas context unavailable for {label}","viewer.export.error.toBlobUnavailable":"canvas.toBlob unavailable for {label}","viewer.export.error.toBlobNull":"canvas.toBlob returned no data for {label}","viewer.export.error.variantsCombined":"Share Card variants cannot be combined","viewer.export.error.viewerState":"Share Card export could not remove temporary viewer state","viewer.export.error.routeState":"Route Card export could not preserve the resolved route safely","viewer.export.error.reachState":"Reach Card export could not preserve authored reach safely","viewer.export.error.webmRequirements":"WebM motion export requires a trace animation and browser MediaRecorder support","viewer.export.error.mediaRecorder":"MediaRecorder failed","viewer.export.error.emptyWebm":"MediaRecorder produced an empty WebM","viewer.export.error.webmBackground":"SVG background could not be loaded for WebM export","viewer.guided.region":"Guided diagram views","viewer.guided.previous":"Previous guided view","viewer.guided.previous.title":"Previous guided view ([)","viewer.guided.next":"Next guided view","viewer.guided.next.title":"Next guided view (])","viewer.guided.views":"Guided views","viewer.guided.explore":"Explore this system","viewer.guided.intro":"Step through curated paths without changing the source diagram.","viewer.guided.trail":"Story trail","viewer.guided.beat":"Beat","viewer.guided.nextBeat":"Next","viewer.guided.play":"Play guided story","viewer.guided.play.title":"Play guided story (P)","viewer.guided.pause":"Pause guided story","viewer.guided.pause.title":"Pause guided story (P)","viewer.guided.replay":"Replay guided story","viewer.guided.replay.title":"Replay guided story (P)","viewer.guided.playStory":"Play story","viewer.guided.pauseStory":"Pause","viewer.guided.replayStory":"Replay story","viewer.guided.motionUnavailable":"Story playback unavailable while motion is Still","viewer.guided.enableMotion":"Switch motion to Live to play the guided story","viewer.guided.selectBeatLink":"Select a Story Beat to copy its exact link","viewer.guided.copyMoment":"Copy moment","viewer.guided.momentCopied":"Moment link copied","viewer.guided.momentCopyFailed":"Could not copy story moment link","viewer.guided.copied":"Copied","viewer.guided.copyFailed":"Copy failed","viewer.guided.showAll":"Show all","viewer.guided.showAll.aria":"Show entire diagram","viewer.guided.chapters":"Story chapters","viewer.guided.storyTrail":"Story trail for {label}: {count} beats","viewer.guided.chapter.open":"Open chapter {index} of {total}: {label}, {count} stops","viewer.guided.chapter.current":"Current chapter {index} of {total}: {label}, {count} stops","viewer.guided.chapter.selectedNodes":"{count} selected nodes","viewer.guided.chapter.stops":"{count} stops","viewer.guided.chapter.stop.one":"{count} stop","viewer.guided.chapter.stop.other":"{count} stops","viewer.guided.chapter.current.title":"{label} — current chapter, {count} stops","viewer.guided.chapter.delta.expanded":"{stay} stay, {enter} enter, {leave} leave","viewer.guided.chapter.delta.aria":"Open chapter {index} of {total}: {label}. Chapter focus delta: {delta}","viewer.guided.chapter.delta.title":"{label} — {delta} chapter focus","viewer.guided.handoff":"{from} → {to} · via {label}","viewer.guided.share.chapter":"Chapter {index} / {total}","viewer.guided.share.initial":"Chapter 01 / 01","viewer.guided.share.default":"Guided chapter","viewer.guided.state.ready":"Ready","viewer.guided.state.playing":"Playing","viewer.guided.state.settled":"Settled","viewer.guided.state.paused":"Paused","viewer.guided.state.pinned":"Pinned","viewer.guided.state.still":"Still","viewer.guided.share.step":"Step {index} / {total} · {label}","viewer.guided.share.staticMoment":"{step} · Static moment","viewer.guided.share.complete":"{count} steps complete · {note}","viewer.guided.share.settled":"Path settled for reading.","viewer.guided.share.staticPath":"{count} steps · Static path","viewer.guided.share.ready":"{count} steps · Ready","viewer.guided.share.aria":"{state} chapter {index} of {total}: {label}. {beat}. {route}","viewer.guided.beat.start":"Beat {index} / {total} · {label} · starting point","viewer.guided.beat.forward":"Beat {index} / {total} · {from} → {to}","viewer.guided.beat.reverse":"Beat {index} / {total} · {from} → {to} · reverse authored link","viewer.guided.beat.multiple":"Beat {index} / {total} · {from} ⇄ {to} · {count} authored links","viewer.guided.beat.group":"Beat {index} / {total} · {from} · {to} · grouped · no direct link","viewer.guided.beat.aria.prefix":"Story beat {index} of {total}: {label}. ","viewer.guided.beat.aria.start":"Starting point.","viewer.guided.beat.aria.forward":"From {from} through one authored forward relationship.","viewer.guided.beat.aria.reverse":"From {from}; the authored relationship points from {to} to {from}.","viewer.guided.beat.aria.multiple":"From {from} through {count} authored relationships; shown without arbitrary motion.","viewer.guided.beat.aria.group":"Grouped from {from} with no direct authored relationship.","viewer.guided.caption.start":"Starting point","viewer.guided.caption.grouped":"Grouped transition · no direct authored link","viewer.guided.caption.more":" +{count} more","viewer.guided.caption.reverse":"Reverse authored relationship","viewer.guided.caption.relationships":"{count} authored relationships","viewer.guided.caption.relationship":"Authored relationship","viewer.guided.caption.direction":"authored direction: {from} → {to}","viewer.guided.caption.starting":"Authored starting point","viewer.guided.beatLink":"Copy link to current story moment: Beat {index} of {total}: {label}","viewer.guided.noStory":"This diagram has no authored guided story.","viewer.guide.eyebrow":"Diagram guide","viewer.guide.close":"Close diagram guide","viewer.guide.inspecting":"Inspecting compiled semantics","viewer.guide.actions":"Diagram exploration actions","viewer.guide.find":"Find any node","viewer.guide.find.hint":"Search labels, responsibilities, kinds, and stable IDs.","viewer.guide.route":"Trace a route","viewer.guide.route.aria":"Trace a directed route","viewer.guide.route.hint":"Ask how two semantic nodes connect in authored direction.","viewer.guide.map":"See the whole system","viewer.guide.map.hint":"Open Semantic Radar with a live viewport and stable nodes.","viewer.guide.lens":"Compare semantic kinds","viewer.guide.lens.hint":"Count roles, reveal their traffic, and compare direct authored links.","viewer.guide.story":"Play the guided story","viewer.guide.story.hint":"Walk the authored chapters and real relationships.","viewer.guide.present":"Enter Presentation Stage","viewer.guide.present.hint":"Give the live diagram the viewport without changing export.","viewer.guide.shortcuts":"Additional keyboard shortcuts","viewer.guide.shortcut.export":"Export","viewer.guide.shortcut.theme":"Theme","viewer.guide.shortcut.style":"Style","viewer.guide.shortcut.reset":"Reset","viewer.guide.shortcut.zoomIn":"Zoom in","viewer.guide.shortcut.zoomOut":"Zoom out","viewer.guide.shortcut.close":"Close","viewer.guide.facts":"{nodes} · {relationships} · {views}","viewer.guide.fact.node.one":"{count} semantic node","viewer.guide.fact.node.other":"{count} semantic nodes","viewer.guide.fact.relationship.one":"{count} relationship","viewer.guide.fact.relationship.other":"{count} relationships","viewer.guide.fact.view.one":"{count} guided view","viewer.guide.fact.view.other":"{count} guided views","viewer.guide.story.available.one":"Walk {count} authored chapter and its real relationships.","viewer.guide.story.available.other":"Walk {count} authored chapters and their real relationships.","viewer.guide.story.unavailable":"No authored guided story in this diagram.","viewer.guide.open":"Open diagram guide","viewer.guide.noStory":"This diagram has no authored guided story.","viewer.finder.title":"Find a node","viewer.finder.close":"Close node finder","viewer.finder.placeholder":"Search labels or IDs","viewer.finder.search":"Search diagram nodes","viewer.finder.results":"Diagram nodes","viewer.finder.empty":"No matching nodes","viewer.finder.result.focus":"Focus {label}","viewer.finder.result.routeStart":"Choose {label} as route start","viewer.finder.result.routeTarget":"Choose {label} as route destination, {links}","viewer.finder.status.empty":"No matching nodes","viewer.finder.status.count.one":"{count} matching node","viewer.finder.status.count.other":"{count} matching nodes","viewer.finder.noun.nodes":"nodes","viewer.finder.link.one":"{count} link","viewer.finder.link.other":"{count} links","viewer.finder.result.focus.one":"Focus {label}, {count} related connection","viewer.finder.result.focus.other":"Focus {label}, {count} related connections","viewer.finder.status.filtered":"{visible} of {available} {noun}","viewer.finder.status.all":"{available} {noun}","viewer.passport.eyebrow":"Semantic passport","viewer.passport.metadata":"Node metadata","viewer.passport.evidence":"Verified source evidence","viewer.passport.verified":"Verified source","viewer.passport.verificationScope":"Verified against local Git at the pinned revision. Remote access has not been checked.","viewer.passport.reach":"Authored reach","viewer.passport.reach.trace":"Trace authored reachability","viewer.passport.upstream":"Upstream","viewer.passport.downstream":"Downstream","viewer.passport.upstream.trace":"Trace upstream authored reachability","viewer.passport.downstream.trace":"Trace downstream authored reachability","viewer.passport.close":"Close semantic passport","viewer.passport.copy":"Copy link","viewer.passport.copy.focus":"Copy link to focused node","viewer.passport.relations":"Relations","viewer.passport.relations.show":"Show connected relationships","viewer.passport.relations.hide":"Hide connected relationships","viewer.passport.relations.list":"Connected relationships","viewer.passport.copyRelation":"Copy relation","viewer.passport.copyNode":"Copy node","viewer.passport.copyPinned":"Copy link to pinned relationship","viewer.passport.copySource":"Copy link to source node","viewer.passport.copy.focused.success":"Focused node link copied","viewer.passport.copy.pinned.success":"Pinned relationship link copied","viewer.passport.copy.focused.failed":"Could not copy focused node link","viewer.passport.copy.pinned.failed":"Could not copy pinned relationship link","viewer.passport.relationship.none":"No connected relationships","viewer.passport.relationship.count.one":"{count} relation","viewer.passport.relationship.count.other":"{count} relations","viewer.passport.relationship.show.one":"Show {count} connected relationship","viewer.passport.relationship.show.other":"Show {count} connected relationships","viewer.passport.relationship.summary":"{out} outgoing · {in} incoming{loops}","viewer.passport.relationship.loops":" · {count} loop","viewer.passport.relationship.explorer":"Direct relationship explorer","viewer.passport.relationship.help":"Use arrow keys to explore relationships. Press Enter or Space to pin details; Escape clears.","viewer.passport.relationship.loopsBack":"loops back","viewer.passport.relationship.connectsTo":"connects to","viewer.passport.relationship.connectsFrom":"connects from","viewer.passport.relationship.pinned":"Pinned relationship · {from} → {to} · {label}","viewer.passport.relationship.inspect":"Inspect relationship {index} of {total}: {from} to {to}, {label}. Press Enter for details.","viewer.passport.relationship.group.out":"Outgoing","viewer.passport.relationship.group.in":"Incoming","viewer.passport.relationship.group.loop":"Self loops","viewer.passport.relationship.row":"{group}: {relationship}, {neighbor}","viewer.passport.relationship.direction.out":"OUT →","viewer.passport.relationship.direction.in":"← IN","viewer.passport.relationship.direction.loop":"LOOP","viewer.passport.sourceCount.one":"{count} verified source reference","viewer.passport.sourceCount.other":"{count} verified source references","viewer.passport.sourceMarker":"SRC","viewer.passport.beacon.one":"{count} verified source; focus this node to inspect","viewer.passport.beacon.other":"{count} verified sources; focus this node to inspect","viewer.passport.repository.open":"Open verified repository revision {revision}","viewer.passport.source.open":"Open verified source {path} at revision {revision}","viewer.passport.source.openLink":"Open ↗","viewer.passport.reach.upstream.one":"Trace {count} upstream authored node","viewer.passport.reach.upstream.other":"Trace {count} upstream authored nodes","viewer.passport.reach.downstream.one":"Trace {count} downstream authored node","viewer.passport.reach.downstream.other":"Trace {count} downstream authored nodes","viewer.passport.reach.noUpstream":"No upstream authored nodes","viewer.passport.reach.noDownstream":"No downstream authored nodes","viewer.passport.reach.status":"{direction} · {nodes} nodes · {links} links · max {hops} hops","viewer.route.eyebrow":"Route probe","viewer.route.start":"Choose a start node","viewer.route.start.find":"Find start","viewer.route.start.find.aria":"Find a route start","viewer.route.copy":"Copy link","viewer.route.copy.aria":"Copy link to traced route","viewer.route.clear":"Clear","viewer.route.clear.aria":"Clear route probe","viewer.route.traced":"Traced route","viewer.route.pickTwo":"Pick two semantic nodes on the diagram","viewer.route.pickOne":"Pick a semantic node on the diagram","viewer.route.controls":"Route journey controls","viewer.route.previous":"Previous route position","viewer.route.play":"Play route journey","viewer.route.pause":"Pause route journey","viewer.route.replay":"Replay route journey","viewer.route.next":"Next route position","viewer.route.journey":"Journey","viewer.route.pause.label":"Pause","viewer.route.replay.label":"Replay","viewer.route.overview":"Overview","viewer.route.overview.aria":"Show complete route overview","viewer.route.instructions":"Choose the source, then the destination. Direction matters.","viewer.route.destination":"Choose a destination from {label}","viewer.route.destination.find":"Find target","viewer.route.destination.find.aria":"Find a reachable route destination","viewer.route.differentDestination":"Choose a different destination","viewer.route.distinct":"A route needs two distinct semantic nodes.","viewer.route.unreachable":"No directed route to {label}","viewer.route.unreachable.detail":"{target} is not reachable from {source}. Pick a highlighted destination.","viewer.route.start.instructions":"Select the source. The next step will reveal only directed destinations.","viewer.route.copy.success":"Traced route link copied","viewer.route.copy.failed":"Could not copy traced route link","viewer.route.position":"Route position {index} of {total}: {label}","viewer.route.step":"Step {index} of {total} · {phase} · {label}","viewer.route.motionRequired":"Automatic journey requires Live motion","viewer.route.trigger.clear":"Clear traced route","viewer.route.overview.status":"{nodes} · {hops} · shortest authored route","viewer.route.overview.node.one":"{count} node","viewer.route.overview.node.other":"{count} nodes","viewer.route.overview.hop.one":"{count} directed hop","viewer.route.overview.hop.other":"{count} directed hops","viewer.route.phase.playing":"Playing","viewer.route.phase.complete":"Complete","viewer.route.phase.inspecting":"Inspecting","viewer.route.destination.count.one":"{count} directed destination available. Pick a highlighted node.","viewer.route.destination.count.other":"{count} directed destinations available. Pick a highlighted node.","viewer.route.noOutgoing":"No outgoing route starts here. Clear and choose another source.","viewer.route.result.title":"{source} to {target}","viewer.route.finder.source.title":"Choose route start","viewer.route.finder.source.placeholder":"Search route sources","viewer.route.finder.source.empty":"No matching route sources","viewer.route.finder.source.results":"Nodes that can start a route","viewer.route.finder.source.noun":"route sources","viewer.route.finder.source.badge":"start","viewer.route.finder.target.title":"Destination from {label}","viewer.route.finder.target.placeholder":"Search reachable destinations","viewer.route.finder.target.empty":"No matching reachable destinations","viewer.route.finder.target.results":"Reachable route destinations","viewer.route.finder.target.noun":"reachable destinations","viewer.route.hop.one":"{count} hop","viewer.route.hop.other":"{count} hops","viewer.lens.eyebrow":"Semantic lens","viewer.lens.title":"Compare system roles","viewer.lens.close":"Close semantic lens","viewer.lens.instruction":"Choose up to two semantic kinds. One reveals its real traffic; two compare only direct authored relationships.","viewer.lens.kinds":"Semantic kinds","viewer.lens.choose":"Choose a kind to inspect its nodes and touching relationships.","viewer.lens.copy":"Copy link to semantic lens","viewer.lens.clear":"Clear semantic lens","viewer.lens.open":"Open semantic lens","viewer.lens.openActive":"Open active semantic lens","viewer.lens.legend":"Semantic legend","viewer.lens.legend.inspect.one":"Inspect {label}, {count} node","viewer.lens.legend.inspect.other":"Inspect {label}, {count} nodes","viewer.lens.kind.count.one":"{label}, {count} node","viewer.lens.kind.count.other":"{label}, {count} nodes","viewer.lens.compare.one":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationship","viewer.lens.compare.other":"{first} → {second}: {forward} · {second} → {first}: {reverse} · {count} direct relationships","viewer.lens.single":"{nodes} · {relationships} · connected peers remain visible","viewer.lens.node.one":"{count} {label} node","viewer.lens.node.other":"{count} {label} nodes","viewer.lens.relationship.one":"{count} touching relationship","viewer.lens.relationship.other":"{count} touching relationships","viewer.radar.title":"Semantic radar","viewer.radar.building":"Building overview","viewer.radar.openFull":"Open full semantic radar","viewer.radar.open":"Open radar","viewer.radar.close":"Close semantic radar","viewer.radar.surface":"Diagram overview. Click a node to focus it, or use arrow keys to pan.","viewer.radar.click":"Click node","viewer.radar.drag":"Drag to pan","viewer.radar.space":"Semantic radar needs more MAP space.","viewer.radar.nodes":"Semantic diagram radar nodes","viewer.radar.focus":"Focus {label} from Semantic Radar","viewer.radar.status":"{count} nodes · {viewport}","viewer.radar.fullMap":"{count} nodes · full map","viewer.radar.compacted":"Radar compacted to avoid covering the Semantic Passport or MAP controls.","viewer.radar.cancelWaiting":"Cancel semantic radar waiting for more MAP space","viewer.radar.needsSpace":"Semantic radar needs more visible MAP space","viewer.radar.viewport.full":"full map","viewer.radar.viewport.width":"{percent}% width","viewer.radar.viewport.scale":"{percent}% viewport","viewer.nav.controls":"Diagram view controls","viewer.nav.route":"Trace a directed route","viewer.nav.route.title":"Trace route (R)","viewer.nav.route.short":"PATH","viewer.nav.radar":"Open semantic radar","viewer.nav.radar.title":"Semantic radar (M)","viewer.nav.radar.short":"MAP","viewer.nav.lens":"Open semantic lens","viewer.nav.lens.title":"Semantic lens (L)","viewer.nav.lens.short":"LENS","viewer.nav.find":"Find a node","viewer.nav.find.title":"Find a node (/)","viewer.nav.guide":"Open diagram guide","viewer.nav.guide.title":"Diagram guide (?)","viewer.nav.zoomOut":"Zoom out","viewer.nav.zoomOut.title":"Zoom out (-)","viewer.nav.reset":"Reset diagram view","viewer.nav.reset.title":"Reset view (0)","viewer.nav.read":"READ","viewer.nav.zoomIn":"Zoom in","viewer.nav.zoomIn.title":"Zoom in (+)","viewer.nav.camera":"{hint}. Reset diagram view","viewer.nav.camera.title":"{semantic}{hint} · reset view (0)","viewer.nav.camera.semantic":"Semantic camera active · ","viewer.nav.level.map":"MAP","viewer.nav.level.read":"READ","viewer.nav.level.full":"FULL","viewer.nav.level.auto":"AUTO","viewer.nav.detail.map":"Zoom in to reveal relationship labels and node context","viewer.nav.detail.read":"Zoom in again to reveal tags and annotations","viewer.nav.detail.full":"Full diagram detail","viewer.intent.summary":"{label}. {out} outgoing, {in} incoming{loops}. {total} connections. Press Enter for details.","viewer.intent.loops":", {count} self loop","viewer.common.copied":"Copied","viewer.common.copyFailed":"Copy failed","viewer.common.copyLink":"Copy link","viewer.common.clear":"Clear","viewer.common.close":"Close"}}</script>
     <div class="guided-views no-print" id="guided-views" hidden aria-label="Guided diagram views">
@@ -5130,8 +5130,8 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     <!-- Main Diagram -->
     <div class="diagram-container" data-detail-level="read"
          data-preset-badge-editorial-plate="ARCHIFY / PLATE 04">
-      <svg viewBox="0 0 1089 550" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
-        <title id="archify-diagram-title">Learned Guidance for Robot Co-Design — Progress</title>
+      <svg viewBox="0 0 1219 528" role="img" lang="en" aria-labelledby="archify-diagram-title archify-diagram-description" data-preset="classic" data-quality-profile="showcase">
+        <title id="archify-diagram-title">형상·보행 정책 공진화: 학습 순서</title>
         <desc id="archify-diagram-description">A workflow diagram generated by Archify.</desc>
         <!-- Definitions -->
         <defs>
@@ -5156,232 +5156,171 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         <rect width="100%" height="100%" fill="url(#grid)" />
 
         <!-- Swimlanes -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="1021" height="114" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="74" class="t-dim" font-size="10" font-weight="600">01 / Stage 1 · Can RL replace the gradient?  (motion tracking)</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-0" x="40" y="52" width="1163" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="74" class="t-dim" font-size="10" font-weight="600">01 / 형상 생성 · TT 고정</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="186" width="1021" height="114" rx="10" class="c-lane" stroke-width="1"/>
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="exception-lane" data-composition-frame-id="lane-1-exception" x="46" y="192" width="1009" height="102" rx="8" class="c-security-group" stroke-width="1"/>
-        <text x="54" y="208" class="t-security" font-size="10" font-weight="600">EX / Diagnosis · two failed attempts</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-1" x="40" y="176" width="1163" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="198" class="t-dim" font-size="10" font-weight="600">02 / 공유 보행 정책 · πθ 학습</text>
 
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="320" width="1021" height="106" rx="10" class="c-lane" stroke-width="1"/>
-        <text x="54" y="342" class="t-dim" font-size="10" font-weight="600">03 / Stage 2 · Rewards the gradient cannot score  (forward walking)</text>
+        <rect data-graph-role="structural-frame" data-composition-frame-kind="lane" data-composition-frame-id="lane-2" x="40" y="300" width="1163" height="104" rx="10" class="c-lane" stroke-width="1"/>
+        <text x="54" y="322" class="t-dim" font-size="10" font-weight="600">03 / 평가·형상 정책 · Q와 πφ 학습</text>
 
         <!-- Phase headers -->
-        <line x1="68" y1="35" x2="160" y2="35" class="a-default" stroke-width="1.1"/>
-        <rect x="68" y="27" width="92" height="16" rx="4" class="c-mask"/>
-        <text x="114" y="39" class="t-muted" font-size="8" font-weight="600" text-anchor="middle">Setup</text>
-        <line x1="228" y1="35" x2="556.4" y2="35" class="a-emphasis" stroke-width="1.1"/>
-        <rect x="228" y="27" width="328.4" height="16" rx="4" class="c-mask"/>
-        <text x="392.2" y="39" class="t-backend" font-size="8" font-weight="600" text-anchor="middle">Reproduce, then swap</text>
-        <line x1="676.8" y1="35" x2="928.8" y2="35" class="a-dashed" stroke-width="1.1"/>
-        <rect x="676.8" y="27" width="252" height="16" rx="4" class="c-mask"/>
-        <text x="802.8" y="39" class="t-messagebus" font-size="8" font-weight="600" text-anchor="middle">Rebuild</text>
+
 
         <!-- Workflow groups -->
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-0" x="204" y="90" width="376.4" height="72" rx="9" class="c-lane" stroke-width="1"/>
-        <text x="214" y="88" class="t-backend" font-size="7" font-weight="600">Same protocol as the paper</text>
-        <rect data-graph-role="structural-frame" data-composition-frame-kind="group" data-composition-frame-id="group-1" x="204" y="224" width="376.4" height="72" rx="9" class="c-security-group" stroke-width="1"/>
-        <text x="214" y="222" class="t-security" font-size="7" font-weight="600">Guidance policy did not learn</text>
+
 
         <!-- Edge paths -->
-        <path data-edge-from="assets" data-edge-to="tt_row" data-edge-key="0" data-edge-id="e1" data-composition-points="180,127;208,127" d="M 180 127 L 208 127" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="reward_new" data-edge-to="pi_theta" data-edge-key="1" data-edge-id="e10" data-composition-points="788.8,388;816.8,388" d="M 788.8 388 L 816.8 388" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="tt_row" data-edge-to="rl_row" data-edge-label="gradient to policy" data-edge-key="2" data-edge-id="e2" data-composition-points="340,127;444.4,127" d="M 340 127 L 444.4 127" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
-        <path data-edge-from="rl_row" data-edge-to="verdict" data-edge-key="3" data-edge-id="e3" data-composition-points="576.4,127;656.8,127" d="M 576.4 127 L 656.8 127" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="tt_row" data-edge-to="pf1" data-edge-key="4" data-edge-id="e4" data-composition-points="274,161;274,177;20,177;20,261;208,261" d="M 274 161 L 274 177 L 20 177 L 20 261 L 208 261" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="pf1" data-edge-to="pf2" data-edge-label="change method" data-edge-key="5" data-edge-id="e5" data-composition-points="340,261;444.4,261" d="M 340 261 L 444.4 261" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="pf2" data-edge-to="effect" data-edge-label="why no signal" data-edge-key="6" data-edge-id="e6" data-composition-points="510.4,295;510.4,311;722.8,311;722.8,295" d="M 510.4 295 L 510.4 311 L 722.8 311 L 722.8 295" class="a-security" stroke-width="1.4" marker-end="url(#arrowhead-security)"/>
-        <path data-edge-from="effect" data-edge-to="verdict" data-edge-key="7" data-edge-id="e7" data-composition-points="722.8,227;722.8,153" d="M 722.8 227 L 722.8 153" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="effect" data-edge-to="reward_old" data-edge-key="8" data-edge-id="e8" data-composition-points="788.8,261;1073,261;1073,438;510.4,438;510.4,422" d="M 788.8 261 L 1073 261 L 1073 438 L 510.4 438 L 510.4 422" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
-        <path data-edge-from="reward_old" data-edge-to="reward_new" data-edge-label="outcome only" data-edge-key="9" data-edge-id="e9" data-composition-points="510.4,422;510.4,438;583.5999999999999,438;583.5999999999999,388;656.8,388" d="M 510.4 422 L 510.4 438 L 583.5999999999999 438 L 583.5999999999999 388 L 656.8 388" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="candidate_designs" data-edge-to="theta_ppo" data-edge-label="8개 형상 순차 PPO" data-edge-key="0" data-composition-points="784,119;800,119;800,166;721.5,166;721.5,217" d="M 784 119 L 800 119 L 800 166 L 721.5 166 L 721.5 217" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="ddim_sampler" data-edge-to="candidate_designs" data-edge-label="100 step 완료" data-edge-key="1" data-composition-points="578.6,119;659,119" d="M 578.6 119 L 659 119" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="ddim_sampler" data-edge-to="tt_prior" data-edge-label="다음 denoising step" data-edge-key="2" data-composition-points="516.1,145;516.1,172;105.5,172;105.5,145" d="M 516.1 145 L 516.1 172 L 105.5 172 L 105.5 145" class="a-dashed" stroke-width="1.4" marker-end="url(#arrowhead-dashed)"/>
+        <path data-edge-from="guidance_critic" data-edge-to="phi_guidance" data-edge-label="⑧ 다음 라운드" data-edge-key="3" data-composition-points="1132.3,341;1132.3,36;301.1,36;301.1,93" d="M 1132.3 341 L 1132.3 36 L 301.1 36 L 301.1 93" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
+        <path data-edge-from="guidance_critic" data-edge-to="round_checkpoint" data-edge-label="두 정책 저장" data-edge-key="4" data-composition-points="1132.3,393;1132.3,409;931.7,409;931.7,393" d="M 1132.3 393 L 1132.3 409 L 931.7 409 L 931.7 393" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="phi_guidance" data-edge-to="ddim_sampler" data-edge-label="residual action" data-edge-key="5" data-composition-points="301.1,93;301.1,77;516.1,77;516.1,93" d="M 301.1 93 L 301.1 77 L 516.1 77 L 516.1 93" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="theta_ppo" data-edge-to="walking_return" data-edge-label="최종 공유 정책" data-edge-key="6" data-composition-points="784,243;869.2,243" d="M 784 243 L 869.2 243" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="tt_prior" data-edge-to="phi_guidance" data-edge-label="생성 상태 xₜ" data-edge-key="7" data-composition-points="163,119;232.05,119;232.05,77;301.1,77;301.1,93" d="M 163 119 L 232.05 119 L 232.05 77 L 301.1 77 L 301.1 93" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
+        <path data-edge-from="walking_return" data-edge-to="guidance_critic" data-edge-label="후보별 9 seed 평균 return" data-edge-key="8" data-composition-points="931.7,269;931.7,290;1132.3,290;1132.3,341" d="M 931.7 269 L 931.7 290 L 1132.3 290 L 1132.3 341" class="a-default" stroke-width="1.4" marker-end="url(#arrowhead)"/>
 
         <!-- Nodes -->
-        <g id="node-assets" data-node-id="assets" data-node-label="Released assets" tabindex="0" role="button" aria-label="Focus Released assets, 128 RL experts, Stage 1 · Can RL replace the gradient?  (motion tracking) › Setup" aria-pressed="false" data-node-kind="database" data-node-sublabel="128 RL experts" data-node-tag="9.3 GB" data-node-context="Stage 1 · Can RL replace the gradient?  (motion tracking) › Setup">
-          <title>Released assets · 128 RL experts · Stage 1 · Can RL replace the gradient?  (motion tracking) › Setup · 9.3 GB</title>
-          <rect x="48" y="93" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="48" y="93" width="132" height="68" rx="6" class="c-database" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(54 99) scale(0.6875)">
+        <g id="node-tt_prior" data-node-id="tt_prior" data-node-label="① 고정 TT prior" tabindex="0" role="button" aria-label="Focus ① 고정 TT prior, 노이즈→토큰 xₜ, 형상 생성 · TT 고정" aria-pressed="false" data-node-kind="backend" data-node-sublabel="노이즈→토큰 xₜ" data-node-context="형상 생성 · TT 고정">
+          <title>① 고정 TT prior · 노이즈→토큰 xₜ · 형상 생성 · TT 고정</title>
+          <rect x="48" y="93" width="115" height="52" rx="6" class="c-mask"/>
+          <rect x="48" y="93" width="115" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(54 99) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="105.5" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">① 고정 TT prior</text>
+          <text data-detail="context" x="105.5" y="131" class="t-muted" font-size="8" text-anchor="middle">노이즈→토큰 xₜ</text>
+        </g>
+
+        <g id="node-phi_guidance" data-node-id="phi_guidance" data-node-label="① πφ residual" tabindex="0" role="button" aria-label="Focus ① πφ residual, 마지막 10/100 step, 형상 생성 · TT 고정" aria-pressed="false" data-node-kind="backend" data-node-sublabel="마지막 10/100 step" data-node-context="형상 생성 · TT 고정">
+          <title>① πφ residual · 마지막 10/100 step · 형상 생성 · TT 고정</title>
+          <rect x="238.60000000000002" y="93" width="125" height="52" rx="6" class="c-mask"/>
+          <rect x="238.60000000000002" y="93" width="125" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(244.60000000000002 99) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="301.1" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">① πφ residual</text>
+          <text data-detail="context" x="301.1" y="131" class="t-muted" font-size="8" text-anchor="middle">마지막 10/100 step</text>
+        </g>
+
+        <g id="node-ddim_sampler" data-node-id="ddim_sampler" data-node-label="① DDIM sampler" tabindex="0" role="button" aria-label="Focus ① DDIM sampler, xₜ→xₜ₋₁ 반복, 형상 생성 · TT 고정" aria-pressed="false" data-node-kind="backend" data-node-sublabel="xₜ→xₜ₋₁ 반복" data-node-context="형상 생성 · TT 고정">
+          <title>① DDIM sampler · xₜ→xₜ₋₁ 반복 · 형상 생성 · TT 고정</title>
+          <rect x="453.6" y="93" width="125" height="52" rx="6" class="c-mask"/>
+          <rect x="453.6" y="93" width="125" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(459.6 99) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
+          </g>
+          <text data-node-label="" data-detail-anchor="" x="516.1" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">① DDIM sampler</text>
+          <text data-detail="context" x="516.1" y="131" class="t-muted" font-size="8" text-anchor="middle">xₜ→xₜ₋₁ 반복</text>
+        </g>
+
+        <g id="node-candidate_designs" data-node-id="candidate_designs" data-node-label="② 후보 형상 8개" tabindex="0" role="button" aria-label="Focus ② 후보 형상 8개, bank 128→choice·seed, 형상 생성 · TT 고정" aria-pressed="false" data-node-kind="database" data-node-sublabel="bank 128→choice·seed" data-node-context="형상 생성 · TT 고정">
+          <title>② 후보 형상 8개 · bank 128→choice·seed · 형상 생성 · TT 고정</title>
+          <rect x="659" y="93" width="125" height="52" rx="6" class="c-mask"/>
+          <rect x="659" y="93" width="125" height="52" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(665 99) scale(0.6875)">
             <ellipse cx="8" cy="4" rx="5" ry="2"/>
             <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="114" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Released assets</text>
-          <text data-detail="context" x="114" y="131" class="t-muted" font-size="8" text-anchor="middle">128 RL experts</text>
-        <text data-detail="fine" x="114" y="149" class="t-database" font-size="7" text-anchor="middle">9.3 GB</text>
+          <text data-node-label="" data-detail-anchor="" x="721.5" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">② 후보 형상 8개</text>
+          <text data-detail="context" x="721.5" y="131" class="t-muted" font-size="8" text-anchor="middle">bank 128→choice·seed</text>
         </g>
 
-        <g id="node-tt_row" data-node-id="tt_row" data-node-label="Baseline reproduced" tabindex="0" role="button" aria-label="Focus Baseline reproduced, 3.0 cm · 99.4 %, Stage 1 · Can RL replace the gradient?  (motion tracking) › Same protocol as the paper › Reproduce, then swap" aria-pressed="false" data-node-kind="backend" data-node-sublabel="3.0 cm · 99.4 %" data-node-tag="paper 2.6 / 99.4" data-node-context="Stage 1 · Can RL replace the gradient?  (motion tracking) › Same protocol as the paper › Reproduce, then swap">
-          <title>Baseline reproduced · 3.0 cm · 99.4 % · Stage 1 · Can RL replace the gradient?  (motion tracking) › Same protocol as the paper › Reproduce, then swap · paper 2.6 / 99.4</title>
-          <rect x="208" y="93" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="208" y="93" width="132" height="68" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(214 99) scale(0.6875)">
+        <g id="node-theta_ppo" data-node-id="theta_ppo" data-node-label="③ 공유 πθ PPO" tabindex="0" role="button" aria-label="Focus ③ 공유 πθ PPO, 형상당 131,072 step, 공유 보행 정책 · πθ 학습" aria-pressed="false" data-node-kind="backend" data-node-sublabel="형상당 131,072 step" data-node-context="공유 보행 정책 · πθ 학습">
+          <title>③ 공유 πθ PPO · 형상당 131,072 step · 공유 보행 정책 · πθ 학습</title>
+          <rect x="659" y="217" width="125" height="52" rx="6" class="c-mask"/>
+          <rect x="659" y="217" width="125" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(665 223) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="274" y="114" class="t-primary" font-size="10.8" font-weight="600" text-anchor="middle">Baseline reproduced</text>
-          <text data-detail="context" x="274" y="131" class="t-muted" font-size="8" text-anchor="middle">3.0 cm · 99.4 %</text>
-        <text data-detail="fine" x="274" y="149" class="t-backend" font-size="7" text-anchor="middle">paper 2.6 / 99.4</text>
+          <text data-node-label="" data-detail-anchor="" x="721.5" y="238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">③ 공유 πθ PPO</text>
+          <text data-detail="context" x="721.5" y="255" class="t-muted" font-size="8" text-anchor="middle">형상당 131,072 step</text>
         </g>
 
-        <g id="node-rl_row" data-node-id="rl_row" data-node-label="Guidance swapped" tabindex="0" role="button" aria-label="Focus Guidance swapped, 3.0 cm · 97.8 %, Stage 1 · Can RL replace the gradient?  (motion tracking) › Same protocol as the paper › Reproduce, then swap" aria-pressed="false" data-node-kind="backend" data-node-sublabel="3.0 cm · 97.8 %" data-node-tag="designs stay valid" data-node-context="Stage 1 · Can RL replace the gradient?  (motion tracking) › Same protocol as the paper › Reproduce, then swap">
-          <title>Guidance swapped · 3.0 cm · 97.8 % · Stage 1 · Can RL replace the gradient?  (motion tracking) › Same protocol as the paper › Reproduce, then swap · designs stay valid</title>
-          <rect x="444.4" y="93" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="444.4" y="93" width="132" height="68" rx="6" class="c-backend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(450.4 99) scale(0.6875)">
+        <g id="node-walking_return" data-node-id="walking_return" data-node-label="④ 동일 πθ 평가" tabindex="0" role="button" aria-label="Focus ④ 동일 πθ 평가, 8형상×9 seed, 공유 보행 정책 · πθ 학습" aria-pressed="false" data-node-kind="backend" data-node-sublabel="8형상×9 seed" data-node-context="공유 보행 정책 · πθ 학습">
+          <title>④ 동일 πθ 평가 · 8형상×9 seed · 공유 보행 정책 · πθ 학습</title>
+          <rect x="869.2" y="217" width="125" height="52" rx="6" class="c-mask"/>
+          <rect x="869.2" y="217" width="125" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(875.2 223) scale(0.6875)">
             <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="510.4" y="114" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Guidance swapped</text>
-          <text data-detail="context" x="510.4" y="131" class="t-muted" font-size="8" text-anchor="middle">3.0 cm · 97.8 %</text>
-        <text data-detail="fine" x="510.4" y="149" class="t-backend" font-size="7" text-anchor="middle">designs stay valid</text>
+          <text data-node-label="" data-detail-anchor="" x="931.7" y="238" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">④ 동일 πθ 평가</text>
+          <text data-detail="context" x="931.7" y="255" class="t-muted" font-size="8" text-anchor="middle">8형상×9 seed</text>
         </g>
 
-        <g id="node-verdict" data-node-id="verdict" data-node-label="Verdict held" tabindex="0" role="button" aria-label="Focus Verdict held, pipeline yes, learning no, Stage 1 · Can RL replace the gradient?  (motion tracking) › Rebuild" aria-pressed="false" data-node-kind="security" data-node-sublabel="pipeline yes, learning no" data-node-context="Stage 1 · Can RL replace the gradient?  (motion tracking) › Rebuild">
-          <title>Verdict held · pipeline yes, learning no · Stage 1 · Can RL replace the gradient?  (motion tracking) › Rebuild</title>
-          <rect x="656.8" y="101" width="132" height="52" rx="6" class="c-mask"/>
-          <rect x="656.8" y="101" width="132" height="52" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(662.8 107) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
+        <g id="node-round_checkpoint" data-node-id="round_checkpoint" data-node-label="⑦ 체크포인트" tabindex="0" role="button" aria-label="Focus ⑦ 체크포인트, theta.pkl·phi.pt, 평가·형상 정책 · Q와 πφ 학습" aria-pressed="false" data-node-kind="database" data-node-sublabel="theta.pkl·phi.pt" data-node-context="평가·형상 정책 · Q와 πφ 학습">
+          <title>⑦ 체크포인트 · theta.pkl·phi.pt · 평가·형상 정책 · Q와 πφ 학습</title>
+          <rect x="869.2" y="341" width="125" height="52" rx="6" class="c-mask"/>
+          <rect x="869.2" y="341" width="125" height="52" rx="6" class="c-database" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="database" class="semantic-sigil s-database" transform="translate(875.2 347) scale(0.6875)">
+            <ellipse cx="8" cy="4" rx="5" ry="2"/>
+            <path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="722.8" y="122" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Verdict held</text>
-          <text data-detail="context" x="722.8" y="139" class="t-muted" font-size="8" text-anchor="middle">pipeline yes, learning no</text>
+          <text data-node-label="" data-detail-anchor="" x="931.7" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">⑦ 체크포인트</text>
+          <text data-detail="context" x="931.7" y="379" class="t-muted" font-size="8" text-anchor="middle">theta.pkl·phi.pt</text>
         </g>
 
-        <g id="node-pf1" data-node-id="pf1" data-node-label="Attempt 1" tabindex="0" role="button" aria-label="Focus Attempt 1, REINFORCE, Diagnosis · two failed attempts › Guidance policy did not learn › Reproduce, then swap" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="REINFORCE" data-node-tag="66,940-dim action" data-node-context="Diagnosis · two failed attempts › Guidance policy did not learn › Reproduce, then swap">
-          <title>Attempt 1 · REINFORCE · Diagnosis · two failed attempts › Guidance policy did not learn › Reproduce, then swap · 66,940-dim action</title>
-          <rect x="208" y="227" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="208" y="227" width="132" height="68" rx="6" class="c-messagebus" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(214 233) scale(0.6875)">
-            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
-            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
-            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
-            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
+        <g id="node-guidance_critic" data-node-id="guidance_critic" data-node-label="⑤ Q→⑥ πφ 학습" tabindex="0" role="button" aria-label="Focus ⑤ Q→⑥ πφ 학습, critic 40·actor 5 step, 평가·형상 정책 · Q와 πφ 학습" aria-pressed="false" data-node-kind="backend" data-node-sublabel="critic 40·actor 5 step" data-node-context="평가·형상 정책 · Q와 πφ 학습">
+          <title>⑤ Q→⑥ πφ 학습 · critic 40·actor 5 step · 평가·형상 정책 · Q와 πφ 학습</title>
+          <rect x="1069.8" y="341" width="125" height="52" rx="6" class="c-mask"/>
+          <rect x="1069.8" y="341" width="125" height="52" rx="6" class="c-backend" stroke-width="1.5"/>
+          <g aria-hidden="true" data-semantic-sigil="backend" class="semantic-sigil s-backend" transform="translate(1075.8 347) scale(0.6875)">
+            <path d="M6 3 3 8l3 5M10 3l3 5-3 5"/>
           </g>
-          <text data-node-label="" data-detail-anchor="" x="274" y="248" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Attempt 1</text>
-          <text data-detail="context" x="274" y="265" class="t-muted" font-size="8" text-anchor="middle">REINFORCE</text>
-        <text data-detail="fine" x="274" y="283" class="t-messagebus" font-size="7" text-anchor="middle">66,940-dim action</text>
-        </g>
-
-        <g id="node-pf2" data-node-id="pf2" data-node-label="Attempt 2" tabindex="0" role="button" aria-label="Focus Attempt 2, learned critic, Diagnosis · two failed attempts › Guidance policy did not learn › Reproduce, then swap" aria-pressed="false" data-node-kind="messagebus" data-node-sublabel="learned critic" data-node-tag="explains 8 % of variance" data-node-context="Diagnosis · two failed attempts › Guidance policy did not learn › Reproduce, then swap">
-          <title>Attempt 2 · learned critic · Diagnosis · two failed attempts › Guidance policy did not learn › Reproduce, then swap · explains 8 % of variance</title>
-          <rect x="444.4" y="227" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="444.4" y="227" width="132" height="68" rx="6" class="c-messagebus" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="messagebus" class="semantic-sigil s-messagebus" transform="translate(450.4 233) scale(0.6875)">
-            <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/>
-            <circle cx="5" cy="4.5" r="1" class="sigil-fill"/>
-            <circle cx="10.5" cy="8" r="1" class="sigil-fill"/>
-            <circle cx="7" cy="11.5" r="1" class="sigil-fill"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="510.4" y="248" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Attempt 2</text>
-          <text data-detail="context" x="510.4" y="265" class="t-muted" font-size="8" text-anchor="middle">learned critic</text>
-        <text data-detail="fine" x="510.4" y="283" class="t-messagebus" font-size="7" text-anchor="middle">explains 8 % of variance</text>
-        </g>
-
-        <g id="node-effect" data-node-id="effect" data-node-label="Root cause" tabindex="0" role="button" aria-label="Focus Root cause, 60 paired trials, Diagnosis · two failed attempts › Rebuild" aria-pressed="false" data-node-kind="external" data-node-sublabel="60 paired trials" data-node-tag="paper&#39;s guidance: no effect" data-node-context="Diagnosis · two failed attempts › Rebuild">
-          <title>Root cause · 60 paired trials · Diagnosis · two failed attempts › Rebuild · paper&#39;s guidance: no effect</title>
-          <rect x="656.8" y="227" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="656.8" y="227" width="132" height="68" rx="6" class="c-external" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="external" class="semantic-sigil s-external" transform="translate(662.8 233) scale(0.6875)">
-            <rect x="2.5" y="5" width="8.5" height="8" rx="1.5"/>
-            <path d="M8 2.5h5.5V8M13.5 2.5 7.5 8.5"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="722.8" y="248" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Root cause</text>
-          <text data-detail="context" x="722.8" y="265" class="t-muted" font-size="8" text-anchor="middle">60 paired trials</text>
-        <text data-detail="fine" x="722.8" y="283" class="t-external" font-size="7" text-anchor="middle">paper&#39;s guidance: no effect</text>
-        </g>
-
-        <g id="node-reward_old" data-node-id="reward_old" data-node-label="Reward discarded" tabindex="0" role="button" aria-label="Focus Reward discarded, controller-training reward, Stage 2 · Rewards the gradient cannot score  (forward walking) › Reproduce, then swap" aria-pressed="false" data-node-kind="security" data-node-sublabel="controller-training reward" data-node-tag="penalised walking" data-node-context="Stage 2 · Rewards the gradient cannot score  (forward walking) › Reproduce, then swap">
-          <title>Reward discarded · controller-training reward · Stage 2 · Rewards the gradient cannot score  (forward walking) › Reproduce, then swap · penalised walking</title>
-          <rect x="444.4" y="354" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="444.4" y="354" width="132" height="68" rx="6" class="c-security" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="security" class="semantic-sigil s-security" transform="translate(450.4 360) scale(0.6875)">
-            <path d="M8 2.2 13 4v3.5c0 3.1-1.8 5.4-5 6.5-3.2-1.1-5-3.4-5-6.5V4Z"/>
-            <path d="m5.8 8 1.5 1.5 3-3"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="510.4" y="375" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reward discarded</text>
-          <text data-detail="context" x="510.4" y="392" class="t-muted" font-size="7.9" text-anchor="middle">controller-training reward</text>
-        <text data-detail="fine" x="510.4" y="410" class="t-security" font-size="7" text-anchor="middle">penalised walking</text>
-        </g>
-
-        <g id="node-reward_new" data-node-id="reward_new" data-node-label="Reward redefined" tabindex="0" role="button" aria-label="Focus Reward redefined, contact stop + 1 m goal, Stage 2 · Rewards the gradient cannot score  (forward walking) › Rebuild" aria-pressed="false" data-node-kind="frontend" data-node-sublabel="contact stop + 1 m goal" data-node-tag="0.15 vs 0.38" data-node-context="Stage 2 · Rewards the gradient cannot score  (forward walking) › Rebuild">
-          <title>Reward redefined · contact stop + 1 m goal · Stage 2 · Rewards the gradient cannot score  (forward walking) › Rebuild · 0.15 vs 0.38</title>
-          <rect x="656.8" y="354" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="656.8" y="354" width="132" height="68" rx="6" class="c-frontend" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="frontend" class="semantic-sigil s-frontend" transform="translate(662.8 360) scale(0.6875)">
-            <rect x="2" y="3" width="12" height="10" rx="2"/>
-            <path d="M2 6.5h12"/>
-            <circle cx="4.1" cy="4.8" r=".7" class="sigil-fill"/>
-            <circle cx="6.3" cy="4.8" r=".7" class="sigil-fill"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="722.8" y="375" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Reward redefined</text>
-          <text data-detail="context" x="722.8" y="392" class="t-muted" font-size="8" text-anchor="middle">contact stop + 1 m goal</text>
-        <text data-detail="fine" x="722.8" y="410" class="t-frontend" font-size="7" text-anchor="middle">0.15 vs 0.38</text>
-        </g>
-
-        <g id="node-pi_theta" data-node-id="pi_theta" data-node-label="Controller retrained" tabindex="0" role="button" aria-label="Focus Controller retrained, one fixed morphology, Stage 2 · Rewards the gradient cannot score  (forward walking) › Rebuild" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="one fixed morphology" data-node-tag="running" data-node-context="Stage 2 · Rewards the gradient cannot score  (forward walking) › Rebuild">
-          <title>Controller retrained · one fixed morphology · Stage 2 · Rewards the gradient cannot score  (forward walking) › Rebuild · running</title>
-          <rect x="816.8" y="354" width="132" height="68" rx="6" class="c-mask"/>
-          <rect x="816.8" y="354" width="132" height="68" rx="6" class="c-cloud" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(822.8 360) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
-          </g>
-          <text data-node-label="" data-detail-anchor="" x="882.8" y="375" class="t-primary" font-size="10.3" font-weight="600" text-anchor="middle">Controller retrained</text>
-          <text data-detail="context" x="882.8" y="392" class="t-muted" font-size="8" text-anchor="middle">one fixed morphology</text>
-        <text data-detail="fine" x="882.8" y="410" class="t-cloud" font-size="7" text-anchor="middle">running</text>
+          <text data-node-label="" data-detail-anchor="" x="1132.3" y="362" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">⑤ Q→⑥ πφ 학습</text>
+          <text data-detail="context" x="1132.3" y="379" class="t-muted" font-size="8" text-anchor="middle">critic 40·actor 5 step</text>
         </g>
 
         <!-- Edge labels -->
-
-
-        <g data-detail="context" data-edge-from="tt_row" data-edge-to="rl_row" data-edge-label="gradient to policy" data-edge-key="2" data-edge-id="e2">
-          <rect x="344" y="107" width="96.39999999999999" height="14" rx="3" class="c-mask"/>
-          <text x="392.2" y="117" class="t-backend" font-size="8" text-anchor="middle">gradient to policy</text>
+        <g data-detail="context" data-edge-from="candidate_designs" data-edge-to="theta_ppo" data-edge-label="8개 형상 순차 PPO" data-edge-key="0">
+          <rect x="714.95" y="146" width="91.6" height="14" rx="3" class="c-mask"/>
+          <text x="760.75" y="156" class="t-muted" font-size="8" text-anchor="middle">8개 형상 순차 PPO</text>
         </g>
-
-
-        <g data-detail="context" data-edge-from="pf1" data-edge-to="pf2" data-edge-label="change method" data-edge-key="5" data-edge-id="e5">
-          <rect x="356" y="241" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="392.2" y="251" class="t-security" font-size="8" text-anchor="middle">change method</text>
+        <g data-detail="context" data-edge-from="ddim_sampler" data-edge-to="candidate_designs" data-edge-label="100 step 완료" data-edge-key="1">
+          <rect x="582.5999999999999" y="99" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="618.8" y="109" class="t-muted" font-size="8" text-anchor="middle">100 step 완료</text>
         </g>
-        <g data-detail="context" data-edge-from="pf2" data-edge-to="effect" data-edge-label="why no signal" data-edge-key="6" data-edge-id="e6">
-          <rect x="580.3999999999999" y="291" width="72.4" height="14" rx="3" class="c-mask"/>
-          <text x="616.5999999999999" y="301" class="t-security" font-size="8" text-anchor="middle">why no signal</text>
+        <g data-detail="context" data-edge-from="ddim_sampler" data-edge-to="tt_prior" data-edge-label="다음 denoising step" data-edge-key="2">
+          <rect x="260.2" y="152" width="101.2" height="14" rx="3" class="c-mask"/>
+          <text x="310.8" y="162" class="t-database" font-size="8" text-anchor="middle">다음 denoising step</text>
         </g>
-
-
-        <g data-detail="context" data-edge-from="reward_old" data-edge-to="reward_new" data-edge-label="outcome only" data-edge-key="9" data-edge-id="e9">
-          <rect x="586.4" y="368" width="67.6" height="14" rx="3" class="c-mask"/>
-          <text x="620.1999999999999" y="378" class="t-backend" font-size="8" text-anchor="middle">outcome only</text>
+        <g data-detail="context" data-edge-from="guidance_critic" data-edge-to="phi_guidance" data-edge-label="⑧ 다음 라운드" data-edge-key="3">
+          <rect x="680.5" y="16" width="72.4" height="14" rx="3" class="c-mask"/>
+          <text x="716.7" y="26" class="t-backend" font-size="8" text-anchor="middle">⑧ 다음 라운드</text>
+        </g>
+        <g data-detail="context" data-edge-from="guidance_critic" data-edge-to="round_checkpoint" data-edge-label="두 정책 저장" data-edge-key="4">
+          <rect x="998.2" y="389" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="1032" y="399" class="t-muted" font-size="8" text-anchor="middle">두 정책 저장</text>
+        </g>
+        <g data-detail="context" data-edge-from="phi_guidance" data-edge-to="ddim_sampler" data-edge-label="residual action" data-edge-key="5">
+          <rect x="367.6" y="57" width="82" height="14" rx="3" class="c-mask"/>
+          <text x="408.6" y="67" class="t-muted" font-size="8" text-anchor="middle">residual action</text>
+        </g>
+        <g data-detail="context" data-edge-from="theta_ppo" data-edge-to="walking_return" data-edge-label="최종 공유 정책" data-edge-key="6">
+          <rect x="788" y="223" width="77.2" height="14" rx="3" class="c-mask"/>
+          <text x="826.6" y="233" class="t-muted" font-size="8" text-anchor="middle">최종 공유 정책</text>
+        </g>
+        <g data-detail="context" data-edge-from="tt_prior" data-edge-to="phi_guidance" data-edge-label="생성 상태 xₜ" data-edge-key="7">
+          <rect x="163.72500000000002" y="99" width="67.6" height="14" rx="3" class="c-mask"/>
+          <text x="197.525" y="109" class="t-muted" font-size="8" text-anchor="middle">생성 상태 xₜ</text>
+        </g>
+        <g data-detail="context" data-edge-from="walking_return" data-edge-to="guidance_critic" data-edge-label="후보별 9 seed 평균 return" data-edge-key="8">
+          <rect x="967" y="270" width="130" height="14" rx="3" class="c-mask"/>
+          <text x="1032" y="280" class="t-muted" font-size="8" text-anchor="middle">후보별 9 seed 평균 return</text>
         </g>
 
         <!-- Legend -->
         <g data-legend="" data-legend-bridge="">
-          <text x="20" y="450" class="t-primary" font-size="12" font-weight="650">Legend</text>
-          <g data-legend-semantic-kind="frontend" data-legend-kind="frontend" data-legend-label="User UI" data-legend-x="20" data-legend-baseline="470" data-legend-width="74">
-            <rect x="20" y="462" width="14" height="9" rx="2" class="c-frontend" stroke-width="1"/>
-            <text x="42" y="470" class="t-muted" font-size="7.5" font-weight="500">User UI</text>
+          <text x="20" y="428" class="t-primary" font-size="12" font-weight="650">Legend</text>
+          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="20" data-legend-baseline="448" data-legend-width="91">
+            <rect x="20" y="440" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
+            <text x="42" y="448" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
           </g>
-          <g data-legend-semantic-kind="backend" data-legend-kind="backend" data-legend-label="Agent logic" data-legend-x="101" data-legend-baseline="470" data-legend-width="91">
-            <rect x="101" y="462" width="14" height="9" rx="2" class="c-backend" stroke-width="1"/>
-            <text x="123" y="470" class="t-muted" font-size="7.5" font-weight="500">Agent logic</text>
-          </g>
-          <g data-legend-semantic-kind="security" data-legend-kind="security" data-legend-label="Policy" data-legend-x="199" data-legend-baseline="470" data-legend-width="70">
-            <rect x="199" y="462" width="14" height="9" rx="2" class="c-security" stroke-width="1"/>
-            <text x="221" y="470" class="t-muted" font-size="7.5" font-weight="500">Policy</text>
-          </g>
-          <g data-legend-semantic-kind="messagebus" data-legend-kind="messagebus" data-legend-label="Tool action" data-legend-x="276" data-legend-baseline="470" data-legend-width="91">
-            <rect x="276" y="462" width="14" height="9" rx="2" class="c-messagebus" stroke-width="1"/>
-            <text x="298" y="470" class="t-muted" font-size="7.5" font-weight="500">Tool action</text>
-          </g>
-          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Context / trace" data-legend-x="374" data-legend-baseline="470" data-legend-width="109">
-            <rect x="374" y="462" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
-            <text x="396" y="470" class="t-muted" font-size="7.5" font-weight="500">Context / trace</text>
-          </g>
-          <g data-legend-semantic-kind="cloud" data-legend-kind="cloud" data-legend-label="Cloud service" data-legend-x="490" data-legend-baseline="470" data-legend-width="100">
-            <rect x="490" y="462" width="14" height="9" rx="2" class="c-cloud" stroke-width="1"/>
-            <text x="512" y="470" class="t-muted" font-size="7.5" font-weight="500">Cloud service</text>
-          </g>
-          <g data-legend-semantic-kind="external" data-legend-kind="external" data-legend-label="External system" data-legend-x="597" data-legend-baseline="470" data-legend-width="109">
-            <rect x="597" y="462" width="14" height="9" rx="2" class="c-external" stroke-width="1"/>
-            <text x="619" y="470" class="t-muted" font-size="7.5" font-weight="500">External system</text>
+          <g data-legend-semantic-kind="database" data-legend-kind="database" data-legend-label="Context / trace" data-legend-x="118" data-legend-baseline="448" data-legend-width="109">
+            <rect x="118" y="440" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>
+            <text x="140" y="448" class="t-muted" font-size="7.5" font-weight="500">Context / trace</text>
           </g>
         </g>
       </svg>
@@ -5573,35 +5512,22 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>Established</h3>
+          <h3>①~④ 생성·보행</h3>
         </div>
         <ul>
-          <li>&bull; Paper baseline reproduced — 3.0 cm tracking error, 99.4 % survival (paper: 2.6 / 99.4)</li>
-          <li>&bull; Replacing the analytic gradient with a learned policy keeps the pipeline intact</li>
-          <li>&bull; New reward structurally rules out designs that crawl instead of walking</li>
+          <li>&bull; TT prior는 동결; πφ만 마지막 10 step 개입해 quad 후보 8개 생성</li>
+          <li>&bull; 공유 πθ를 형상별 PPO 학습 후 같은 πθ로 72회 평가</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
-          <div class="card-dot rose"></div>
-          <h3>Open</h3>
+          <div class="card-dot violet"></div>
+          <h3>⑤~⑧ Q·πφ 갱신</h3>
         </div>
         <ul>
-          <li>&bull; The guidance policy did not learn — two attempts, two failures</li>
-          <li>&bull; Cause is the operating point, not the method: guidance has zero effect there</li>
-          <li>&bull; The paper states it too — with enough samples, guided and unguided are indistinguishable</li>
-        </ul>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-dot amber"></div>
-          <h3>The task differs per stage</h3>
-        </div>
-        <ul>
-          <li>&bull; Stage 1 = tracking 20 held-out human demonstrations, exactly the paper&#39;s protocol</li>
-          <li>&bull; Stage 2 = walking 1 m forward without falling, a reward the gradient cannot score</li>
+          <li>&bull; 보상=낙상 전 Δworld_x/1m; 1m 무낙상만 성공</li>
+          <li>&bull; 8개 return으로 Q 회귀 40 step → −Q로 πφ 5 step → 저장·다음 round</li>
         </ul>
       </div>
     </div>
