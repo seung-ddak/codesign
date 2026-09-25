@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "형상·보행 정책 공진화: 학습 순서",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "generation", "label": "형상 생성 · TT 고정" },
+    { "id": "walking", "label": "공유 보행 정책 · πθ 학습" },
+    { "id": "learning", "label": "평가·형상 정책 · Q와 πφ 학습" }
+  ],
+  "mainPath": ["tt_prior", "phi_guidance", "ddim_sampler", "candidate_designs", "theta_ppo", "walking_return", "guidance_critic"],
+  "nodes": [
+    { "id": "tt_prior", "lane": "generation", "col": 0, "type": "backend", "label": "① 고정 TT prior", "sublabel": "노이즈→토큰 xₜ", "width": 115 },
+    { "id": "phi_guidance", "lane": "generation", "col": 1, "type": "backend", "label": "① πφ residual", "sublabel": "마지막 10/100 step", "width": 125 },
+    { "id": "ddim_sampler", "lane": "generation", "col": 2, "type": "backend", "label": "① DDIM sampler", "sublabel": "xₜ→xₜ₋₁ 반복", "width": 125 },
+    { "id": "candidate_designs", "lane": "generation", "col": 3, "type": "database", "label": "② 후보 형상 8개", "sublabel": "bank 128→choice·seed", "width": 125 },
+    { "id": "theta_ppo", "lane": "walking", "col": 3, "type": "backend", "label": "③ 공유 πθ PPO", "sublabel": "형상당 131,072 step", "width": 125 },
+    { "id": "walking_return", "lane": "walking", "col": 4, "type": "backend", "label": "④ 동일 πθ 평가", "sublabel": "8형상×9 seed", "width": 125 },
+    { "id": "guidance_critic", "lane": "learning", "col": 5, "type": "backend", "label": "⑤ Q→⑥ πφ 학습", "sublabel": "critic 40·actor 5 step", "width": 125 },
+    { "id": "round_checkpoint", "lane": "learning", "col": 4, "type": "database", "label": "⑦ 체크포인트", "sublabel": "theta.pkl·phi.pt", "width": 125 }
+  ],
+  "edges": [
+    { "from": "tt_prior", "to": "phi_guidance", "label": "생성 상태 xₜ" },
+    { "from": "phi_guidance", "to": "ddim_sampler", "label": "residual action" },
+    { "from": "ddim_sampler", "to": "tt_prior", "label": "다음 denoising step", "role": "return", "variant": "dashed" },
+    { "from": "ddim_sampler", "to": "candidate_designs", "label": "100 step 완료" },
+    { "from": "candidate_designs", "to": "theta_ppo", "label": "8개 형상 순차 PPO" },
+    { "from": "theta_ppo", "to": "walking_return", "label": "최종 공유 정책" },
+    { "from": "walking_return", "to": "guidance_critic", "label": "후보별 9 seed 평균 return" },
+    { "from": "guidance_critic", "to": "phi_guidance", "label": "⑧ 다음 라운드", "role": "return", "variant": "emphasis" },
+    { "from": "guidance_critic", "to": "round_checkpoint", "label": "두 정책 저장", "role": "branch" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "①~④ 생성·보행", "items": ["TT prior는 동결; πφ만 마지막 10 step 개입해 quad 후보 8개 생성", "공유 πθ를 형상별 PPO 학습 후 같은 πθ로 72회 평가"] },
+    { "dot": "violet", "title": "⑤~⑧ Q·πφ 갱신", "items": ["보상=낙상 전 Δworld_x/1m; 1m 무낙상만 성공", "8개 return으로 Q 회귀 40 step → −Q로 πφ 5 step → 저장·다음 round"] }
+  ]
+}

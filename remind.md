@@ -3,7 +3,7 @@
 > **정본.** 결정은 §1 에 D 번호로, 실험은 §4 규약대로, 결과는 §5 에 넣는다.
 > **서술 규칙 (2026-09-21 사용자 지시): 모든 항목은 결과부터 쓰고 3 줄 이내.** 긴 산문 금지.
 >
-> 위치 `RL/tt_codesign/remind.md` · 변천 원문 `RL/Transformer_Transformer_연구계획_파이프라인_변천사.md`
+> 현재 위치 `codesign/remind.md` · 이전 기록 `RL/Transformer_Transformer_연구계획_파이프라인_변천사.md`
 > · 원 논문 코드 https://github.com/seung-ddak/transformer-transformer · 기존 BO co-design `quad/daily.md`
 
 ---
@@ -11,18 +11,22 @@
 ## 0. 목적
 
 TT 의 "noise → denoising → 형상" 틀은 유지하되, reference motion + reward gradient guidance 를
-**실제 task 수행 결과를 reward 로 삼는 RL guidance** 로 교체한다. 산출물은 시뮬 상의 (E\*, π\*).
+**실제 locomotion task 수행 결과를 reward 로 삼는 RL guidance** 로 확장한다. 최종 산출물은 시뮬 상의 (E*, pi*).
 
-### 연구 구조 — 2 단 (처음부터 확정. 흐려지지 않게 여기 고정한다)
+### 현재 연구 구조 — 단계별 검증 (2026-09-25 개정)
 
-| 단 | 무엇을 하나 | 묻는 것 | 비교 상대 |
-|----|------------|---------|-----------|
-| **1 단 · 동등성** | **TT 와 RL 둘 다 TT 의 tracking reward** 로 형상 최적화 | RL guidance 가 DSG 와 **동등한가** | DSG (논문 Table 4) |
-| **2 단 · 확장** | **reward 하나**(걷기+무낙상)로 π_φ 와 π_θ 를 **함께** 학습 (D12·D22) | DSG 가 원리적으로 못 하는 것을 하는가 | 없음 (순수 novelty) |
+| 단계 | 무엇을 하나 | 핵심 질문 | 상태 |
+|------|-------------|-----------|------|
+| **1 단계 · RL guidance 성립** | 고정 TT prior + UMI tracking 조건에서 DSG 자리에 RL guidance 적용 | RL guidance 로 형상이 생성되고 tracking 이 유지되는가 | **완료** |
+| **2 단계 · task-result hardware generation** | TT design space 에서 locomotion policy 를 먼저 학습·고정하고 pi_phi 만 task return 으로 학습 | reference motion 없이 실제 locomotion 결과로 좋은 형상을 생성하는가 | **현재 우선순위** |
+| **3 단계 · hardware-policy co-design** | 2 단계 통과 후 pi_phi 와 pi_theta 를 분리된 timescale 로 함께 최적화 | 형상과 정책을 함께 개선할 수 있는가 | 후속 |
+| **확장** | multi-task → broad topology design space | 하나의 hardware + 하나의 multi-task policy 로 확장 가능한가 | 후속 |
 
-1 단이 성립해야 2 단이 의미를 갖는다. 1 단은 "이기는가"가 아니라 **"동등한가"** 를 묻는다 —
-§3.1 대로 reward 를 실제 결과로 바꾸는 순간 `∇_E R` 은 존재 자체가 불가능하므로, RL 은 성능
-향상 수단이 아니라 gradient 가 사라진 자리를 메우는 유일한 수단이다.
+**현재 우선순위: 2 단계 단순 실험부터 진행한다 (2026-09-25 개정).** 과거 D12·D26의 공진화 경로는 폐기하지 않고 3 단계로 보류한다.
+형상은 TT `umi_on_legs_plus_plus` design space 와 MJX 경로를 유지하고, A1 URDF 로 교체하지 않는다.
+
+**현재 2 단계의 한 round:** ① 고정 TT prior + pi_phi residual 로 morphology 생성 → ② 동결된 morphology-conditioned pi_theta 로 평지 locomotion rollout → ③ legged_robot 원본 reward 의 episode return 계산 → ④ 같은 형상을 여러 seed 로 평가 → ⑤ return 으로 pi_phi 갱신 → ⑥ 다음 round.
+pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphology 로 충분히 학습한 뒤 고정한다.
 
 ---
 
@@ -45,7 +49,7 @@ TT 의 "noise → denoising → 형상" 틀은 유지하되, reference motion + 
 | D13 | 시뮬레이터 = **MJX/MJWarp**. legged_gym 은 walk_N 전용 동결 |
 | D14 | **실물 제작·Sim2Real 제외.** 논문용 baseline·novelty 정리는 후순위 |
 | D15 | task set = ① 보행 ② 계단 상승 ③ 계단 하강 ④ 불균형 지형 ⑤ 점프 |
-| D16 | **π_θ 를 학습하지 않는다.** TT 공개 ctrl `d7lra7j0/040.pt` 를 그대로 쓴다. 1 차 task 는 T1 보행 |
+| D16 | **과거 고정 ctrl 실험용 결정. 현재 공진화에는 적용하지 않는다** (D12·D26). |
 | D17 | **L0~L3 사다리 폐기 (2026-09-21).** 비교는 **TT** (논문 그대로) vs **RL** (우리 guidance) 둘만. §0 목적에 직결 |
 | D18 | **평가 프로토콜 = 논문 §3 그대로.** 평가기 = choice 별 **RL expert**, seed **9** + 95 % CI, held-out UMI 궤적 |
 | D19 | **1 단 측정 지표 = Pos Err · Orn Err · Survival · Reward · 최적화 시간.** 전진 거리는 쓰지 않는다 (§5.16) |
@@ -54,7 +58,24 @@ TT 의 "noise → denoising → 형상" 틀은 유지하되, reference motion + 
 | D22 | **2 단 reward 확정 (2026-09-21)**: 낙상 = TT 의 `penalty_bad_contact_pairs` 링크 접촉 **또는** up_vec·z < 0.1 → 즉시 종료 / 점수 = 종료 전 전진 진척도 (목표 **1.0 m** 정규화) / 성공 = 종료 없이 도달. π_φ·π_θ 가 같은 이 reward 로 학습 |
 | D23 | **"형상에 맞는 최적 정책" 은 저절로 생기지 않는다.** π_θ 를 D22 reward 로 같이 학습시킬 때만 생긴다 → D12 가 필수 |
 | D24 | **π_θ 고정으로 잰 형상 점수는 하한선이다** (`J(E,θ_고정) ≤ max_θ J`). **1 단에만 해당** — 2 단은 D12 로 이 한계를 푼다 |
-| D25 | **π_θ 는 형상 조건부 + expert warm start + 2-timescale.** 형상마다 PPO 를 새로 돌리지 않는다 (곱셈 폭발·닭과달걀 회피) |
+| D25 | **π_θ 는 형상 조건부 + 2-timescale.** 가중치·관측 정규화는 형상과 round 사이에 이어 간다. 새 보행 관측이 TT expert 와 달라 이번 경로는 fresh 초기화 (D26). |
+| D26 | **2026-09-22 공진화 우선.** reward = 낙상 전 월드 +x 변위 증가 / 1.0 m, 후진은 음수; 지정 링크 접촉 또는 up_z < 0.1 에서 종료. π_θ 는 step reward, π_φ 는 같은 reward 의 rollout 합 사용. |
+| D27 | **2026-09-22 공진화 실행 환경.** `/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv` · Python 3.12.14 · RTX 4070 SUPER 12 GB · CUDA 12.6 · JAX 0.10.2 · MuJoCo 3.10.0 · Brax 0.14.2. 기존 V100 고정 규약은 이번 로컬 실행에 적용하지 않는다. |
+| D28 | **2026-09-22 smoke 조건.** 고정 TT prior `xrh4wk4l/040.pt` + RoboToken bank 128/128 · reference token 전부 mask · 팔 actuator 제외 · `designs=4`, `rounds=2`, `theta_steps=4096`, `num_envs=32`, `horizon=128`, `eval_seeds=3`, `seed=0`. |
+| D29 | **2026-09-22 reward/종료 구현.** 매 step `Δ(world_x)/1.0 m` 누적 · 후진 음수 · 종료 step 이후 보상 0 · `calf_motor`/`gripper_collider` floor 접촉 또는 `up_z < 0.1` 즉시 종료 · 1.0 m 무낙상 도달만 success · 별도 alive/성공 보너스/추종/관절 penalty 없음. |
+| D30 | **2026-09-22 학습 목표.** 1차 목표는 2 round 동안 형상 `E`와 보행 정책 `π_θ`가 함께 변하고, 동일 보상으로 `π_φ`가 갱신되는지 검증하는 것. 성공률 향상이나 최적 형상 발견은 이번 smoke의 결론으로 주장하지 않으며 `return`, `success`, `fell`, `theta_parameter_delta`, `phi_parameter_delta`를 기록한다. |
+| D31 | **2026-09-22 본 학습 시작.** smoke 배선 통과 후 `rounds=20`, `designs=8`, `theta_steps=131072`, `num_envs=128`, `horizon=1000`, `eval_seeds=9`, `theta_lr=1e-4`, `goal=1.0 m`, `upright=0.1`, `action_scale=0.25`, `seed=0`으로 실행한다. OOM 또는 불안정 시 round checkpoint를 보존하고 `num_envs`만 단계적으로 낮춘다. |
+| D32 | **2026-09-22 live viewer.** 학습은 headless로 유지하고 `watch_coevolution_viewer.py`가 `round_XXXX/theta.pkl`을 감시해 최신 best 형상을 MuJoCo GUI에서 π_θ로 재생한다. viewer는 평가·시각화 전용이며 학습 상태를 변경하지 않는다. |
+| D33 | **2026-09-25 1 단계 완료.** 고정 TT prior + UMI gripper tracking 조건에서 RL guidance 로 morphology 생성과 motion tracking 동작을 확인했다. 이는 RL guidance 치환의 성립 검증이며 task-result co-design 검증은 아니다. |
+| D34 | **2 단계는 공진화가 아니라 pi_theta 고정 실험으로 재설계.** D12·D26 공진화는 후속 3 단계로 보류하고, 먼저 pi_phi 단독 효과를 분리해 검증한다. |
+| D35 | **형상/시뮬레이터는 TT 그대로 유지.** A1 URDF 로 바꾸지 않고 `umi_on_legs_plus_plus` design space + TT RoboToken + MJX 경로를 사용한다. |
+| D36 | **locomotion reward 는 legged_robot 원본을 그대로 사용.** reward 항·scale·termination 설정을 임의로 빼거나 새로 추가하지 않고 원본 config 를 이식한다. |
+| D37 | **A1/legged_gym 은 locomotion 설계 참고용.** URDF·robot dynamics 는 가져오지 않고 reward·observation·command 기반 PPO 구조를 참고한다. |
+| D38 | **pi_theta 는 morphology-conditioned locomotion policy 로 선학습 후 동결.** TT design space 의 다양한 유효 morphology 를 사용해 충분히 학습하고 Stage 2 hardware search 중에는 weight 를 바꾸지 않는다. |
+| D39 | **pi_phi reward = 동결 pi_theta 로 얻은 physics rollout episode return.** 동일 morphology 를 여러 seed 로 평가한 평균 return 을 hardware-generation terminal reward 로 사용한다. |
+| D40 | **2 단계에서는 single-task flat locomotion 만 사용.** multi-task·계단·rough terrain·jump 는 single-task hardware generation 검증 후로 보류한다. |
+| D41 | **surrogate·topology 확장·Sim2Real 은 현재 범위 밖.** simulator return 을 직접 사용하고 broad topology 는 Stage 2/3 성립 후 확장한다. |
+| D42 | **repo 는 단계별로 분리한다.** 기존 coevolution 코드는 삭제하지 않고 archive/후속 Stage 3 로 보류하며 Stage 2 전용 locomotion/controller/hardware-guidance 경로를 새로 둔다. |
 
 핵심 질문: *reference motion·reward gradient 없이, task 수행 결과만으로 diffusion 의 denoising
 전략을 RL 로 학습할 수 있는가?*
@@ -65,9 +86,11 @@ TT 의 "noise → denoising → 형상" 틀은 유지하되, reference motion + 
 
 | Q | 안건 | 상태 |
 |---|------|------|
-| **Q15** | 2 단 task = 전진 보행(§0)인가, UMI 궤적 유지인가 | 미정. 1 단은 논문 그대로 UMI 로 간다 (§4.2) |
-| **Q6** | multi-task reward 합성식 G, physical penalty, task 별 제한 시간 | 미정 |
-| **Q8** | 2 단계 scope (topology 확장) | 미정 (Q2 동반) |
+| **Q6** | multi-task reward 합성식 G, physical penalty, task 별 제한 시간 | **Stage 3 이후로 보류** |
+| **Q8** | topology 확장 범위(다리 수·DoF·연결 구조) | **Stage 2/3 성립 후 보류** |
+| **Q9** | Stage 2 평지 locomotion command 를 고정 target 속도로 둘지 원본 command range 를 사용할지 | 미정 |
+| **Q10** | morphology-conditioned pi_theta 선학습에 사용할 TT morphology sampling 수·분포 | 미정 |
+| **Q11** | Stage 2 pi_phi 갱신 시 morphology 당 rollout seed 수와 batch 크기 | 미정 |
 
 ---
 
@@ -76,7 +99,7 @@ TT 의 "noise → denoising → 형상" 틀은 유지하되, reference motion + 
 **3.0 정책 고정의 편향 — 왜 D12 가 필수인가 (2026-09-21 사용자 지적)**
 우리가 원하는 형상 점수는 `R(E) = max_θ J(E,θ)` 인데 π_θ 를 고정하면 `J(E,θ_고정)` 만 잰다 → **잠재력 높은 형상이 과소평가**된다.
 그대로 π_φ 를 학습시키면 "본질적으로 좋은 형상" 이 아니라 **"지금 정책이 다루기 편한 형상"** 으로 수렴한다 (lock-in).
-1·2 단이 고정을 쓰는 건 실패 원인을 π_φ 로 분리하기 위한 것이고, **결과는 하한선으로만 읽는다** (D24). 완화 요인 = expert 가 이미 연속 변형 2 만 개를 DR 로 덮는다.
+정책 고정 비교는 1 단에만 해당한다 (D24). 2 단은 D12 에 따라 형상과 정책을 번갈아 학습한다.
 
 **3.1 왜 gradient 가 아니라 RL 인가**
 TT 의 `∇_E R` 은 reward 가 트랜스포머 예측 토큰의 해석적 함수라서 가능하다 (`diffusion_guidance.py:291`,
@@ -105,12 +128,26 @@ T5 는 모터 고정이라 성공이 순전히 형상에 달려 신호가 가장
 
 ---
 
+**3.6 왜 2 단계를 다시 단순화했는가 (2026-09-25)**
+1 단계에서 RL guidance 자체는 이미 동작했으므로, 이제 pi_phi 와 pi_theta 를 동시에 바꾸면 형상 효과와 제어기 효과가 다시 섞인다.
+따라서 2 단계는 pi_theta 를 먼저 학습·고정하고 `J(E, theta_fixed)` 기준으로 pi_phi 의 task-result hardware generation 만 검증한다.
+
+**3.7 왜 A1 URDF 를 쓰지 않는가**
+TT prior 는 TT RoboToken/design space 의 morphology 분포를 학습했으므로 A1 URDF 로 교체하면 생성 prior 와 simulator model 사이에 새 변수가 생긴다.
+A1/legged_gym 에서는 검증된 locomotion reward·observation·command 설계만 참고하고, 형상은 TT design space 를 유지한다.
+
+**3.8 왜 legged_robot reward 를 그대로 쓰는가**
+현재 목적은 reward engineering 이 아니라 task-result RL guidance 검증이므로 reward 항을 임의로 조정하지 않는다.
+원본 reward config 를 그대로 사용해 locomotion evaluator 자체의 불확실성을 줄이고, episode return 을 pi_phi 의 terminal reward 로 사용한다.
+
+---
+
 ## 4. 실험 규약
 
-> 모든 실험에 동일 적용. 결과 기록 시 4.1·4.2 를 복사해 바뀐 항목만 고친다.
+> §4.1~4.3은 1단 비교 실험의 당시 규약이다. 현재 2단 공진화 조건은 D26~D31과 `runs/coevolution_live_20260922/config.json`을 따른다.
 > **조건이 적히지 않은 결과는 기록으로 쓰지 않는다.**
 
-### 4.1 고정 환경 (2026-09-20 확정)
+### 4.1 이전 V100 실험 환경 (2026-09-20 기록; 현재 공진화에는 D27·D31 적용)
 
 | 항목 | 값 | 확인 |
 |------|-----|------|
@@ -138,7 +175,7 @@ T5 는 모터 고정이라 성공이 순전히 형상에 달려 신호가 가장
 | seed | **9** + 95 % CI |
 | 비교 표 | 논문 Table 4 (Random / CMA-ES / Zeroth / DGS) 에 **RL 행 추가** |
 
-> **task 는 논문 그대로 UMI 궤적이다.** §0 이 말한 전진 보행은 2 단에서 다룬다 (Q15).
+> **1 단 task 는 논문 그대로 UMI 궤적이다.** 2 단은 D26의 전진 보행 task를 사용한다.
 > 1 단의 목적이 Table 4 재현이므로 궤적을 바꾸면 비교할 공개 기준선이 사라진다.
 
 ### 4.3 비교 설계 — TT vs RL (D17, 2026-09-21)
@@ -150,9 +187,28 @@ L0~L3 사다리는 폐기. **형상 생성 방식만 다른 둘**을 같은 평�
 | **TT** | TT prior + `∇_E R` DSG (`evaluate_hardware_opt_rl.py`) | 논문 재현 경로 |
 | **RL** | π_φ residual guidance (D11) — 실제 rollout 결과가 reward | 우리 기여 |
 
-**평가는 한 개의 동일 평가기로 한다** — 생성 파이프라인이 무엇을 썼든, 나온 형상 둘을
-같은 제어정책·같은 시드 집합·같은 고정 카메라로 굴린다. 측정값은 거리가 아니라
-**기립도·pos_err·무낙상** (§5.16: 거리만으로는 두 설계가 겹친다). 평가기 선택은 Q13.
+**1단 평가는 choice별 RL expert와 동일한 9 seed·held-out UMI 궤적으로 한다** (D18). 지표는 Pos Err·Orn Err·Survival·Reward·시간 (D19).
+§5.16의 전진 거리·기립도 진단은 당시 예비 실험이며, 현재 2단의 보행 reward와 구분한다.
+
+---
+
+### 4.4 현재 Stage 2 실험 규약 (2026-09-25)
+
+| 항목 | 값 |
+|------|-----|
+| 형상 prior / design space | **TT `umi_on_legs_plus_plus` 그대로**, RoboToken → MJX model 경로 유지 |
+| task | **single-task flat locomotion** |
+| reward | **legged_robot 원본 reward config 전체를 그대로 이식**; 임의 항 삭제·추가 없음 |
+| controller | `pi_theta(o,E,command)` morphology-conditioned PPO, Stage 2 전에 선학습 후 **동결** |
+| hardware guidance | 고정 TT denoiser + residual `pi_phi`; 기존 Stage 1 RL guidance 경로 재사용 |
+| simulator | **MJX/MuJoCo 유지**; Isaac Gym/A1 URDF 로 교체하지 않음 |
+| evaluation | 최종 morphology 에서만 physics rollout, 여러 seed 평균 episode return 사용 |
+| update | Stage 2 동안 **pi_phi 만 업데이트**, pi_theta 는 고정 |
+| 비교 | unguided TT prior / RL-guided hardware generation; DSG 비교는 task reward 미분 가능성에 따라 별도 판단 |
+| 제외 | coevolution, multi-task, topology 확장, surrogate, Sim2Real |
+
+**Stage 2 완료 조건:** 동결된 동일 pi_theta 로 평가했을 때 RL-guided generation 이 학습 전/unguided 대비 더 높은 locomotion return 의 morphology 분포를 만든다.
+이 단계의 성능은 `J(E, theta_fixed)` 이며 최종 `max_theta J(E,theta)` 주장으로 해석하지 않는다.
 
 ---
 
@@ -212,7 +268,7 @@ denoising 5 → 2 회로 줄이면 2.5 배 공짜, 품질 동일 (이동 1.027 �
 **5.9 TT 의 RL expert 정책은 받을 수 있다 — remind 이전 기술이 틀렸다 (2026-09-21)**
 `rl_policies.zip` (real.stanford.edu/transformer-transformer/) 에 **128 개 per-choice PPO expert + `choice_to_ckpt_path.json`
 + options zarr + RoboToken bank** 가 전부 들어 있다 (`docs/starter.md:126`, `docs/data_generation.md:155`). 학습 불필요.
-**미다운로드 상태.** `scripts/evaluate_hardware_opt_rl.py` 가 이것으로 TT 정식 quadruped co-design 평가를 돌린다 → Q11 의 답.
+당시 미다운로드 상태였으나 이후 받아 §5.13 TT 행 재현에 사용했다. `scripts/evaluate_hardware_opt_rl.py` 가 정식 quadruped 평가 경로다.
 
 
 **5.10 논문 확인 — D8 이탈의 전제가 무너졌다 (2026-09-21, arXiv 2607.25798)**
@@ -221,8 +277,8 @@ denoising 5 → 2 회로 줄이면 2.5 배 공짜, 품질 동일 (이동 1.027 �
 §3: 평가기 = RL expert, 지표 = Pos Err·Orn Err·Survival·Reward, seed 9, 종료 = 낙상 또는 ε_p > 0.8 m. Table 4 가 기준선.
 
 
-**5.11 다운로드 자산 감사 (2026-09-21)**
-공개 아카이브 4 종 중 `checkpoints.zip`(7.3 GB) · `data.zip`(288 MB) 보유. **`rl_policies.zip`(9.3 GB) 다운로드 진행 중**.
+**5.11 다운로드 자산 감사 (2026-09-21 당시 상태)**
+공개 아카이브 4 종 중 당시 `checkpoints.zip`(7.3 GB) · `data.zip`(288 MB) 보유, `rl_policies.zip`(9.3 GB) 다운로드 중이었다. 이후 §5.13에서 expert를 사용했다.
 `blender_templates.zip` 은 시각화 전용이라 불필요. HF 의 bimanual dishwashing zarr 은 ctrl 재학습용이라 불필요.
 디스크 여유 2.9 TB 로 제약 없음.
 
@@ -286,6 +342,11 @@ Pos Err **3.0 cm** (TT 3.0) · Orn Err **8.6°** (TT 8.0) · Reward **277.8** (T
 ③ 결과: 거리 ↔ 기립도 **−0.535**, 거리 ↔ 몸통접지율 **+0.551** — 누울수록 멀리 간다.
 
 
+**5.22 자세 감사 — 측정이 틀렸다 (2026-09-21, 설계 17 개)**
+리셋 시 기립도 1.000 으로 지표 검증 통과. 17 개 중 정상 보행은 2 개뿐, **설계공간 중앙(center)조차 기립도 0.122**.
+거리 0.8 m 통과 14 개 중 10 개가 기립도 < 0.3. `prior_2` 가 0.987 로 유일하게 깨끗했으나 §5.16 이 이를 뒤집는다.
+반증: "EE 추종이라 기어가도 된다" 는 틀렸다 — pos_err ↔ 접지율 **+0.790** (포복은 정책의 실패다). `results/posture_audit.json`.
+
 **5.23 2 단 reward 실측 — 변별되고, 병목은 종아리 모터다 (2026-09-21, 목표 1.0 m)**
 TT 형상 score **0.15** (298 step 종료) vs RL 형상 **0.38** (453 step) — 2.5 배 변별. 둘 다 1.0 m 미달이라 성공률은 아직 0.
 종료 원인은 **둘 다 `left_leg/calf_motor` 바닥 접촉**이고 `upright_mean` 0.996·0.978 = **넘어진 게 아니라 종아리 모터가 긁혔다**.
@@ -296,13 +357,29 @@ TT 형상 score **0.15** (298 step 종료) vs RL 형상 **0.38** (453 step) — 
 그래서 **TT 의 `penalty_bad_contact_pairs` 목록(calf_motor ×4 + gripper_collider)을 그대로** 쓴다. 우리가 임의로 정하지 않는다.
 웹 검증: legged_gym 은 지정 링크 접촉력 > 1 N 즉시 reset, co-design 문헌도 "upright 인 개체만 평가" — 셋 다 **누적 지표가 아니라 이진 종료**.
 
-**5.22 자세 감사 — 측정이 틀렸다 (2026-09-21, 설계 17 개)**
-리셋 시 기립도 1.000 으로 지표 검증 통과. 17 개 중 정상 보행은 2 개뿐, **설계공간 중앙(center)조차 기립도 0.122**.
-거리 0.8 m 통과 14 개 중 10 개가 기립도 < 0.3. `prior_2` 가 0.987 로 유일하게 깨끗했으나 §5.16 이 이를 뒤집는다.
-반증: "EE 추종이라 기어가도 된다" 는 틀렸다 — pos_err ↔ 접지율 **+0.790** (포복은 정책의 실패다). `results/posture_audit.json`.
+**5.25 2단 공진화 실행 조건 기록 (2026-09-22)**
+이번 1차 smoke는 RTX 4070 SUPER에서 `rounds=2`, `designs=4`, `theta_steps=4096`, `num_envs=32`, `horizon=128`, `eval_seeds=3`으로 시작한다.
+목표는 성능 결론이 아니라 reference-free 형상 생성 → 공유 π_θ PPO → 동일 reward 평가 → π_φ 갱신의 한 round 연결과 checkpoint 저장 확인이다.
+판정값은 `return_mean`, `success_mean`, `fell`, `theta_parameter_delta`, `phi_parameter_delta`이며 성공률 향상이나 최적 형상 발견은 후속 본 학습에서 판단한다.
+
+**5.26 2단 smoke 완료 — 배선 통과, 보행 성공 미확인 (2026-09-22)**
+Round 0/1 모두 유효 형상 4개·invalid 0개·checkpoint 저장·π_φ 갱신에 성공했고, Round 1에서 `theta_parameter_delta=0.4165`, `phi_parameter_delta=0.0517`로 두 정책이 실제 갱신됐다.
+하지만 `success_mean=0.0`이고 `return_mean`은 **0.0124 → -0.0553**으로 악화됐다. 이는 보행 성능 향상의 증거가 아니며, 이후 D31 조건으로 본 학습을 시작했다.
+산출물은 `runs/coevolution_smoke/round_0000~0001/{theta.pkl,phi.pt,best.xml,designs.json}` 및 `history.jsonl`이다.
+
+**5.27 본 학습 기록 — 완료 round 0~2 (2026-09-22)**
+`runs/coevolution_live_20260922/history.jsonl` 기준 8개 형상씩 유효·invalid 0, `return_mean` **0.0063 → 0.0293 → 0.0618**, `success_mean` **0 → 0 → 0**이다.
+매 round π_φ가 갱신됐고 round 1·2의 `theta_parameter_delta`는 2.4609·1.9075다. return 상승은 관찰됐으나 아직 1.0 m 성공이나 최적 형상 발견의 근거는 아니다.
+기록 확인 시점의 마지막 저장 checkpoint는 `round_0002`; `train.log`에는 round 3의 controller 8/8까지 기록됐다. round 3은 완료 기록이 없어 성능 판정에서 제외한다.
 
 
-**5.25 π_θ fine-tune 1 차 실패 — warm start 가 무너졌다 (2026-09-21, RL 형상 40 M step)**
+---
+
+**5.28 Stage 1 완료 — RL guidance 치환 동작 확인 (2026-09-25)**
+고정 TT prior + UMI gripper tracking 조건에서 RL guidance 로 morphology 를 생성하고 생성 형상에서 motion tracking 이 정상 동작하는 것을 확인했다.
+따라서 이후 핵심은 guidance 가능성 재검증이 아니라 reference-motion-free locomotion return 으로 pi_phi 를 학습하는 Stage 2 이다.
+
+**5.29 π_θ fine-tune 1 차 실패 — warm start 가 무너졌다 (2026-09-21, RL 형상 40 M step)**
 출고 expert(pos_err **0.323** / orn_err 0.563) 에서 출발했는데 **40 M 내내 단 한 epoch 도 baseline 을 못 넘었다**
 (최종 0.594 / 2.529). ep_len 이 1754 ↔ 28 ↔ 2000 ↔ 20 으로 100 배 진동하고, **짧게 죽은 epoch 일수록 pos_err 이 낮다**
 — 낮은 pos_err 은 추종이 아니라 조기종료의 산물이다. orn_err 은 전 구간 미회복 = 이쪽이 진짜 신호.
@@ -325,20 +402,98 @@ warm start 직후 상시 발동. **40 M 은 렌더 단계 X11 끊김으로 프�
 | 2026-09-21 | **정정**: "PPO expert 128 개는 없다" 는 틀렸다. `rl_policies.zip` 으로 받을 수 있다 (§5.9) |
 | 2026-09-21 | **D17** L0~L3 폐기 → **TT vs RL** 2 조건 비교. `rl_policies.zip` 9.3 GB 다운로드 착수 |
 | 2026-09-21 | 논문 정독 → **D18~D21** 신설 (평가 프로토콜·지표·종료·TT 경로). **2 단 구조를 §0 으로 승격**. D8 이탈 철회 |
-| 2026-09-21 | π_θ fine-tune 1 차 40 M 실패 (§5.25). LR·종료조건 재검토 후 2 차. 학습은 **`MUJOCO_GL=egl` 필수** |
+| 2026-09-22 | **D27~D30** 실제 로컬 GPU 환경·1차 공진화 조건·D22 reward 구현·학습 목표 확정. RoboToken bank 128/128 및 coevolution preflight 통과 |
+| 2026-09-22 | smoke 2 round 완료 (§5.26), D31 조건으로 본 학습 시작; 완료된 round 0~2 결과 기록 (§5.27) |
+| 2026-09-25 | **D33~D42 개정.** Stage 1 완료 확인; 공진화 우선 경로를 Stage 3 로 보류하고 Stage 2 를 `TT morphology + frozen locomotion pi_theta + legged_robot reward + pi_phi only` 로 단순화 |
+| 2026-09-25 | **A1 역할 확정.** A1 URDF 는 사용하지 않고 legged_gym/legged_robot 의 locomotion reward·observation·PPO 설계만 참고; simulator 는 MJX 유지 |
+| 2026-09-21 | π_θ fine-tune 1 차 40 M 실패 (§5.29). LR·종료조건 재검토 후 2 차. 학습은 **`MUJOCO_GL=egl` 필수** |
 
 ---
 
-## 7. 다음 할 일
+## TODO
 
-**1 단 (완료·미결)**
-1. TT 행 재현 ✅ (§5.13) · RL 행 완주 ✅ (§5.20). 단 π_φ 가 학습 안 된 상태라 **치환의 기계적 성립까지만** 확인.
-2. 미결: guidance 효과가 유의한 지점을 못 찾았다 (§5.15 n=16 효과 0, 쌍대 n=1 도 t=1.22). 1 단 동등성은 **판정 보류**.
+### T1. Stage 1 기록 봉인 — 완료
 
-**2 단 (진행 예정)**
-3. **reward 하나 확정** — 걷기 + 무낙상, 결과 기반 (D22). 구체 임계값(도달 거리·기립도 τ·접지율 κ)은 Q14.
-4. **π_θ 를 그 reward 로 학습** — 형상 조건부, expert warm start, 2-timescale (D12·D25).
-   배선 완료: `extract_best_designs.py` → `enumerate_design_store.py` → `finetune_pi_theta.sh`.
-   **1 차 40 M 는 실패** (§5.25). 2 차 전에 fine-tune LR 과 D22 종료조건을 먼저 정할 것.
-5. **π_φ 를 같은 reward 로 학습** — critic 구조 그대로, 원천만 rollout 으로 교체 (`d22_reward.py` 틀 재사용).
-6. 그 다음: Q6 (multi-task 합성식 G) → Q8 (topology 확장).
+**완료:** 고정 TT prior + UMI tracking + RL guidance 에서 morphology 생성과 motion tracking 동작을 확인했다.
+이 경로는 회귀 검사용으로 보존하고 Stage 2 에서는 UMI trajectory/tracking reward 를 사용하지 않는다.
+
+### T2. Repo 를 Stage 2 기준으로 정리
+
+기존 `train_coevolution.py`, 과거 reward·공진화 스크립트는 삭제하지 말고 `archive/` 또는 Stage 3 경로로 이동한다.
+Stage 2 전용 `locomotion_env`, `train_locomotion_policy`, `eval_locomotion_policy`, `train_hardware_guidance` 경로를 분리한다.
+
+### T3. TT locomotion environment 작성
+
+TT `umi_on_legs_plus_plus` morphology → MJX model 생성 경로는 그대로 사용하고 평지 single-task locomotion environment 를 만든다.
+A1 URDF/Isaac Gym 으로 바꾸지 않으며 legged_robot 의 observation·command 구조만 필요한 범위에서 이식한다.
+
+### T4. legged_robot 원본 reward 그대로 이식
+
+`LeggedRobot` 원본 reward config 의 항·scale·termination 설정을 그대로 옮기고 임의로 reward 를 빼거나 새 항을 추가하지 않는다.
+Stage 2 hardware reward 는 이 환경에서 얻은 episode return 자체로 정의한다.
+
+### T5. Morphology-conditioned locomotion pi_theta 선학습
+
+TT design space 에서 다양한 유효 morphology 를 샘플링해 `pi_theta(o,E,command)` 하나를 충분히 PPO 학습한다.
+형상별 locomotion 성능·분산을 확인한 뒤 checkpoint 와 observation normalization 을 저장한다.
+
+### T6. pi_theta 동결 및 evaluator 검증
+
+Stage 2 시작 전에 pi_theta weight 와 normalization 을 고정하고 동일 morphology 를 여러 seed 로 반복 rollout 한다.
+seed 간 분산보다 morphology 간 return 차이가 식별 가능한지 확인한 뒤 hardware search 로 넘어간다.
+
+### T7. Stage 2 RL-guided hardware generation 연결
+
+기존 Stage 1 의 고정 TT denoiser + residual pi_phi 경로를 재사용해 noise 에서 최종 TT morphology E 를 생성한다.
+중간 denoising 에서는 physics 를 돌리지 않고 최종 E 만 동결 pi_theta 로 MJX rollout 한다.
+
+### T8. Episode return 으로 pi_phi 학습
+
+동일 E 의 여러-seed episode return 평균을 terminal reward 로 사용해 pi_phi 만 업데이트한다.
+`Noise → RL guidance → E → frozen pi_theta rollout → return → pi_phi update` 를 반복한다.
+
+### T9. Stage 2 효과 검증
+
+unguided TT prior 와 RL-guided generation 을 동일 TT prior·controller·seed·sim budget 으로 비교한다.
+평균/best return, 성공률, 낙상/termination, morphology 분포, optimization cost 를 기록한다.
+
+### T10. Task-specific morphology 변화 분석
+
+동일 noise seed 의 guidance 전후 형상과 학습 전후 morphology parameter 분포를 비교한다.
+높은 return 과 반복적으로 연결되는 형상 특성이 있는지 확인해 RL guidance 가 단순 noise 가 아님을 검증한다.
+
+### T11. Stage 2 통과 후에만 Hardware–Policy Co-design 재개
+
+Stage 2 가 성립하면 과거 coevolution 코드를 복구해 pi_phi 와 pi_theta 를 분리된 timescale 로 함께 최적화한다.
+이때 `J(E, theta_fixed)` 에서 `max_theta J(E,theta)` 를 향하는 Stage 3 로 해석한다.
+
+### T12. Multi-task / topology / surrogate 는 후속
+
+single-task Stage 2 → single-task co-design Stage 3 가 먼저 성립한 뒤 multi-task 를 단계적으로 추가한다.
+broad topology, surrogate, Sim2Real 은 그 이후 확장으로 유지한다.
+
+---
+
+## 현재 우선순위
+
+**T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9** 순서로 진행한다.
+현재 핵심 목표는 **검증된 고정 locomotion policy 아래에서 실제 locomotion return 만으로 RL guidance 가 더 좋은 TT morphology 를 생성하는지 확인하는 것**이다.
+
+### 현재 실험 흐름
+
+`TT design space morphology sampling`
+→ `morphology-conditioned pi_theta locomotion 학습`
+→ `pi_theta freeze`
+→ `Noise + TT prior + pi_phi`
+→ `Final morphology E`
+→ `MJX locomotion rollout`
+→ `legged_robot episode return`
+→ `pi_phi update`
+
+### 이후 흐름
+
+`Stage 2 성공`
+→ `pi_phi + pi_theta co-design`
+→ `multi-task`
+→ `broad topology design space`
+→ `One Hardware + One Multi-task Policy`

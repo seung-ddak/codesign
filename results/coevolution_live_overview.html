@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>coevolution_live overview</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #dfe7f2;
+      --cyan: #38bdf8;
+      --blue: #2563eb;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --purple: #8b5cf6;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 1280px;
+      margin: 32px auto;
+      padding: 0 20px 60px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 2rem;
+      letter-spacing: -0.03em;
+    }
+    .subtitle {
+      margin: 0 0 24px;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+    .statusbar {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px 18px 14px;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+    }
+    .kpi .name {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .kpi .value {
+      font-size: 1.9rem;
+      font-weight: 800;
+      letter-spacing: -0.05em;
+    }
+    .kpi .hint {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 10px 25px rgba(15, 23, 42, 0.04);
+      padding: 18px 20px 16px;
+      margin-bottom: 22px;
+    }
+    .panel h2 {
+      margin: 0 0 14px;
+      font-size: 1.05rem;
+    }
+    .diagram {
+      width: 100%;
+      overflow-x: auto;
+    }
+    svg {
+      width: 100%;
+      min-width: 1180px;
+      display: block;
+    }
+    .lane {
+      font-size: 12px;
+      font-weight: 700;
+      fill: var(--muted);
+    }
+    .phase {
+      font-size: 12px;
+      font-weight: 700;
+      fill: var(--ink);
+    }
+    .node {
+      fill: white;
+      stroke: var(--line);
+      stroke-width: 1.6;
+    }
+    .node.input { fill: #f8fbff; }
+    .node.design { fill: #eef9ff; }
+    .node.controller { fill: #edfdf5; }
+    .node.eval { fill: #fffaf0; }
+    .node.output { fill: #f5f3ff; }
+    .label { font-size: 13px; font-weight: 700; fill: var(--ink); }
+    .tag { font-size: 11px; fill: var(--muted); }
+    .edge { stroke: #5b708b; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    .edge.emphasis { stroke: var(--blue); stroke-width: 2.8; }
+    .edge.security { stroke: var(--red); stroke-width: 2.4; stroke-dasharray: 7 7; }
+    .edge-label { font-size: 11px; fill: var(--muted); }
+    .group-rect {
+      fill: rgba(56, 189, 248, 0.05);
+      stroke: rgba(56, 189, 248, 0.25);
+      stroke-dasharray: 8 8;
+      stroke-width: 1.3;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(240px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .metric-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px 18px;
+      background: linear-gradient(180deg, #fff, #fbfdff);
+    }
+    .metric-card h3 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #edf2f7;
+      padding: 8px 0;
+      font-size: 0.96rem;
+    }
+    .row:last-child { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge.good { background: rgba(34,197,94,0.12); color: #15803d; }
+    .badge.warn { background: rgba(245,158,11,0.12); color: #b45309; }
+    .badge.bad { background: rgba(239,68,68,0.12); color: #b91c1c; }
+    .note {
+      margin-top: 18px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .small-annotation {
+      font-size: 11px;
+      fill: var(--muted);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>현재 공진화 학습 overview</h1>
+    <p class="subtitle">기준: <strong>Training round 2</strong> 상태, round 0/1 메트릭은 실시간 progress.json 기준. 아직 success는 0.0.</p>
+
+    <div class="statusbar">
+      <div class="kpi">
+        <div class="name">status</div>
+        <div class="value" style="font-size:1.3rem;">Training round 2</div>
+        <div class="hint">현재 진행 중</div>
+      </div>
+      <div class="kpi">
+        <div class="name">rounds finished</div>
+        <div class="value">2</div>
+        <div class="hint">round 0, 1 완료</div>
+      </div>
+      <div class="kpi">
+        <div class="name">best return</div>
+        <div class="value">0.0293</div>
+        <div class="hint">round 1 mean return</div>
+      </div>
+      <div class="kpi">
+        <div class="name">success rate</div>
+        <div class="value">0.0%</div>
+        <div class="hint">all rounds failed</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>학습 루프 개요</h2>
+      <div class="diagram">
+        <svg viewBox="0 0 1200 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Co-evolution overview">
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+              <path d="M0,0 L0,6 L9,3 z" fill="#5b708b"></path>
+            </marker>
+          </defs>
+
+          <rect x="40" y="40" width="1100" height="520" rx="18" fill="#f8fafc" stroke="#dfe7f2"/>
+          <text x="80" y="80" class="lane">입력</text>
+          <text x="280" y="80" class="lane">형상 생성</text>
+          <text x="520" y="80" class="lane">공유 제어기</text>
+          <text x="760" y="80" class="lane">평가/업데이트</text>
+          <text x="1000" y="80" class="lane">산출물</text>
+
+          <text x="80" y="120" class="phase">준비</text>
+          <text x="280" y="120" class="phase">설계 생성</text>
+          <text x="520" y="120" class="phase">학습</text>
+          <text x="760" y="120" class="phase">검증</text>
+
+          <rect x="60" y="145" width="180" height="80" rx="14" class="node input"/>
+          <text x="78" y="171" class="label">TT prior</text>
+          <text x="78" y="189" class="small-annotation">weights frozen</text>
+          <text x="78" y="206" class="tag">xrh4wk4l/040.pt</text>
+
+          <rect x="255" y="145" width="180" height="80" rx="14" class="node input"/>
+          <text x="273" y="171" class="label">RoboToken bank</text>
+          <text x="273" y="189" class="small-annotation">128 options</text>
+          <text x="273" y="206" class="tag">design tokens</text>
+
+          <rect x="250" y="245" width="190" height="95" rx="14" class="node design"/>
+          <text x="268" y="278" class="label">DesignLearner</text>
+          <text x="268" y="298" class="small-annotation">learned πφ</text>
+          <text x="268" y="314" class="tag">residual guidance</text>
+
+          <rect x="470" y="240" width="200" height="100" rx="14" class="node design"/>
+          <text x="488" y="272" class="label">candidate designs</text>
+          <text x="488" y="291" class="small-annotation">8 morphologies</text>
+          <text x="488" y="309" class="tag">per round</text>
+
+          <rect x="470" y="370" width="200" height="90" rx="14" class="node controller"/>
+          <text x="488" y="401" class="label">WalkEnv instances</text>
+          <text x="488" y="420" class="small-annotation">one per morphology</text>
+
+          <rect x="700" y="245" width="200" height="100" rx="14" class="node controller"/>
+          <text x="718" y="278" class="label">shared πθ</text>
+          <text x="718" y="297" class="small-annotation">learned controller</text>
+          <text x="718" y="314" class="tag">PPO walk policy</text>
+
+          <rect x="705" y="370" width="190" height="95" rx="14" class="node eval"/>
+          <text x="723" y="400" class="label">rollout evaluation</text>
+          <text x="723" y="420" class="small-annotation">return / success</text>
+
+          <rect x="930" y="245" width="180" height="100" rx="14" class="node eval"/>
+          <text x="948" y="278" class="label">πφ update</text>
+          <text x="948" y="297" class="small-annotation">guidance residual</text>
+          <text x="948" y="314" class="tag">from rollout score</text>
+
+          <rect x="930" y="370" width="180" height="100" rx="14" class="node output"/>
+          <text x="948" y="400" class="label">round checkpoint</text>
+          <text x="948" y="420" class="small-annotation">theta.pkl / phi.pt</text>
+
+          <rect x="930" y="490" width="180" height="50" rx="12" class="node output"/>
+          <text x="948" y="522" class="label">progress.json</text>
+          <text x="948" y="540" class="tag">live monitor</text>
+
+          <rect x="200" y="210" width="940" height="360" rx="18" class="group-rect"/>
+          <text x="230" y="239" fill="#1d4ed8" font-size="12" font-weight="700">round 단위 공진화 루프</text>
+
+          <path d="M240 185 L255 185" class="edge"/>
+          <path d="M435 185 L470 185" class="edge emphasis"/>
+          <path d="M440 290 L470 290" class="edge emphasis"/>
+          <path d="M670 290 L700 290" class="edge emphasis"/>
+          <path d="M900 290 L930 290" class="edge emphasis"/>
+          <path d="M570 340 L570 370" class="edge"/>
+          <path d="M800 345 L800 370" class="edge emphasis"/>
+          <path d="M800 465 L800 490" class="edge"/>
+          <path d="M1020 465 L1020 490" class="edge"/>
+          <path d="M895 420 L930 420" class="edge emphasis"/>
+
+          <text x="430" y="176" class="edge-label">fixed prior</text>
+          <text x="450" y="280" class="edge-label">propose morphology</text>
+          <text x="680" y="280" class="edge-label">shared controller training</text>
+          <text x="905" y="280" class="edge-label">score → update guidance</text>
+          <text x="820" y="410" class="edge-label">save round state</text>
+
+          <text x="70" y="345" fill="#d97706" font-size="12" font-weight="700">현재 상태</text>
+          <text x="70" y="365" fill="#475569" font-size="12">round 2 시작 직전; round 0/1 완료</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top: 0;">
+      <h2>TT fixed prior란?</h2>
+      <p class="note" style="margin-top: 0; line-height: 1.7;">
+        <strong>fixed prior</strong>는 TT의 사전학습된 생성기/디코더 가중치를 <strong>동결</strong>한다는 뜻입니다.
+        즉, TT 모델 자체는 더 이상 학습하지 않고, <strong>πφ (형상 residual guidance)</strong>와 <strong>πθ (공유 보행 제어기)</strong>만 이 실험에서 학습합니다.
+        여기서 고정되는 대상은 <em>morphology generator의 prior weights</em>이지, 후보 형상이나 정책 파라미터 자체가 아닙니다.
+      </p>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card">
+        <h3>Round 0</h3>
+        <div class="row"><span>return mean</span><strong>0.0063</strong></div>
+        <div class="row"><span>success mean</span><strong>0.0000</strong></div>
+        <div class="row"><span>unique designs</span><strong>8</strong></div>
+        <div class="row"><span>status</span><span class="badge warn">weak learning</span></div>
+      </div>
+
+      <div class="metric-card">
+        <h3>Round 1</h3>
+        <div class="row"><span>return mean</span><strong>0.0293</strong></div>
+        <div class="row"><span>success mean</span><strong>0.0000</strong></div>
+        <div class="row"><span>unique designs</span><strong>8</strong></div>
+        <div class="row"><span>status</span><span class="badge warn">still stalled</span></div>
+      </div>
+    </div>
+
+    <div class="note">
+      핵심 해석: 현재 round 0/1의 return은 매우 낮고 success는 0.0이며, 공진화는 전진 보상을 거의 얻지 못하고 있다.\n\n이 상태는 reward/termination 설계, shared controller 학습, 또는 πφ guidance 업데이트 중 하나 이상이 아직 깨져 있음을 의미한다.
+    </div>
+  </div>
+</body>
+</html>

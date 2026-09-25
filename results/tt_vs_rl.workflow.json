@@ -56,7 +56,7 @@
     },
     {
       "id": "steer",
-      "label": "Steer the last 10 of 100 steps",
+      "label": "Guidance: DSG every step; RL final 10",
       "fromCol": 2,
       "toCol": 2,
       "variant": "emphasis"
@@ -236,10 +236,10 @@
   "cards": [
     {
       "dot": "cyan",
-      "title": "Exactly one thing differs",
+      "title": "Guidance differs",
       "items": [
         "Generator, sampler, controller, metrics and seeds are identical on both sides",
-        "The paper differentiates its own predicted reward; we learn the push from outcomes"
+        "TT uses reward gradients at every step; RL uses learned residuals in the final 10"
       ]
     },
     {
