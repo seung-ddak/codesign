@@ -22,9 +22,9 @@ reward는 `Δ(world x) / goal`이다. 후진은 음수여서 왕복으로 보상
 
 ```bash
 cd /home/cgr-ugrad-2026/quad_ws/codesign
-../transformer-transformer/.venv/bin/python code/train_coevolution.py --check
+../transformer-transformer/.venv/bin/python stage3_coevolution/train_coevolution.py --check
 tmux new -s coevolution
-../transformer-transformer/.venv/bin/python -u code/train_coevolution.py \
+../transformer-transformer/.venv/bin/python -u stage3_coevolution/train_coevolution.py \
   --rounds 2 --designs 4 --theta-steps 4096 --num-envs 32 \
   --horizon 128 --eval-seeds 3 --out runs/coevolution_smoke
 ```
@@ -32,14 +32,14 @@ tmux new -s coevolution
 전원이 꺼지면 tmux도 종료된다. 다시 켠 뒤 아래 명령은 저장된 설정과 마지막 완료 round를 읽고 새 tmux에서 이어서 실행한다. 진행 중이던 round만 다시 계산한다.
 
 ```bash
-bash code/start_coevolution_tmux.sh runs/coevolution_live_20260922
+bash stage3_coevolution/start_coevolution_tmux.sh runs/coevolution_live_20260922
 tmux attach -t coevolution_coevolution_live_20260922
 ```
 
-부팅 뒤 자동 실행은 `code/coevolution-resume.service`를 사용자 systemd에 연결하고 활성화한다. 사용자 서비스가 로그인 전에도 실행되려면 해당 계정의 linger가 켜져 있어야 한다. 서비스의 실행 경로와 대상 run 폴더는 현재 머신 기준이다.
+부팅 뒤 자동 실행은 `stage3_coevolution/coevolution-resume.service`를 사용자 systemd에 연결하고 활성화한다. 사용자 서비스가 로그인 전에도 실행되려면 해당 계정의 linger가 켜져 있어야 한다. 서비스의 실행 경로와 대상 run 폴더는 현재 머신 기준이다.
 
 ```bash
-systemctl --user link "$PWD/code/coevolution-resume.service"
+systemctl --user link "$PWD/stage3_coevolution/coevolution-resume.service"
 systemctl --user enable --now coevolution-resume.service
 loginctl enable-linger "$USER"
 ```
@@ -53,7 +53,7 @@ loginctl enable-linger "$USER"
 
 ```bash
 cd /home/cgr-ugrad-2026/quad_ws/codesign
-../transformer-transformer/.venv/bin/python -u code/watch_coevolution_viewer.py \
+../transformer-transformer/.venv/bin/python -u stage3_coevolution/watch_coevolution_viewer.py \
   --run-dir runs/coevolution_full
 ```
 
@@ -66,7 +66,7 @@ GUI가 없는 SSH 세션에서는 MuJoCo viewer를 띄울 수 없다. 이 경우
 
 ## 검증 상태와 한계
 
-- 통과: `code/test_coevolution.py`의 reward/종료·공유 관측/행동 규격·팔 제어 고정·π_φ 가중치 갱신·저장 검사.
+- 통과: `stage3_coevolution/test_coevolution.py`의 reward/종료·공유 관측/행동 규격·팔 제어 고정·π_φ 가중치 갱신·저장 검사.
 - 통과: 실제 TT GPU decoder 2-step 연결 검사, 첫 형상의 실제 GPU PPO 16 step 및 8-step rollout. 이 수치는 성능 결과가 아니다.
 - 미완료: 두 번째 형상에서 정책 이어 학습, 100-step prior와 전체 bank 디코딩, 전체 2-round 실행. 사용자 요청으로 검증 세션 종료.
 - 새 reference-free 관측은 TT expert와 호환되지 않아 π_θ를 fresh 초기화한다. 공개 prior만 재사용한다.

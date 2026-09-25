@@ -76,6 +76,7 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 | D40 | **2 단계에서는 single-task flat locomotion 만 사용.** multi-task·계단·rough terrain·jump 는 single-task hardware generation 검증 후로 보류한다. |
 | D41 | **surrogate·topology 확장·Sim2Real 은 현재 범위 밖.** simulator return 을 직접 사용하고 broad topology 는 Stage 2/3 성립 후 확장한다. |
 | D42 | **repo 는 단계별로 분리한다.** 기존 coevolution 코드는 삭제하지 않고 archive/후속 Stage 3 로 보류하며 Stage 2 전용 locomotion/controller/hardware-guidance 경로를 새로 둔다. |
+| D43 | **2026-09-25 Stage 2 세부.** design space = `umi_on_legs_plus_plus` 128 조합 중 **바퀴형 제외**, **팔(arx5) 고정 payload**. reward = legged_gym **`LeggedRobotCfg` base** (A1 override 미사용). 접촉 링크명만 TT 형상으로 매핑 |
 
 핵심 질문: *reference motion·reward gradient 없이, task 수행 결과만으로 diffusion 의 denoising
 전략을 RL 로 학습할 수 있는가?*
@@ -417,8 +418,10 @@ warm start 직후 상시 발동. **40 M 은 렌더 단계 X11 끊김으로 프�
 **완료:** 고정 TT prior + UMI tracking + RL guidance 에서 morphology 생성과 motion tracking 동작을 확인했다.
 이 경로는 회귀 검사용으로 보존하고 Stage 2 에서는 UMI trajectory/tracking reward 를 사용하지 않는다.
 
-### T2. Repo 를 Stage 2 기준으로 정리
+### T2. Repo 를 Stage 2 기준으로 정리 — 완료 (2026-09-25)
 
+**완료:** `code/`=Stage 1 보존 · `stage3_coevolution/`=공진화 7 파일+COEVOLUTION.md · `archive/`=D22·L0~L3·fine-tune 10 파일 · `stage2/`=신규.
+폴더 깊이를 유지해 `CODESIGN_ROOT` 자동 추정이 그대로 동작, `test_coevolution.py` 새 위치에서 PASS. **팔 고정 + legged_gym base config** 확정.
 기존 `train_coevolution.py`, 과거 reward·공진화 스크립트는 삭제하지 말고 `archive/` 또는 Stage 3 경로로 이동한다.
 Stage 2 전용 `locomotion_env`, `train_locomotion_policy`, `eval_locomotion_policy`, `train_hardware_guidance` 경로를 분리한다.
 

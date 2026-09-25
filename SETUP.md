@@ -69,7 +69,7 @@ cd "$CODESIGN" && source env.sh && cd "$CODESIGN_TT"
 bash "$CODESIGN/code/repro_table4_TT.sh" 16
 
 # ② 2 단 reward 채점기 — 설계 2 개를 굴려 score 를 낸다 (약 40 초)
-.venv/bin/python "$CODESIGN/code/eval_design_d22.py"
+.venv/bin/python "$CODESIGN/archive/eval_design_d22.py"
 ```
 
 ## 6. 끊긴 π_θ fine-tune 이어하기 (2026-09-21)
@@ -79,7 +79,7 @@ bash "$CODESIGN/code/repro_table4_TT.sh" 16
 
 ```sh
 source env.sh
-MUJOCO_GL=egl bash "$CODESIGN/code/finetune_pi_theta.sh" \
+MUJOCO_GL=egl bash "$CODESIGN/archive/finetune_pi_theta.sh" \
   "$CODESIGN/assets/design_RL_best.zarr" \
   "$CODESIGN_ROOT/runs/pi_theta_RL4/checkpoint_40697856" 40000000
 ```

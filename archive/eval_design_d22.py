@@ -22,7 +22,7 @@ import numpy as np
 from hydra import compose, initialize_config_dir
 
 TT = _TT
-CODE = _os.path.join(_R, "code")
+CODE = _os.path.dirname(_os.path.abspath(__file__))
 os.chdir(TT)
 sys.path.insert(0, CODE)
 

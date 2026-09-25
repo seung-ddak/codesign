@@ -24,14 +24,17 @@ TT  : guidance = scale · ∇_x R̂(x̂)      모델 예측 reward 를 미분   
 | 경로 | 내용 |
 |------|------|
 | `remind.md` | **정본** — 결정(D1~D25) · 열린 안건 · 실험 결과(§5.1~5.24) |
-| `code/` | 우리가 쓴 스크립트 (학습·평가·진단·렌더) |
+| `code/` | Stage 1 (TT vs RL tracking guidance) — 회귀 검사용 보존 |
+| `stage2/` | Stage 2 (동결 π_θ + π_φ 형상 생성) — T3 부터 작성 |
+| `stage3_coevolution/` | Stage 3 공진화 코드 (보류). 실행법 `COEVOLUTION.md` |
+| `archive/` | 폐기된 D22 reward · L0~L3 · π_θ fine-tune 스크립트 |
 | `tt_patch/` | TT 레포에 얹을 파일들. 경로 구조 그대로. `train.py.diff` 는 기존 파일 수정분 |
 | `results/` | 결과 jsonl·json, 비교 영상, 설계 렌더, 복원된 MJCF |
 | `assets/` | 단일 설계 store (`*.zarr`) — π_θ 학습 입력 |
 
 ## 지금 상태 (2026-09-21)
 
-**2026-09-22 갱신:** reference 없는 전진 보행 공진화 코드를 연결했다. 전체 실행 검증은 미완료이며 사용자 요청으로 검증을 중지하고 형상 bank 다운로드만 진행한다. 현재 실행 경로는 [`COEVOLUTION.md`](COEVOLUTION.md).
+**2026-09-22 갱신:** reference 없는 전진 보행 공진화 코드를 연결했다. 전체 실행 검증은 미완료이며 사용자 요청으로 검증을 중지하고 형상 bank 다운로드만 진행한다. 현재 실행 경로는 [`COEVOLUTION.md`](stage3_coevolution/COEVOLUTION.md).
 
 - **1 단 (동등성)**: TT 행 재현 ✅ (Pos Err 3.0 cm / Survival 99.4 %, 논문 2.6/99.4).
   RL 행 완주 ✅ (3.0 cm / 97.8 %). 단 π_φ 가 학습되지 않아 **치환의 기계적 성립까지만** 확인.
@@ -50,4 +53,4 @@ less SETUP.md          # TT 레포 + 공개 자산 16 GB 받는 절차
 ```
 
 이어받은 뒤 **가장 먼저 할 것**: `remind.md` §0(연구 구조 2 단) → §1(결정 D1~D25) → §7(다음 할 일).
-배선이 살아 있는지는 `code/eval_design_d22.py` 로 40 초면 확인된다.
+배선이 살아 있는지는 `archive/eval_design_d22.py` 로 40 초면 확인된다.

@@ -23,7 +23,7 @@ for key, value in config.items():
     print(str(value), end="\0")
 PY
 )
-printf -v command '%q ' "$python" -u "$repo/code/train_coevolution.py" \
+printf -v command '%q ' "$python" -u "$repo/stage3_coevolution/train_coevolution.py" \
   --resume --out "$run_dir" "${options[@]}"
 printf -v log '%q' "$run_dir/train.log"
 tmux new-session -d -s "$session" -c "$repo" "$command >> $log 2>&1"
