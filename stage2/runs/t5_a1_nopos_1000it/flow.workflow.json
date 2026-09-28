@@ -1,0 +1,167 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Stage 2 · T5 π_θ 학습 흐름",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    {
+      "id": "design",
+      "label": "형상 준비"
+    },
+    {
+      "id": "sim",
+      "label": "시뮬 환경 (MJX)"
+    },
+    {
+      "id": "learn",
+      "label": "π_θ 학습 · 평가"
+    }
+  ],
+  "phases": [
+    {
+      "id": "p_design",
+      "label": "형상",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "p_train",
+      "label": "학습 루프",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "p_eval",
+      "label": "평가",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "mainPath": [
+    "bank",
+    "build",
+    "group",
+    "envstep",
+    "reward",
+    "ppo",
+    "ckpt",
+    "evaluate"
+  ],
+  "nodes": [
+    {
+      "id": "bank",
+      "lane": "design",
+      "col": 0,
+      "type": "database",
+      "label": "TT 형상 bank",
+      "sublabel": "16 choice × 8 seed",
+      "tag": "128 형상"
+    },
+    {
+      "id": "build",
+      "lane": "design",
+      "col": 1,
+      "type": "backend",
+      "label": "MJCF 조립",
+      "sublabel": "8비트 + 13 연속값"
+    },
+    {
+      "id": "group",
+      "lane": "sim",
+      "col": 1,
+      "type": "cloud",
+      "label": "구조 그룹 4개",
+      "sublabel": "그룹당 32 형상 vmap"
+    },
+    {
+      "id": "envstep",
+      "lane": "sim",
+      "col": 2,
+      "type": "backend",
+      "label": "LocomotionEnv",
+      "sublabel": "관측 + 형상 E",
+      "tag": "push·마찰 DR"
+    },
+    {
+      "id": "reward",
+      "lane": "sim",
+      "col": 3,
+      "type": "security",
+      "label": "보상 10항",
+      "sublabel": "legged_gym A1",
+      "tag": "only_positive off"
+    },
+    {
+      "id": "ppo",
+      "lane": "learn",
+      "col": 3,
+      "type": "messagebus",
+      "label": "Brax PPO",
+      "sublabel": "1024 env × 24 step",
+      "tag": "adaptive KL"
+    },
+    {
+      "id": "ckpt",
+      "lane": "learn",
+      "col": 4,
+      "type": "database",
+      "label": "체크포인트",
+      "sublabel": "최종 24.6M step"
+    },
+    {
+      "id": "evaluate",
+      "lane": "learn",
+      "col": 5,
+      "type": "backend",
+      "label": "평가 · 영상",
+      "sublabel": "128 형상 × 4 ep"
+    }
+  ],
+  "edges": [
+    {
+      "from": "bank",
+      "to": "build",
+      "label": "choice, seed"
+    },
+    {
+      "from": "build",
+      "to": "group",
+      "label": "구조 같은 것끼리"
+    },
+    {
+      "from": "group",
+      "to": "envstep"
+    },
+    {
+      "from": "envstep",
+      "to": "reward"
+    },
+    {
+      "from": "reward",
+      "to": "ppo",
+      "label": "r_t",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ppo",
+      "to": "envstep",
+      "label": "행동 a_t",
+      "role": "return",
+      "variant": "dashed"
+    },
+    {
+      "from": "ppo",
+      "to": "ckpt",
+      "label": "1000 iter"
+    },
+    {
+      "from": "ckpt",
+      "to": "evaluate",
+      "label": "deterministic"
+    }
+  ]
+}

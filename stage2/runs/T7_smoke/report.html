@@ -1,0 +1,99 @@
+<title>T7 파이프라인 테스트</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap"><style>:root{
+  --plane:#f5f6f3; --surface:#fcfcfb; --ink:#14161a; --ink2:#4d5057; --muted:#85878c; --line:#e1e2dc; --grid:#ecece7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --warn:#b37a00; --bad:#d03b3b;
+  --seq0:#eef3fa; --tag:#e8eef8;
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark; --plane:#0f1011; --surface:#1a1a19; --ink:#f4f4f2; --ink2:#c3c2b7; --muted:#8d8c86; --line:#2e2f2c; --grid:#262724;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#3dbb3d; --warn:#e0a526; --bad:#e66767; --seq0:#1f2530; --tag:#1d2635;}}
+:root[data-theme="dark"]{
+  color-scheme:dark; --plane:#0f1011; --surface:#1a1a19; --ink:#f4f4f2; --ink2:#c3c2b7; --muted:#8d8c86; --line:#2e2f2c; --grid:#262724;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#3dbb3d; --warn:#e0a526; --bad:#e66767; --seq0:#1f2530; --tag:#1d2635;}
+*{box-sizing:border-box}
+body{background:var(--plane);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65;padding-inline:20px;padding-block:32px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:30px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:21px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:0;max-width:68ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mono,code{font-family:var(--mono);font-size:.9em}
+code{background:var(--tag);padding:1px 5px;border-radius:4px}
+section{display:flex;flex-direction:column;gap:18px}
+.lede{color:var(--ink2);font-size:16px}
+header{display:flex;flex-direction:column;gap:12px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:13px}
+/* verdict strip */
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.verdict>div{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:2px}
+.verdict .k{font-size:12.5px;color:var(--muted)}
+.verdict .v{font-family:var(--mono);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums}
+.verdict .d{font-size:12.5px;color:var(--ink2)}
+.up{color:var(--good)} .down{color:var(--bad)}
+/* flow link */
+.flowcard{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.flowcard ol{margin:0;padding-left:20px;color:var(--ink2);font-size:14px}
+a.btn{display:inline-block;padding:9px 16px;border-radius:8px;background:var(--s1);color:#fff;text-decoration:none;font-weight:500;font-size:14px;white-space:nowrap}
+a.btn:focus-visible,a:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+/* timeline */
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:104px 18px 1fr;gap:0 14px}
+.tl .when{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-align:right;padding-top:3px;font-variant-numeric:tabular-nums}
+.tl .rail{position:relative}
+.tl .rail::before{content:"";position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--line)}
+.tl .rail::after{content:"";position:absolute;left:3px;top:8px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--muted)}
+.tl li.decision .rail::after{border-radius:2px;border-color:var(--ink2);background:var(--ink2)}
+.tl li.fail .rail::after{border-color:var(--bad)}
+.tl li.ok .rail::after{border-color:var(--good);background:var(--good)}
+.tl .body{padding-bottom:22px;display:flex;flex-direction:column;gap:4px}
+.tl .title{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
+.pill{font-size:11.5px;font-weight:500;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.pill.fail{color:var(--bad)} .pill.ok{color:var(--good)} .pill.dec{color:var(--ink2)} .pill.diag{color:var(--warn)}
+.tl .what{color:var(--ink2);font-size:14px}
+.tl .res{font-size:14px}
+/* charts */
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 14px 10px;display:flex;flex-direction:column;gap:6px;position:relative}
+figcaption{font-size:13.5px;font-weight:600}
+figcaption span{font-weight:400;color:var(--muted);font-size:12.5px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+svg text{font-family:var(--mono);font-size:10.5px;fill:var(--muted)}
+svg .lbl{fill:var(--ink2);font-size:11px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--plane);font-family:var(--mono);font-size:12px;padding:6px 9px;border-radius:6px;white-space:nowrap;z-index:5;line-height:1.5}
+/* terms table */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:500;color:var(--muted);font-size:12.5px}
+td.bar{width:38%;min-width:160px}
+.bars{display:flex;flex-direction:column;gap:3px}
+.bars span{display:block;height:7px;border-radius:0 4px 4px 0}
+/* morphology grid */
+.morph{display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:4px;font-size:13px}
+.morph .h{font-size:12px;color:var(--muted);padding:6px 4px;display:flex;align-items:flex-end;justify-content:center;text-align:center;line-height:1.35}
+.morph .rh{justify-content:flex-start;text-align:left;align-items:center}
+.cell{border-radius:6px;padding:10px 8px;display:flex;flex-direction:column;gap:1px;align-items:center;font-family:var(--mono);cursor:default;border:1px solid var(--line)}
+.cell .c{font-size:11px;opacity:.8}
+.cell .r{font-size:17px;font-weight:500}
+.cell .sv{font-size:11px}
+.bits{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.bit{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:13.5px;display:flex;flex-direction:column;gap:3px}
+.bit b{font-family:var(--mono);font-weight:500}
+.callout{border-left:3px solid var(--s1);padding:4px 0 4px 16px;display:flex;flex-direction:column;gap:6px}
+/* videos */
+.vids{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.vid{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.vid video{width:100%;aspect-ratio:4/3;background:#0d1522;display:block;max-width:100%}
+.vid .cap{padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums}
+ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+@media (max-width:560px){.tl li{grid-template-columns:64px 18px 1fr;gap:0 8px}.tl .when{font-size:11px}h1{font-size:25px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style><div class="wrap"><header><div class="eyebrow">codesign · Stage 2 · T7 RL guidance 형상 생성</div><h1>T7 파이프라인 테스트</h1><p class="lede">동결 π_θ (<code>fake_t5</code>) 로 채점한 return 을 보상으로 π_φ 를 3 업데이트 학습했습니다. 업데이트당 형상 16 개.</p></header><section><h2>요약</h2><div class="verdict"><div><span class="k">업데이트</span><span class="v">3</span><span class="d">목표 3</span></div><div><span class="k">평균 return</span><span class="v">-144.8 → -144.8</span><span class="d">처음 10 → 마지막 10 업데이트</span></div><div><span class="k">기본 다리 형상 비율</span><span class="v">4% → 4%</span><span class="d">bit 1~4 모두 0</span></div><div><span class="k">유효 형상 비율</span><span class="v">100%</span><span class="d">bank 변환 성공</span></div></div></section><section><h2>학습 곡선</h2><div class="charts"><figure><figcaption>형상 return (업데이트별)</figcaption><div class="legend"><span><i style="background:var(--s2)"></i>평균</span><span><i style="background:var(--s1)"></i>최대</span></div><svg viewBox="0 0 460 220" width="100%" role="img"><line x1="48" x2="446" y1="194.0" y2="194.0" stroke="var(--grid)"/><text x="42" y="197.5" text-anchor="end">-173</text><line x1="48" x2="446" y1="157.2" y2="157.2" stroke="var(--grid)"/><text x="42" y="160.7" text-anchor="end">-120</text><line x1="48" x2="446" y1="120.4" y2="120.4" stroke="var(--grid)"/><text x="42" y="123.9" text-anchor="end">-66.2</text><line x1="48" x2="446" y1="83.6" y2="83.6" stroke="var(--grid)"/><text x="42" y="87.1" text-anchor="end">-12.8</text><line x1="48" x2="446" y1="46.8" y2="46.8" stroke="var(--grid)"/><text x="42" y="50.3" text-anchor="end">40.5</text><line x1="48" x2="446" y1="10.0" y2="10.0" stroke="var(--grid)"/><text x="42" y="13.5" text-anchor="end">93.9</text><text x="48.0" y="212" text-anchor="middle">0</text><text x="127.6" y="212" text-anchor="middle">0</text><text x="207.2" y="212" text-anchor="middle">1</text><text x="286.8" y="212" text-anchor="middle">1</text><text x="366.4" y="212" text-anchor="middle">2</text><text x="446.0" y="212" text-anchor="middle">2</text><path d="M48.0,156.8L247.0,173.1L446.0,194.0" fill="none" stroke="var(--s2)" stroke-width="2"><title>평균</title></path><path d="M48.0,30.1L247.0,26.4L446.0,23.6" fill="none" stroke="var(--s1)" stroke-width="2"><title>최대</title></path></svg></figure><figure><figcaption>기본 다리 형상 비율 (bit 1~4 = 0)</figcaption><div class="legend"><span><i style="background:var(--s3)"></i>기본 다리 비율</span></div><svg viewBox="0 0 460 220" width="100%" role="img"><line x1="48" x2="446" y1="194.0" y2="194.0" stroke="var(--grid)"/><text x="42" y="197.5" text-anchor="end">0</text><line x1="48" x2="446" y1="157.2" y2="157.2" stroke="var(--grid)"/><text x="42" y="160.7" text-anchor="end">0.0135</text><line x1="48" x2="446" y1="120.4" y2="120.4" stroke="var(--grid)"/><text x="42" y="123.9" text-anchor="end">0.027</text><line x1="48" x2="446" y1="83.6" y2="83.6" stroke="var(--grid)"/><text x="42" y="87.1" text-anchor="end">0.0405</text><line x1="48" x2="446" y1="46.8" y2="46.8" stroke="var(--grid)"/><text x="42" y="50.3" text-anchor="end">0.054</text><line x1="48" x2="446" y1="10.0" y2="10.0" stroke="var(--grid)"/><text x="42" y="13.5" text-anchor="end">0.0675</text><text x="48.0" y="212" text-anchor="middle">0</text><text x="127.6" y="212" text-anchor="middle">0</text><text x="207.2" y="212" text-anchor="middle">1</text><text x="286.8" y="212" text-anchor="middle">1</text><text x="366.4" y="212" text-anchor="middle">2</text><text x="446.0" y="212" text-anchor="middle">2</text><path d="M48.0,23.6L247.0,194.0L446.0,23.6" fill="none" stroke="var(--s3)" stroke-width="2"><title>기본 다리 비율</title></path></svg></figure><figure><figcaption>π_φ 파라미터 변화량</figcaption><div class="legend"><span><i style="background:var(--s1)"></i>π_φ 변화량</span></div><svg viewBox="0 0 460 220" width="100%" role="img"><line x1="48" x2="446" y1="194.0" y2="194.0" stroke="var(--grid)"/><text x="42" y="197.5" text-anchor="end">0</text><line x1="48" x2="446" y1="157.2" y2="157.2" stroke="var(--grid)"/><text x="42" y="160.7" text-anchor="end">0.0113</text><line x1="48" x2="446" y1="120.4" y2="120.4" stroke="var(--grid)"/><text x="42" y="123.9" text-anchor="end">0.0225</text><line x1="48" x2="446" y1="83.6" y2="83.6" stroke="var(--grid)"/><text x="42" y="87.1" text-anchor="end">0.0338</text><line x1="48" x2="446" y1="46.8" y2="46.8" stroke="var(--grid)"/><text x="42" y="50.3" text-anchor="end">0.0451</text><line x1="48" x2="446" y1="10.0" y2="10.0" stroke="var(--grid)"/><text x="42" y="13.5" text-anchor="end">0.0563</text><text x="48.0" y="212" text-anchor="middle">0</text><text x="127.6" y="212" text-anchor="middle">0</text><text x="207.2" y="212" text-anchor="middle">1</text><text x="286.8" y="212" text-anchor="middle">1</text><text x="366.4" y="212" text-anchor="middle">2</text><text x="446.0" y="212" text-anchor="middle">2</text><path d="M48.0,46.8L247.0,24.5L446.0,23.6" fill="none" stroke="var(--s1)" stroke-width="2"><title>π_φ 변화량</title></path></svg></figure></div></section><section><h2>비트별 선택 비율 변화</h2><div class="scroll"><table><thead><tr><th>비트</th><th>의미</th><th>처음 10</th><th>마지막 10</th></tr></thead><tbody><tr><td class="mono">bit 1</td><td class="mono">앞-왼 링크 다리</td><td class="mono">58%</td><td class="mono">58%</td></tr><tr><td class="mono">bit 2</td><td class="mono">앞-오 링크 다리</td><td class="mono">48%</td><td class="mono">48%</td></tr><tr><td class="mono">bit 3</td><td class="mono">뒤-왼 링크 다리</td><td class="mono">50%</td><td class="mono">50%</td></tr><tr><td class="mono">bit 4</td><td class="mono">뒤-오 링크 다리</td><td class="mono">54%</td><td class="mono">54%</td></tr><tr><td class="mono">bit 5</td><td class="mono">레일 (무효)</td><td class="mono">44%</td><td class="mono">44%</td></tr><tr><td class="mono">bit 6</td><td class="mono">앞무릎 반전</td><td class="mono">54%</td><td class="mono">54%</td></tr><tr><td class="mono">bit 7</td><td class="mono">뒷무릎 반전</td><td class="mono">48%</td><td class="mono">48%</td></tr></tbody></table></div></section><section><h2>return 상위 형상 10</h2><div class="scroll"><table><thead><tr><th>choice</th><th>seed</th><th>return</th></tr></thead><tbody><tr><td class="mono">00000100</td><td class="mono">8468</td><td class="mono">74.11</td></tr><tr><td class="mono">00001000</td><td class="mono">2287</td><td class="mono">70.11</td></tr><tr><td class="mono">00000011</td><td class="mono">5598</td><td class="mono">64.72</td></tr><tr><td class="mono">00001111</td><td class="mono">3060</td><td class="mono">62.12</td></tr><tr><td class="mono">00001001</td><td class="mono">1399</td><td class="mono">61.29</td></tr><tr><td class="mono">01111001</td><td class="mono">2930</td><td class="mono">-34.13</td></tr><tr><td class="mono">01111000</td><td class="mono">1915</td><td class="mono">-34.29</td></tr><tr><td class="mono">01111010</td><td class="mono">6274</td><td class="mono">-36.16</td></tr><tr><td class="mono">00111010</td><td class="mono">8984</td><td class="mono">-36.23</td></tr><tr><td class="mono">00111101</td><td class="mono">2255</td><td class="mono">-37.36</td></tr></tbody></table></div></section><section><h2>판정</h2><div class="callout"><p><b>성공.</b> TT 생성 → bank 변환 → 동결 π_θ 채점 → π_φ 업데이트 → 저장(<code>phi_0003.pt</code>)까지 3 업데이트가 오류 없이 돌았고, 형상 48/48 개 모두 유효했습니다.</p><p>π_θ 는 가짜 run (<code>fake_t5</code>) 입니다. 가중치는 파일럿 <code>t5_norail_x3_1000it</code>, <code>designs.json</code> 은 T5_try1 것(16 구조 그룹 전부)입니다. 3 업데이트의 return 추세는 의미가 없습니다.</p></div></section><section><h2>소요 시간</h2><div class="scroll"><table><thead><tr><th>항목</th><th>값</th></tr></thead><tbody><tr><td class="mono">setup</td><td class="mono">105 s</td></tr><tr><td class="mono">업데이트당 평균</td><td class="mono">1732 s (29 분)</td></tr><tr><td class="mono">100 업데이트 예상</td><td class="mono">48 시간</td></tr></tbody></table></div><p class="lede">업데이트 1 회 = 형상 16 개 × 명령 7 개 × 1000 step 롤아웃. T7 100 업데이트는 약 이틀 걸립니다.</p></section></div>

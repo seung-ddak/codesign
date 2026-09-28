@@ -1,0 +1,314 @@
+<title>T5 첫 보행 성공</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --plane:#f5f6f3; --surface:#fcfcfb; --ink:#14161a; --ink2:#4d5057; --muted:#85878c; --line:#e1e2dc; --grid:#ecece7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --good:#0ca30c; --warn:#b37a00; --bad:#d03b3b;
+  --seq0:#eef3fa; --tag:#e8eef8;
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark; --plane:#0f1011; --surface:#1a1a19; --ink:#f4f4f2; --ink2:#c3c2b7; --muted:#8d8c86; --line:#2e2f2c; --grid:#262724;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#3dbb3d; --warn:#e0a526; --bad:#e66767; --seq0:#1f2530; --tag:#1d2635;}}
+:root[data-theme="dark"]{
+  color-scheme:dark; --plane:#0f1011; --surface:#1a1a19; --ink:#f4f4f2; --ink2:#c3c2b7; --muted:#8d8c86; --line:#2e2f2c; --grid:#262724;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --good:#3dbb3d; --warn:#e0a526; --bad:#e66767; --seq0:#1f2530; --tag:#1d2635;}
+*{box-sizing:border-box}
+body{background:var(--plane);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65;padding-inline:20px;padding-block:32px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:30px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:21px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+p{margin:0;max-width:68ch}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.mono,code{font-family:var(--mono);font-size:.9em}
+code{background:var(--tag);padding:1px 5px;border-radius:4px}
+section{display:flex;flex-direction:column;gap:18px}
+.lede{color:var(--ink2);font-size:16px}
+header{display:flex;flex-direction:column;gap:12px}
+.meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:13px}
+/* verdict strip */
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.verdict>div{background:var(--surface);padding:16px 18px;display:flex;flex-direction:column;gap:2px}
+.verdict .k{font-size:12.5px;color:var(--muted)}
+.verdict .v{font-family:var(--mono);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums}
+.verdict .d{font-size:12.5px;color:var(--ink2)}
+.up{color:var(--good)} .down{color:var(--bad)}
+/* flow link */
+.flowcard{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.flowcard ol{margin:0;padding-left:20px;color:var(--ink2);font-size:14px}
+a.btn{display:inline-block;padding:9px 16px;border-radius:8px;background:var(--s1);color:#fff;text-decoration:none;font-weight:500;font-size:14px;white-space:nowrap}
+a.btn:focus-visible,a:focus-visible{outline:2px solid var(--s1);outline-offset:2px}
+/* timeline */
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.tl li{display:grid;grid-template-columns:104px 18px 1fr;gap:0 14px}
+.tl .when{font-family:var(--mono);font-size:12.5px;color:var(--muted);text-align:right;padding-top:3px;font-variant-numeric:tabular-nums}
+.tl .rail{position:relative}
+.tl .rail::before{content:"";position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--line)}
+.tl .rail::after{content:"";position:absolute;left:3px;top:8px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--muted)}
+.tl li.decision .rail::after{border-radius:2px;border-color:var(--ink2);background:var(--ink2)}
+.tl li.fail .rail::after{border-color:var(--bad)}
+.tl li.ok .rail::after{border-color:var(--good);background:var(--good)}
+.tl .body{padding-bottom:22px;display:flex;flex-direction:column;gap:4px}
+.tl .title{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
+.pill{font-size:11.5px;font-weight:500;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.pill.fail{color:var(--bad)} .pill.ok{color:var(--good)} .pill.dec{color:var(--ink2)} .pill.diag{color:var(--warn)}
+.tl .what{color:var(--ink2);font-size:14px}
+.tl .res{font-size:14px}
+/* charts */
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+figure{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 14px 10px;display:flex;flex-direction:column;gap:6px;position:relative}
+figcaption{font-size:13.5px;font-weight:600}
+figcaption span{font-weight:400;color:var(--muted);font-size:12.5px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--ink2)}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+svg text{font-family:var(--mono);font-size:10.5px;fill:var(--muted)}
+svg .lbl{fill:var(--ink2);font-size:11px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--plane);font-family:var(--mono);font-size:12px;padding:6px 9px;border-radius:6px;white-space:nowrap;z-index:5;line-height:1.5}
+/* terms table */
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{font-weight:500;color:var(--muted);font-size:12.5px}
+td.bar{width:38%;min-width:160px}
+.bars{display:flex;flex-direction:column;gap:3px}
+.bars span{display:block;height:7px;border-radius:0 4px 4px 0}
+/* morphology grid */
+.morph{display:grid;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:4px;font-size:13px}
+.morph .h{font-size:12px;color:var(--muted);padding:6px 4px;display:flex;align-items:flex-end;justify-content:center;text-align:center;line-height:1.35}
+.morph .rh{justify-content:flex-start;text-align:left;align-items:center}
+.cell{border-radius:6px;padding:10px 8px;display:flex;flex-direction:column;gap:1px;align-items:center;font-family:var(--mono);cursor:default;border:1px solid var(--line)}
+.cell .c{font-size:11px;opacity:.8}
+.cell .r{font-size:17px;font-weight:500}
+.cell .sv{font-size:11px}
+.bits{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.bit{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:13.5px;display:flex;flex-direction:column;gap:3px}
+.bit b{font-family:var(--mono);font-weight:500}
+.callout{border-left:3px solid var(--s1);padding:4px 0 4px 16px;display:flex;flex-direction:column;gap:6px}
+/* videos */
+.vids{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+.vid{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+.vid video{width:100%;aspect-ratio:4/3;background:#0d1522;display:block;max-width:100%}
+.vid .cap{padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-size:13px}
+.kv dt{color:var(--muted)} .kv dd{margin:0;font-family:var(--mono);font-variant-numeric:tabular-nums}
+ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+@media (max-width:560px){.tl li{grid-template-columns:64px 18px 1fr;gap:0 8px}.tl .when{font-size:11px}h1{font-size:25px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">codesign · Stage 2 · T5 π_θ 선학습</div>
+  <h1>T5 첫 보행 성공</h1>
+  <p class="lede">팔과 레일을 떼고 선속도 추종 보상을 3 배로 올려 1000 iter 학습했습니다. 128 개 형상 모두 명령을 받은 방향으로 실제로 걸어갑니다. 서서 버티기만 하던 이전 정책과 달리, 명령한 거리의 89 % 를 실제로 이동했습니다.</p>
+  <div class="meta"><span>이번 run <code>stage2/runs/t5_norail_x3_1000it</code></span><span>체크포인트 <code>000024576000</code> (1000 iter)</span><span>2026-09-27 기준</span></div>
+</header>
+
+<section>
+  <h2>지금 상태</h2>
+  <div class="verdict" id="verdict"></div>
+  <p class="lede">이번 평가부터 모든 형상이 같은 명령 4 개(전진, 후진, 왼쪽, 제자리 회전)를 받고, 로봇이 실제로 이동한 거리를 함께 잽니다. 그래서 보상 점수가 아니라 “정말 걸었는가”로 판단할 수 있습니다.</p>
+</section>
+
+<section>
+  <h2>코드 흐름</h2>
+  <div class="flowcard">
+    <ol>
+      <li>TT 형상 bank 에서 choice 8 비트 + seed 를 뽑아 MJCF 로봇을 조립하고, <b>팔(arx5) · 그리퍼 · 레일을 지움</b></li>
+      <li>구조가 같은 형상끼리 묶어 MJX 에서 vmap 으로 동시에 시뮬레이션</li>
+      <li>legged_gym 보상 10 항 (<b>선속도 추종 ×3</b>) 으로 PPO 가 π_θ 를 학습</li>
+      <li><b>고정 명령 4 개</b>로 평가하고 실제 이동 거리를 측정, 영상으로 확인</li>
+    </ol>
+    <a class="btn" href="https://claude.ai/artifact/34tHVv4EdUsH7karioNpDj" target="_blank" rel="noopener">흐름도 열기 ↗</a>
+  </div>
+</section>
+
+<section>
+  <h2>진행 과정</h2>
+  <p class="lede">이전 과정은 <a href="https://claude.ai/artifact/3T7nYqhuFMjwFpbafHG4p3" target="_blank" rel="noopener">1000 iter 첫 보고서</a>와 <a href="https://claude.ai/artifact/B38EyhgpLwX5ZAnJoZaH3g" target="_blank" rel="noopener">팔 제거 시범 보고서</a>에 있습니다. 여기서는 그 뒤에 한 일을 적었습니다.</p>
+  <ol class="tl" id="timeline"></ol>
+</section>
+
+<section>
+  <h2>학습 곡선: 이전 1000 iter 와 이번 1000 iter</h2>
+  <p class="lede">이전 run 은 추종 ×1 에 팔과 레일이 있었고, 이번 run 은 추종 ×3 에 팔과 레일이 없습니다. 보상 스케일이 달라서 선속도 추종은 <b>최대치 대비 %</b> 로 바꿔 그렸습니다. 점선 19 % 는 서 있기만 해도 받는 몫입니다.</p>
+  <div class="legend"><span><i style="background:var(--s1)"></i>이전: 추종 ×1 · 팔·레일 있음 (t5_a1_nopos_1000it)</span><span><i style="background:var(--s2)"></i>이번: 추종 ×3 · 팔·레일 없음 (t5_norail_x3_1000it)</span></div>
+  <div class="charts">
+    <figure><figcaption>선속도 추종 <span>· 최대치 대비 %</span></figcaption><div class="chart" id="c_trk"></div></figure>
+    <figure><figcaption>에피소드 길이 <span>· step, 최대 1000</span></figcaption><div class="chart" id="c_len"></div></figure>
+    <figure><figcaption>정책 표준편차 <span>· 탐색 노이즈, 체크포인트마다</span></figcaption><div class="chart" id="c_std"></div></figure>
+  </div>
+  <div class="callout">
+    <p><b>이전</b>: 추종이 끝까지 19 % 선 근처(최종 21 %)에 머물렀습니다. 버티는 시간만 늘었습니다.</p>
+    <p><b>이번</b>: 5M step 이후 추종이 빠르게 올라 10M 에 53 %, 최종 81 % 가 됐습니다. 에피소드 길이도 779 step 으로 더 깁니다.</p>
+    <p>이번 run 의 표준편차는 0.72 에서 멈췄습니다(이전 0.50). 탐색 노이즈가 더 줄지 않는 이유는 아직 확인하지 않았습니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>평가: 명령별 결과</h2>
+  <p class="lede">128 형상이 각 명령을 한 번씩, 20 초 동안 유지해서 받습니다. 관측 노이즈, 밀기, 마찰 DR 은 학습과 같습니다. 요구 거리는 0.5 m/s × 버틴 시간입니다.</p>
+  <div class="scroll"><table id="cmds"></table></div>
+  <div class="callout">
+    <p>세 방향 모두 요구 거리의 83~93 % 를 실제로 이동했습니다. 후진이 가장 어렵습니다(생존 89 %, 달성 83 %). 왼쪽 이동이 가장 잘 됩니다.</p>
+    <p>순간 속도를 적분한 거리와 위치 변화로 잰 거리가 거의 같습니다(6.46 m 대 6.44 m). 제자리 진동으로 속도 보상만 챙기는 해킹은 아닙니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>형상별 결과</h2>
+  <p class="lede">이제 레일도 없으므로 bit 5 는 로봇을 바꾸지 않습니다. 남은 차이는 bit 4(뒤-오른쪽 링크 다리)와 bit 6·7(앞·뒤 무릎 굽힘 방향), 그리고 seed 가 정하는 다리 길이·각도 같은 연속값입니다.</p>
+  <figure>
+    <figcaption>choice 별 평균 이동 달성률 <span>· 칸 하나 = seed 8 개 평균, 색이 진할수록 달성률 높음</span></figcaption>
+    <div class="scroll"><div class="morph" id="morph"></div></div>
+  </figure>
+  <div class="callout">
+    <p>형상 사이 차이가 작습니다. 무릎 조합별 생존율은 0.91~0.98, 달성률은 0.85~0.93 입니다. 전부 넘어진 형상은 0 개이고, 4 명령 모두 끝까지 버틴 형상이 104 / 128 입니다.</p>
+    <p>형상 하나하나로 보면 달성률이 0.43 부터 1.08 까지 벌어집니다. 차이는 비트보다 seed 연속값에서 더 많이 나옵니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>평가 영상</h2>
+  <p class="lede">평가 순위 1 위, 64 위(중간), 128 위(최하위) 형상입니다. 이전 run 과 비교하기 쉽도록 영상 명령은 seed 1 로 고정했습니다. 첫 명령은 “앞 0.54 m/s, 오른쪽 0.96 m/s” 이고, 10 초 뒤 “뒤 0.33 m/s, 왼쪽 0.35 m/s” 로 바뀝니다. 세 영상 모두 20 초를 끝까지 버텼습니다.</p>
+  <p class="lede"><b>표시</b>: 앞다리는 <span style="color:#eb6834;font-weight:600">주황</span>, 뒷다리는 회색입니다. 몸통 위 <span style="color:#1baf7a;font-weight:600">초록 화살표</span>는 명령한 이동 방향(vx, vy)이고, 길이는 명령 속도에 비례합니다(1 m/s = 0.6 m). 로봇 기준 앞 = +x(앞다리 쪽), 왼쪽 = +y 입니다. 물리 계산에는 영향이 없는 렌더링 표시입니다.</p>
+  <div class="vids" id="vids"></div>
+</section>
+
+<section>
+  <h2>고정 명령 영상</h2>
+  <p class="lede">평가와 같은 명령을 5 초씩 이어 붙였습니다: <b>전진 0.5 m/s → 후진 0.5 m/s → 왼쪽 0.5 m/s → 제자리 회전 0.5 rad/s</b>. 명령은 구간 안에서 바뀌지 않고, 몸을 돌리는 heading 보정도 없습니다. 수치는 구간마다 명령 방향으로 실제 이동한 거리(회전은 실제로 돈 각도) / 요구량입니다. 구간이 바뀐 직후에는 이전 움직임이 남아 100 %% 를 조금 넘을 수 있습니다.</p>
+  <p class="lede"><b>표시</b>: 곧은 초록 화살표 = 이동 명령 방향, 몸통 위 <b>휘어진 초록 화살표 = 회전 명령 방향</b>(위에서 볼 때 반시계 = 왼쪽으로 돌기, 호 길이 ∝ 회전 속도). 앞다리 주황, 뒷다리 회색.</p>
+  <div class="vids">%s</div>
+  <div class="callout">
+    <p><b>회전은 거의 못 합니다.</b> 5 초 동안 2.49 rad(143°)를 돌아야 하는데 1 위 형상도 0.89 rad(36 %%), 중간 형상은 0.50 rad(20 %%) 만 돌았습니다. 회전 추종 보상(평가 47 %%)도 제자리에 서 있기만 해도 받는 몫(37 %%)을 조금 넘는 수준이라, 이동과 달리 회전은 아직 학습되지 않았습니다.</p>
+    <p>같은 설정으로 다시 돌려도 GPU 연산 차이로 결과가 조금씩 달라집니다. 128 위 형상은 영상에서는 20 초를 버텼지만, 회전 측정용 재실행에서는 회전 구간 전에 넘어졌습니다.</p>
+  </div>
+</section>
+
+<section>
+  <h2>남은 문제와 다음 후보</h2>
+  <ul class="plain">
+    <li>정책 표준편차가 0.72 에서 멈춤. 걸음이 거칠 수 있음 (feet_air_time 페널티 −1.6: 발을 짧게 자주 디딤)</li>
+    <li>후진이 가장 약함 (달성 83 %)</li>
+    <li><b>회전이 거의 학습되지 않음</b>: 고정 명령 영상에서 요구 각도의 20~36 % 만 회전. 회전 추종 보상 47 % ≈ 서 있기만 해도 받는 37 %</li>
+    <li>팔·레일 제거는 D35/D43 예외. Stage 2 에서 TT 형상을 채점하려면 팔 무게를 다시 넣는 단계가 필요</li>
+    <li>이 설정에서 바뀐 게 여럿(only_positive 끔, 추종 ×3, 팔·레일 제거)이라 각각의 기여도는 분리되지 않음</li>
+    <li>이전 run 은 코드 설정이 달라 새 평가 방식으로 다시 평가할 수 없음. 앞으로는 이번 결과가 기준점</li>
+  </ul>
+</section>
+</div>
+
+<script>
+const D = {"base":{"curve":[{"s":196608,"l":52.8,"t":16.58},{"s":393216,"l":81.9,"t":18.29},{"s":589824,"l":86.3,"t":17.84},{"s":786432,"l":83.9,"t":18.17},{"s":983040,"l":82.5,"t":18.31},{"s":1179648,"l":94.3,"t":20.37},{"s":1376256,"l":45.1,"t":20.02},{"s":1572864,"l":41.8,"t":18.44},{"s":1769472,"l":34.1,"t":18.03},{"s":1966080,"l":30.9,"t":19.17},{"s":2162688,"l":32.7,"t":18.46},{"s":2359296,"l":24.6,"t":18.89},{"s":2555904,"l":23.5,"t":18.05},{"s":2752512,"l":26.2,"t":19.17},{"s":2949120,"l":23.7,"t":18.1},{"s":3145728,"l":27.7,"t":17.58},{"s":3342336,"l":24.8,"t":20.56},{"s":3538944,"l":23.1,"t":17.72},{"s":3735552,"l":24.6,"t":17.16},{"s":3932160,"l":25.6,"t":19.0},{"s":4128768,"l":31.0,"t":18.36},{"s":4325376,"l":26.9,"t":19.4},{"s":4521984,"l":26.5,"t":17.75},{"s":4718592,"l":29.3,"t":19.38},{"s":4915200,"l":27.8,"t":19.56},{"s":5111808,"l":27.3,"t":18.23},{"s":5308416,"l":27.1,"t":18.68},{"s":5505024,"l":27.5,"t":18.68},{"s":5701632,"l":27.9,"t":20.44},{"s":5898240,"l":28.5,"t":19.1},{"s":6094848,"l":28.4,"t":19.68},{"s":6291456,"l":28.1,"t":19.18},{"s":6488064,"l":28.6,"t":19.4},{"s":6684672,"l":29.6,"t":20.09},{"s":6881280,"l":29.5,"t":20.46},{"s":7077888,"l":30.2,"t":19.48},{"s":7274496,"l":30.4,"t":19.38},{"s":7471104,"l":31.2,"t":21.05},{"s":7667712,"l":32.0,"t":19.43},{"s":7864320,"l":32.5,"t":19.53},{"s":8060928,"l":33.9,"t":19.63},{"s":8257536,"l":36.6,"t":20.55},{"s":8454144,"l":36.9,"t":21.68},{"s":8650752,"l":36.9,"t":21.12},{"s":8847360,"l":38.5,"t":20.47},{"s":9043968,"l":40.0,"t":20.64},{"s":9240576,"l":42.2,"t":20.79},{"s":9437184,"l":47.1,"t":20.56},{"s":9633792,"l":49.1,"t":21.07},{"s":9830400,"l":46.9,"t":22.73},{"s":10027008,"l":56.2,"t":24.61},{"s":10223616,"l":62.4,"t":20.12},{"s":10420224,"l":64.2,"t":22.28},{"s":10616832,"l":70.0,"t":24.11},{"s":10813440,"l":76.5,"t":23.11},{"s":11010048,"l":79.4,"t":21.13},{"s":11206656,"l":88.9,"t":23.78},{"s":11403264,"l":117.5,"t":23.4},{"s":11599872,"l":102.8,"t":25.33},{"s":11796480,"l":115.3,"t":22.25},{"s":11993088,"l":110.7,"t":24.79},{"s":12189696,"l":130.4,"t":28.26},{"s":12386304,"l":129.0,"t":25.28},{"s":12582912,"l":149.6,"t":26.29},{"s":12779520,"l":138.5,"t":26.0},{"s":12976128,"l":150.0,"t":27.0},{"s":13172736,"l":154.8,"t":27.21},{"s":13369344,"l":165.5,"t":27.16},{"s":13565952,"l":172.2,"t":25.88},{"s":13762560,"l":181.7,"t":26.02},{"s":13959168,"l":193.6,"t":26.92},{"s":14155776,"l":191.5,"t":27.04},{"s":14352384,"l":194.6,"t":29.1},{"s":14548992,"l":217.5,"t":26.27},{"s":14745600,"l":216.6,"t":28.25},{"s":14942208,"l":210.9,"t":26.85},{"s":15138816,"l":219.6,"t":28.31},{"s":15335424,"l":246.7,"t":28.85},{"s":15532032,"l":225.9,"t":26.44},{"s":15728640,"l":225.8,"t":25.89},{"s":15925248,"l":243.4,"t":28.86},{"s":16121856,"l":235.7,"t":25.71},{"s":16318464,"l":245.3,"t":27.53},{"s":16515072,"l":307.8,"t":29.57},{"s":16711680,"l":306.3,"t":29.84},{"s":16908288,"l":324.9,"t":28.72},{"s":17104896,"l":301.2,"t":27.53},{"s":17301504,"l":335.9,"t":26.44},{"s":17498112,"l":355.2,"t":29.47},{"s":17694720,"l":398.2,"t":27.95},{"s":17891328,"l":377.2,"t":26.54},{"s":18087936,"l":400.1,"t":28.6},{"s":18284544,"l":399.3,"t":27.31},{"s":18481152,"l":395.1,"t":27.75},{"s":18677760,"l":442.3,"t":25.25},{"s":18874368,"l":397.7,"t":26.52},{"s":19070976,"l":406.0,"t":24.62},{"s":19267584,"l":439.6,"t":26.61},{"s":19464192,"l":445.1,"t":25.58},{"s":19660800,"l":395.4,"t":24.66},{"s":19857408,"l":503.5,"t":24.14},{"s":20054016,"l":472.4,"t":25.58},{"s":20250624,"l":505.0,"t":26.52},{"s":20447232,"l":505.8,"t":25.06},{"s":20643840,"l":498.0,"t":22.21},{"s":20840448,"l":486.3,"t":23.74},{"s":21037056,"l":521.6,"t":23.09},{"s":21233664,"l":481.5,"t":22.51},{"s":21430272,"l":488.4,"t":22.6},{"s":21626880,"l":494.5,"t":22.26},{"s":21823488,"l":539.8,"t":21.48},{"s":22020096,"l":519.5,"t":19.95},{"s":22216704,"l":497.8,"t":21.96},{"s":22413312,"l":522.6,"t":21.26},{"s":22609920,"l":495.1,"t":22.23},{"s":22806528,"l":525.0,"t":23.48},{"s":23003136,"l":501.3,"t":23.08},{"s":23199744,"l":513.1,"t":21.29},{"s":23396352,"l":577.3,"t":24.04},{"s":23592960,"l":579.5,"t":20.7},{"s":23789568,"l":543.9,"t":22.21},{"s":23986176,"l":546.2,"t":18.35},{"s":24182784,"l":522.9,"t":19.82},{"s":24379392,"l":469.1,"t":21.59},{"s":24576000,"l":476.4,"t":21.67}],"std":[[2457600,0.947],[4915200,0.782],[7372800,0.652],[9830400,0.567],[12288000,0.527],[14745600,0.516],[17203200,0.513],[19660800,0.509],[22118400,0.502],[24576000,0.497]]},"new":{"curve":[{"s":196608,"l":62.4,"t":18.47},{"s":393216,"l":102.4,"t":18.22},{"s":589824,"l":120.6,"t":18.69},{"s":786432,"l":130.4,"t":18.9},{"s":983040,"l":161.0,"t":19.08},{"s":1179648,"l":175.3,"t":19.02},{"s":1376256,"l":79.5,"t":19.07},{"s":1572864,"l":73.3,"t":19.81},{"s":1769472,"l":67.4,"t":18.09},{"s":1966080,"l":58.6,"t":19.07},{"s":2162688,"l":72.8,"t":19.61},{"s":2359296,"l":42.6,"t":16.91},{"s":2555904,"l":41.4,"t":18.75},{"s":2752512,"l":38.0,"t":19.25},{"s":2949120,"l":39.9,"t":18.93},{"s":3145728,"l":39.9,"t":17.85},{"s":3342336,"l":27.6,"t":17.09},{"s":3538944,"l":31.3,"t":20.46},{"s":3735552,"l":29.8,"t":20.34},{"s":3932160,"l":27.7,"t":20.94},{"s":4128768,"l":38.8,"t":22.76},{"s":4325376,"l":30.7,"t":19.57},{"s":4521984,"l":31.5,"t":19.12},{"s":4718592,"l":33.0,"t":20.8},{"s":4915200,"l":30.9,"t":21.99},{"s":5111808,"l":45.2,"t":23.52},{"s":5308416,"l":43.7,"t":22.94},{"s":5505024,"l":40.0,"t":23.72},{"s":5701632,"l":44.6,"t":25.17},{"s":5898240,"l":50.6,"t":29.16},{"s":6094848,"l":58.8,"t":26.18},{"s":6291456,"l":84.7,"t":31.44},{"s":6488064,"l":116.4,"t":33.34},{"s":6684672,"l":137.9,"t":37.71},{"s":6881280,"l":169.4,"t":39.43},{"s":7077888,"l":155.2,"t":40.44},{"s":7274496,"l":160.5,"t":41.92},{"s":7471104,"l":160.3,"t":42.96},{"s":7667712,"l":164.0,"t":43.38},{"s":7864320,"l":170.0,"t":46.79},{"s":8060928,"l":167.9,"t":44.83},{"s":8257536,"l":186.4,"t":46.7},{"s":8454144,"l":179.8,"t":48.87},{"s":8650752,"l":207.2,"t":47.1},{"s":8847360,"l":214.0,"t":48.73},{"s":9043968,"l":199.2,"t":51.22},{"s":9240576,"l":194.0,"t":51.11},{"s":9437184,"l":229.9,"t":52.81},{"s":9633792,"l":225.5,"t":50.54},{"s":9830400,"l":223.8,"t":50.75},{"s":10027008,"l":259.9,"t":53.64},{"s":10223616,"l":246.0,"t":51.18},{"s":10420224,"l":234.7,"t":56.37},{"s":10616832,"l":250.8,"t":53.35},{"s":10813440,"l":275.0,"t":55.09},{"s":11010048,"l":310.5,"t":56.66},{"s":11206656,"l":318.2,"t":58.82},{"s":11403264,"l":311.6,"t":58.67},{"s":11599872,"l":313.8,"t":57.29},{"s":11796480,"l":328.6,"t":58.39},{"s":11993088,"l":338.4,"t":60.78},{"s":12189696,"l":376.8,"t":61.81},{"s":12386304,"l":362.3,"t":62.72},{"s":12582912,"l":392.8,"t":63.84},{"s":12779520,"l":390.3,"t":63.42},{"s":12976128,"l":379.4,"t":66.88},{"s":13172736,"l":390.2,"t":64.94},{"s":13369344,"l":409.3,"t":67.21},{"s":13565952,"l":414.5,"t":67.4},{"s":13762560,"l":398.3,"t":68.12},{"s":13959168,"l":452.8,"t":68.57},{"s":14155776,"l":447.8,"t":70.66},{"s":14352384,"l":478.1,"t":69.95},{"s":14548992,"l":491.6,"t":71.1},{"s":14745600,"l":486.9,"t":71.2},{"s":14942208,"l":490.0,"t":71.22},{"s":15138816,"l":489.8,"t":71.57},{"s":15335424,"l":527.3,"t":73.21},{"s":15532032,"l":501.3,"t":73.24},{"s":15728640,"l":553.6,"t":72.35},{"s":15925248,"l":539.0,"t":73.8},{"s":16121856,"l":571.4,"t":74.28},{"s":16318464,"l":559.3,"t":73.74},{"s":16515072,"l":617.2,"t":73.95},{"s":16711680,"l":588.1,"t":75.14},{"s":16908288,"l":580.8,"t":74.55},{"s":17104896,"l":623.7,"t":75.09},{"s":17301504,"l":649.1,"t":75.04},{"s":17498112,"l":603.4,"t":75.07},{"s":17694720,"l":652.0,"t":76.06},{"s":17891328,"l":637.1,"t":76.76},{"s":18087936,"l":621.2,"t":75.86},{"s":18284544,"l":650.5,"t":78.0},{"s":18481152,"l":676.3,"t":76.84},{"s":18677760,"l":670.5,"t":76.7},{"s":18874368,"l":670.7,"t":77.0},{"s":19070976,"l":640.6,"t":77.12},{"s":19267584,"l":689.1,"t":76.96},{"s":19464192,"l":693.7,"t":77.71},{"s":19660800,"l":730.0,"t":77.93},{"s":19857408,"l":715.0,"t":78.06},{"s":20054016,"l":698.3,"t":77.43},{"s":20250624,"l":705.6,"t":78.65},{"s":20447232,"l":699.2,"t":78.5},{"s":20643840,"l":728.0,"t":79.16},{"s":20840448,"l":715.8,"t":78.71},{"s":21037056,"l":701.6,"t":78.87},{"s":21233664,"l":741.4,"t":79.43},{"s":21430272,"l":739.5,"t":78.95},{"s":21626880,"l":730.8,"t":79.95},{"s":21823488,"l":745.6,"t":79.07},{"s":22020096,"l":744.5,"t":79.08},{"s":22216704,"l":728.8,"t":78.41},{"s":22413312,"l":719.1,"t":79.85},{"s":22609920,"l":741.0,"t":79.52},{"s":22806528,"l":761.8,"t":79.96},{"s":23003136,"l":783.3,"t":79.64},{"s":23199744,"l":745.7,"t":79.13},{"s":23396352,"l":767.9,"t":80.43},{"s":23592960,"l":773.3,"t":80.3},{"s":23789568,"l":801.9,"t":79.65},{"s":23986176,"l":772.6,"t":79.63},{"s":24182784,"l":763.3,"t":79.59},{"s":24379392,"l":782.7,"t":80.27},{"s":24576000,"l":776.5,"t":80.63}],"std":[[2457600,0.941],[4915200,0.796],[7372800,0.705],[9830400,0.702],[12288000,0.711],[14745600,0.716],[17203200,0.718],[19660800,0.718],[22118400,0.719],[24576000,0.719]]},"summary":{"return":55.69771099090576,"length":969.861328125,"survived":0.94921875,"cmd_progress_m":6.444091321900487,"cmd_distance_m":7.213044535368681,"cmd_vel_progress_m":6.458181021735072,"tracking_lin_vel":54.32972660660744,"tracking_ang_vel":6.2219164073467255,"lin_vel_z":-0.4971966976299882,"ang_vel_xy":-0.8313848243560642,"torques":-0.6532931816764176,"dof_acc":-0.5851648141397163,"feet_air_time":-1.6123951547779143,"collision":-0.3326565795141505,"action_rate":-0.33584609895478934,"dof_pos_limits":-0.0059943648486751044,"cmd_progress_ratio":0.8933939337730408},"perCommand":{"forward_0.5":{"survived":0.9375,"length":971.3515625,"cmd_progress_m":8.813573837280273,"cmd_progress_ratio":0.9082745909690857,"action_rate":-0.4068012833595276,"ang_vel_xy":-0.90653395652771,"collision":-0.7023439407348633,"dof_acc":-0.7351336479187012,"dof_pos_limits":-0.01133456639945507,"feet_air_time":-2.0897998809814453,"lin_vel_z":-0.6641948223114014,"torques":-0.7794958353042603,"tracking_ang_vel":6.814562797546387,"tracking_lin_vel":53.303035736083984},"backward_0.5":{"survived":0.890625,"length":925.859375,"cmd_progress_m":7.714223861694336,"cmd_progress_ratio":0.834086000919342,"action_rate":-0.3141796886920929,"ang_vel_xy":-0.8186641931533813,"collision":-0.3757825195789337,"dof_acc":-0.561151385307312,"dof_pos_limits":-0.0073545039631426334,"feet_air_time":-2.090987205505371,"lin_vel_z":-0.4611145853996277,"torques":-0.6443920731544495,"tracking_ang_vel":6.66651725769043,"tracking_lin_vel":50.51139831542969},"left_0.5":{"survived":0.984375,"length":990.96875,"cmd_progress_m":9.248567581176758,"cmd_progress_ratio":0.934215784072876,"action_rate":-0.43792545795440674,"ang_vel_xy":-1.2012300491333008,"collision":-0.13328120112419128,"dof_acc":-0.7766099572181702,"dof_pos_limits":-0.004260326270014048,"feet_air_time":-2.2687935829162598,"lin_vel_z":-0.634157121181488,"torques":-0.7185191512107849,"tracking_ang_vel":6.70249080657959,"tracking_lin_vel":55.9484977722168},"turn_0.5":{"survived":0.984375,"length":991.265625,"cmd_progress_m":0.0,"cmd_progress_ratio":0.0,"action_rate":-0.18447797000408173,"ang_vel_xy":-0.3991110324859619,"collision":-0.11921869963407516,"dof_acc":-0.2677643299102783,"dof_pos_limits":-0.0010280630085617304,"feet_air_time":0.0,"lin_vel_z":-0.22932025790214539,"torques":-0.4707656502723694,"tracking_ang_vel":4.704094409942627,"tracking_lin_vel":57.55596923828125}},"designs":[{"c":"00000001","s":6008,"ret":62.75,"sv":1.0,"pr":0.989},{"c":"00000001","s":6201,"ret":61.65,"sv":1.0,"pr":0.893},{"c":"00000011","s":2850,"ret":61.55,"sv":1.0,"pr":0.981},{"c":"00000111","s":3468,"ret":61.5,"sv":1.0,"pr":1.001},{"c":"00000011","s":2221,"ret":61.26,"sv":1.0,"pr":0.994},{"c":"00001101","s":7045,"ret":61.22,"sv":1.0,"pr":0.941},{"c":"00000010","s":6229,"ret":61.04,"sv":1.0,"pr":0.971},{"c":"00001001","s":8382,"ret":60.72,"sv":1.0,"pr":0.914},{"c":"00000111","s":5048,"ret":60.7,"sv":1.0,"pr":0.905},{"c":"00000010","s":5317,"ret":60.68,"sv":1.0,"pr":0.977},{"c":"00000011","s":8075,"ret":60.58,"sv":1.0,"pr":0.954},{"c":"00000101","s":3341,"ret":60.52,"sv":1.0,"pr":0.989},{"c":"00001000","s":7896,"ret":60.41,"sv":1.0,"pr":0.938},{"c":"00001111","s":3639,"ret":60.39,"sv":1.0,"pr":0.891},{"c":"00000111","s":6019,"ret":60.34,"sv":1.0,"pr":0.909},{"c":"00000111","s":3153,"ret":60.31,"sv":1.0,"pr":0.923},{"c":"00001111","s":6709,"ret":60.27,"sv":1.0,"pr":0.906},{"c":"00001001","s":1912,"ret":60.14,"sv":1.0,"pr":0.946},{"c":"00000110","s":9409,"ret":59.9,"sv":1.0,"pr":0.996},{"c":"00001100","s":2376,"ret":59.8,"sv":1.0,"pr":0.926},{"c":"00001010","s":6492,"ret":59.8,"sv":1.0,"pr":0.928},{"c":"00000001","s":8723,"ret":59.75,"sv":1.0,"pr":0.921},{"c":"00001101","s":8503,"ret":59.74,"sv":1.0,"pr":1.006},{"c":"00000110","s":269,"ret":59.69,"sv":1.0,"pr":1.036},{"c":"00000100","s":7683,"ret":59.68,"sv":1.0,"pr":0.953},{"c":"00001111","s":6037,"ret":59.64,"sv":1.0,"pr":0.971},{"c":"00001001","s":706,"ret":59.55,"sv":1.0,"pr":0.91},{"c":"00001111","s":3412,"ret":59.52,"sv":1.0,"pr":0.922},{"c":"00001011","s":2811,"ret":59.39,"sv":1.0,"pr":0.972},{"c":"00000000","s":2398,"ret":59.31,"sv":1.0,"pr":0.968},{"c":"00000111","s":6379,"ret":59.31,"sv":1.0,"pr":0.875},{"c":"00000110","s":8,"ret":59.25,"sv":1.0,"pr":1.057},{"c":"00000101","s":2839,"ret":59.24,"sv":1.0,"pr":0.907},{"c":"00001110","s":6687,"ret":59.24,"sv":1.0,"pr":1.065},{"c":"00001100","s":9231,"ret":59.2,"sv":1.0,"pr":0.92},{"c":"00001001","s":9534,"ret":59.13,"sv":1.0,"pr":0.899},{"c":"00001010","s":6768,"ret":59.11,"sv":1.0,"pr":1.058},{"c":"00001110","s":4619,"ret":59.06,"sv":1.0,"pr":0.981},{"c":"00001001","s":9666,"ret":59.02,"sv":1.0,"pr":0.884},{"c":"00001010","s":4230,"ret":58.92,"sv":1.0,"pr":1.081},{"c":"00000011","s":2925,"ret":58.91,"sv":1.0,"pr":0.816},{"c":"00001011","s":2270,"ret":58.9,"sv":1.0,"pr":0.915},{"c":"00000101","s":7130,"ret":58.9,"sv":1.0,"pr":0.796},{"c":"00000000","s":2343,"ret":58.84,"sv":1.0,"pr":0.929},{"c":"00000010","s":3637,"ret":58.83,"sv":1.0,"pr":0.991},{"c":"00001101","s":9287,"ret":58.7,"sv":1.0,"pr":0.852},{"c":"00000001","s":3583,"ret":58.66,"sv":1.0,"pr":0.865},{"c":"00000000","s":898,"ret":58.6,"sv":1.0,"pr":0.908},{"c":"00001011","s":8645,"ret":58.53,"sv":1.0,"pr":0.937},{"c":"00000000","s":9394,"ret":58.52,"sv":1.0,"pr":0.919},{"c":"00000010","s":3228,"ret":58.51,"sv":1.0,"pr":0.926},{"c":"00001000","s":1020,"ret":58.4,"sv":1.0,"pr":0.955},{"c":"00000100","s":66,"ret":58.35,"sv":1.0,"pr":0.937},{"c":"00001101","s":2306,"ret":58.35,"sv":1.0,"pr":0.99},{"c":"00000110","s":1161,"ret":58.2,"sv":1.0,"pr":0.853},{"c":"00001011","s":20,"ret":58.2,"sv":1.0,"pr":0.852},{"c":"00000010","s":8810,"ret":58.03,"sv":1.0,"pr":0.956},{"c":"00000000","s":8225,"ret":58.02,"sv":1.0,"pr":0.914},{"c":"00001101","s":9825,"ret":57.89,"sv":1.0,"pr":0.885},{"c":"00000111","s":9089,"ret":57.84,"sv":1.0,"pr":0.864},{"c":"00001000","s":7843,"ret":57.79,"sv":1.0,"pr":0.928},{"c":"00000101","s":3675,"ret":57.69,"sv":1.0,"pr":0.842},{"c":"00000000","s":5506,"ret":57.6,"sv":1.0,"pr":0.876},{"c":"00001101","s":3764,"ret":57.54,"sv":1.0,"pr":0.924},{"c":"00001001","s":493,"ret":57.49,"sv":1.0,"pr":0.729},{"c":"00001001","s":4938,"ret":57.4,"sv":1.0,"pr":0.833},{"c":"00000100","s":3786,"ret":57.39,"sv":1.0,"pr":1.037},{"c":"00001100","s":1097,"ret":57.26,"sv":1.0,"pr":0.83},{"c":"00001101","s":3404,"ret":57.14,"sv":1.0,"pr":0.726},{"c":"00001100","s":2287,"ret":57.11,"sv":1.0,"pr":0.91},{"c":"00000010","s":6297,"ret":57.09,"sv":1.0,"pr":1.046},{"c":"00001000","s":2936,"ret":56.8,"sv":1.0,"pr":0.942},{"c":"00000001","s":2438,"ret":56.79,"sv":1.0,"pr":0.886},{"c":"00000100","s":9007,"ret":56.79,"sv":1.0,"pr":0.911},{"c":"00001100","s":3167,"ret":56.7,"sv":1.0,"pr":0.784},{"c":"00001101","s":7899,"ret":56.7,"sv":1.0,"pr":0.929},{"c":"00000010","s":8250,"ret":56.62,"sv":1.0,"pr":0.805},{"c":"00001100","s":6092,"ret":56.57,"sv":1.0,"pr":0.917},{"c":"00000110","s":4400,"ret":56.38,"sv":0.75,"pr":0.898},{"c":"00000011","s":9503,"ret":56.3,"sv":1.0,"pr":0.799},{"c":"00000101","s":1045,"ret":56.24,"sv":1.0,"pr":0.9},{"c":"00001000","s":4277,"ret":56.14,"sv":1.0,"pr":0.931},{"c":"00001010","s":8571,"ret":56.0,"sv":1.0,"pr":0.922},{"c":"00001011","s":1297,"ret":55.82,"sv":1.0,"pr":0.702},{"c":"00001000","s":9303,"ret":55.81,"sv":1.0,"pr":0.809},{"c":"00001011","s":8768,"ret":55.79,"sv":1.0,"pr":0.922},{"c":"00001011","s":833,"ret":55.63,"sv":1.0,"pr":0.795},{"c":"00000110","s":9563,"ret":55.62,"sv":1.0,"pr":0.902},{"c":"00001010","s":5420,"ret":55.55,"sv":1.0,"pr":0.912},{"c":"00001010","s":269,"ret":55.49,"sv":1.0,"pr":0.994},{"c":"00000001","s":5585,"ret":55.46,"sv":1.0,"pr":1.029},{"c":"00000101","s":1242,"ret":55.34,"sv":0.75,"pr":0.883},{"c":"00001001","s":3772,"ret":55.28,"sv":1.0,"pr":0.721},{"c":"00000001","s":6348,"ret":54.96,"sv":0.75,"pr":0.818},{"c":"00000011","s":6863,"ret":54.93,"sv":1.0,"pr":0.709},{"c":"00000101","s":7570,"ret":54.72,"sv":1.0,"pr":0.835},{"c":"00000110","s":191,"ret":54.23,"sv":0.75,"pr":0.896},{"c":"00001111","s":3340,"ret":54.21,"sv":1.0,"pr":0.74},{"c":"00000001","s":813,"ret":53.51,"sv":1.0,"pr":0.96},{"c":"00001100","s":1194,"ret":53.5,"sv":1.0,"pr":0.802},{"c":"00000100","s":1496,"ret":53.42,"sv":0.75,"pr":0.945},{"c":"00001110","s":5316,"ret":53.07,"sv":1.0,"pr":0.964},{"c":"00001010","s":3578,"ret":52.71,"sv":1.0,"pr":0.916},{"c":"00000111","s":5573,"ret":52.32,"sv":1.0,"pr":0.942},{"c":"00000100","s":5510,"ret":51.8,"sv":1.0,"pr":0.568},{"c":"00001110","s":2616,"ret":51.74,"sv":0.75,"pr":1.022},{"c":"00001010","s":9888,"ret":50.88,"sv":0.75,"pr":0.682},{"c":"00000011","s":6834,"ret":50.49,"sv":1.0,"pr":0.431},{"c":"00000010","s":8330,"ret":50.47,"sv":0.75,"pr":0.939},{"c":"00001111","s":452,"ret":49.38,"sv":1.0,"pr":0.575},{"c":"00000101","s":8410,"ret":49.2,"sv":1.0,"pr":0.807},{"c":"00001000","s":3194,"ret":48.86,"sv":1.0,"pr":0.728},{"c":"00001110","s":1938,"ret":48.7,"sv":0.75,"pr":0.781},{"c":"00000000","s":6451,"ret":46.72,"sv":0.75,"pr":0.946},{"c":"00001111","s":5201,"ret":46.23,"sv":0.75,"pr":0.827},{"c":"00001110","s":8261,"ret":45.77,"sv":0.75,"pr":0.956},{"c":"00000000","s":5906,"ret":45.33,"sv":0.75,"pr":0.955},{"c":"00001000","s":1810,"ret":45.11,"sv":0.75,"pr":0.88},{"c":"00000100","s":9862,"ret":44.74,"sv":0.75,"pr":0.938},{"c":"00001100","s":7341,"ret":44.58,"sv":0.75,"pr":0.929},{"c":"00001110","s":5230,"ret":44.28,"sv":0.75,"pr":0.862},{"c":"00000111","s":5535,"ret":44.13,"sv":0.75,"pr":0.801},{"c":"00000100","s":3469,"ret":43.25,"sv":0.75,"pr":0.73},{"c":"00000011","s":265,"ret":42.31,"sv":0.75,"pr":0.771},{"c":"00001011","s":7121,"ret":41.19,"sv":0.5,"pr":0.838},{"c":"00001111","s":1545,"ret":40.59,"sv":0.75,"pr":0.852},{"c":"00000110","s":3545,"ret":38.13,"sv":0.75,"pr":0.715},{"c":"00001110","s":3198,"ret":36.04,"sv":0.5,"pr":0.813}],"videos":[{"file":"rank_0.mp4","rank":0,"choices":"00000001","seed":6008,"eval_return":62.752899169921875,"eval_survived":1.0,"video_return":55.811622619628906,"video_steps":1000,"x_displacement_m":9.372282981872559,"commands":[[-0.33000001311302185,0.3499999940395355],[0.009999999776482582,0.4300000071525574],[0.5400000214576721,-0.9599999785423279]]},{"file":"rank_63.mp4","rank":63,"choices":"00001101","seed":3764,"eval_return":57.54412078857422,"eval_survived":1.0,"video_return":54.94428253173828,"video_steps":1000,"x_displacement_m":10.710553169250488,"commands":[[-0.33000001311302185,0.3499999940395355],[0.009999999776482582,0.4300000071525574],[0.5400000214576721,-0.9599999785423279]]},{"file":"rank_-1.mp4","rank":-1,"choices":"00001110","seed":3198,"eval_return":36.03757095336914,"eval_survived":0.5,"video_return":43.18695068359375,"video_steps":1000,"x_displacement_m":-3.0083560943603516,"commands":[[-0.33000001311302185,0.3499999940395355],[0.009999999776482582,0.4300000071525574],[0.5400000214576721,-0.9599999785423279]]}]};
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $ = id => document.getElementById(id);
+const fmt = (v, d=2) => (v>0?'+':'') + v.toFixed(d);
+const S = D.summary;
+
+(() => {
+  const n1 = D.designs.filter(d=>d.sv===1).length, n0 = D.designs.filter(d=>d.sv===0).length;
+  const rows = [
+    ['이동 달성률', (S.cmd_progress_ratio*100).toFixed(0)+'%', `형상당 요구 ${S.cmd_distance_m.toFixed(1)} m 중 ${S.cmd_progress_m.toFixed(1)} m 이동 (에피소드 평균, 회전 명령은 0 m)`],
+    ['평가 생존율', (S.survived*100).toFixed(0)+'%', '고정 명령 4 개 × 128 형상'],
+    ['평균 에피소드 길이', S.length.toFixed(0), '최대 1000 step (20 s)'],
+    ['끝까지 버틴 형상', n1 + ' / 128', `전부 넘어진 형상 ${n0} 개`],
+  ];
+  $('verdict').innerHTML = rows.map(([k,v,d]) => `<div><span class="k">${k}</span><span class="v">${v}</span><span class="d">${d}</span></div>`).join('');
+})();
+
+const TL = [
+  ['09-27 13:30','ok','t5_noarm_200it 평가','ok','이전 단계','추종 ×5, 팔 없음, 200 iter. 추종 36 %, 생존 13 %.','움직이려 하지만 자주 넘어짐.'],
+  ['09-27','decision','D47 레일 제거 + 추종 ×3 + 1000 iter','dec','결정','레일(1.18 kg)도 제거해 질량 13.3~13.6 kg. 넘어짐을 줄이려고 추종 ×5 → ×3. 두 가지를 동시에 바꿈.',''],
+  ['09-27','diag','이동 거리 지표 추가','diag','진단','사용자 질문: “최상위 모델이 실제로 움직인 건지 모르겠다”. 평가에 명령 방향 실제 이동 거리를 추가.','이전 정책은 명령 거리의 3.6 % 만 이동. 제자리 진동 해킹은 아님(속도 적분과 위치 변화가 일치).'],
+  ['09-27','diag','평가 순위 = 명령 운','diag','발견','무작위 명령 평가에서는 느린 명령을 받은 형상이 서 있기만 해도 높은 점수를 받음.','명령 평균 속도 0.7 m/s 이상을 받은 형상은 생존 4 %, 0.3 m/s 미만은 29 %. 순위가 형상 실력을 반영하지 못함.'],
+  ['09-27','decision','고정 명령 평가','dec','결정','모든 형상에 같은 명령 4 개: 전진·후진·왼쪽 0.5 m/s, 제자리 회전 0.5 rad/s. 20 초 동안 유지. 영상은 seed 1 고정 유지.',''],
+  ['09-27 13:50','ok','t5_norail_x3_1000it','ok','이 페이지','추종 ×3, 팔·레일 없음, 1000 iter, 41 분.','학습 중 추종 81 %, 에피소드 779 step. 평가 생존 95 %, 이동 달성 89 %.'],
+];
+$('timeline').innerHTML = TL.map(([w,cls,t,pc,pl,what,res]) =>
+  `<li class="${cls}"><div class="when">${w}</div><div class="rail"></div><div class="body">
+    <div class="title"><h3 class="${cls==='decision'||cls==='diag'?'':'mono'}">${t}</h3><span class="pill ${pc}">${pl}</span></div>
+    <div class="what">${what}</div>${res?`<div class="res">${res}</div>`:''}</div></li>`).join('');
+
+function line(el, series, {yfmt=v=>v.toFixed(2), ref=null, zero=true}={}) {
+  const W=460,H=220,m={l:44,r:14,t:10,b:26};
+  const xs=series.flatMap(s=>s.pts.map(p=>p[0])), ys=series.flatMap(s=>s.pts.map(p=>p[1])).concat(ref??[]);
+  const x0=0,x1=Math.max(...xs); let y0=zero?Math.min(0,...ys):Math.min(...ys), y1=Math.max(...ys);
+  const pd=(y1-y0)*.06; y1+=pd; if(!zero) y0-=pd;
+  const X=v=>m.l+(v-x0)/(x1-x0)*(W-m.l-m.r), Y=v=>H-m.b-(v-y0)/(y1-y0)*(H-m.t-m.b);
+  const tick=n=>{const st=Math.pow(10,Math.floor(Math.log10((y1-y0)/n)));const s=[1,2,5,10].map(k=>k*st).find(k=>(y1-y0)/k<=n);const a=[];for(let v=Math.ceil(y0/s)*s;v<=y1+1e-9;v+=s)a.push(+v.toFixed(6));return a;};
+  let g='';
+  for(const v of tick(5)) g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${v===0?css('--muted'):css('--grid')}" stroke-width="1"/><text x="${m.l-6}" y="${Y(v)+3.5}" text-anchor="end">${+v.toFixed(3)}</text>`;
+  for(const v of [0,5e6,1e7,1.5e7,2e7,2.5e7].filter(v=>v<=x1*1.001)) g+=`<text x="${X(v)}" y="${H-8}" text-anchor="middle">${v?(v/1e6)+'M':'0'}</text>`;
+  if(ref!=null) g+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Y(ref)}" y2="${Y(ref)}" stroke="${css('--ink2')}" stroke-dasharray="5 4" stroke-width="1.2"/><text class="lbl" x="${W-m.r-4}" y="${Y(ref)-5}" text-anchor="end">서 있기만 ${ref}%</text>`;
+  const paths=series.map(s=>`<path d="${s.pts.map((p,i)=>(i?'L':'M')+X(p[0]).toFixed(1)+','+Y(p[1]).toFixed(1)).join('')}" fill="none" stroke="${css(s.color)}" stroke-width="2" stroke-linejoin="round"/>`+
+    (s.pts.length<15?s.pts.map(p=>`<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="4" fill="${css(s.color)}" stroke="${css('--surface')}" stroke-width="2"/>`).join(''):'')).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img">${g}${paths}<line class="xh" y1="${m.t}" y2="${H-m.b}" stroke="${css('--muted')}" stroke-dasharray="3 3" visibility="hidden"/><rect x="${m.l}" y="${m.t}" width="${W-m.l-m.r}" height="${H-m.t-m.b}" fill="transparent"/></svg>`;
+  el.parentNode.querySelectorAll('.tip').forEach(t=>t.remove());
+  const svg=el.querySelector('svg'), xh=svg.querySelector('.xh'), tip=document.createElement('div'); tip.className='tip'; tip.hidden=true; el.parentNode.appendChild(tip);
+  svg.addEventListener('pointermove',e=>{
+    const r=svg.getBoundingClientRect(), sx=(e.clientX-r.left)/r.width*W; const xv=x0+(sx-m.l)/(W-m.l-m.r)*(x1-x0);
+    if(sx<m.l||sx>W-m.r){xh.setAttribute('visibility','hidden');tip.hidden=true;return;}
+    xh.setAttribute('x1',sx);xh.setAttribute('x2',sx);xh.setAttribute('visibility','visible');
+    const lines=series.map(s=>{const p=s.pts.reduce((a,b)=>Math.abs(b[0]-xv)<Math.abs(a[0]-xv)?b:a);return Math.abs(p[0]-xv)<(x1-x0)*.12?`<span style="color:${css(s.color)}">■</span> ${s.name} ${yfmt(p[1])}`:null;}).filter(Boolean);
+    if(!lines.length){tip.hidden=true;return;}
+    tip.innerHTML=`${(xv/1e6).toFixed(1)}M step<br>`+lines.join('<br>'); tip.hidden=false;
+    const fr=el.parentNode.getBoundingClientRect(); let lx=e.clientX-fr.left+12; if(lx>fr.width-170) lx=e.clientX-fr.left-170; tip.style.left=lx+'px'; tip.style.top=(e.clientY-fr.top-10)+'px';
+  });
+  svg.addEventListener('pointerleave',()=>{xh.setAttribute('visibility','hidden');tip.hidden=true;});
+}
+function drawCharts(){
+  const R=[['base','이전','--s1'],['new','이번','--s2']];
+  const S2=k=>R.map(([r,n,c])=>({name:n,color:c,pts:D[r].curve.map(p=>[p.s,p[k]])}));
+  line($('c_trk'),S2('t'),{yfmt:v=>v.toFixed(1)+'%',ref:19});
+  line($('c_len'),S2('l'),{yfmt:v=>v.toFixed(0)});
+  line($('c_std'),R.map(([r,n,c])=>({name:n,color:c,pts:D[r].std})),{yfmt:v=>v.toFixed(3),zero:false});
+}
+
+(() => {
+  const names={'forward_0.5':'전진 0.5 m/s','backward_0.5':'후진 0.5 m/s','left_0.5':'왼쪽 0.5 m/s','turn_0.5':'제자리 회전 0.5 rad/s'};
+  let h='<thead><tr><th>명령</th><th>생존율</th><th>평균 길이</th><th>실제 이동</th><th>달성률</th><th style="text-align:left">달성률</th><th>collision</th></tr></thead><tbody>';
+  for(const [k,v] of Object.entries(D.perCommand)){
+    const turn=k.startsWith('turn');
+    h+=`<tr><td>${names[k]??k}</td><td class="mono">${(v.survived*100).toFixed(0)}%</td><td class="mono">${v.length.toFixed(0)}</td><td class="mono">${turn?'—':v.cmd_progress_m.toFixed(2)+' m'}</td><td class="mono">${turn?'—':(v.cmd_progress_ratio*100).toFixed(0)+'%'}</td><td class="bar">${turn?'<span style="color:var(--muted);font-size:12px">이동 명령 아님</span>':`<div class="bars"><span style="width:${Math.min(100,v.cmd_progress_ratio*100)}%;background:var(--s2)"></span></div>`}</td><td class="mono">${v.collision.toFixed(2)}</td></tr>`;
+  }
+  $('cmds').innerHTML=h+'</tbody>';
+})();
+
+(() => {
+  const g={}; for(const d of D.designs)(g[d.c]=g[d.c]||[]).push(d);
+  const avg=(a,k)=>a.reduce((s,x)=>s+x[k],0)/a.length;
+  const cols=[['00','무릎 기본'],['01','뒷무릎 반전'],['10','앞무릎 반전'],['11','앞뒤 모두 반전']];
+  const rows=[['00','기본 다리'],['01','기본 다리 (bit 5, 영향 없음)'],['10','링크 다리'],['11','링크 다리 (bit 5, 영향 없음)']];
+  let h='<div class="h"></div>'+cols.map(([b,n])=>`<div class="h">${n}<br><span class="mono">b6b7=${b}</span></div>`).join('');
+  const s1=css('--s1');
+  for(const [rb,rn] of rows){
+    h+=`<div class="h rh">${rn}<br><span class="mono">b4b5=${rb}</span></div>`;
+    for(const [cb] of cols){
+      const c='0000'+rb+cb, a=g[c], pr=avg(a,'pr'), sv=avg(a,'sv');
+      const t=Math.max(0,Math.min(1,(pr-.7)/.3));
+      h+=`<div class="cell" style="background:color-mix(in srgb, ${s1} ${Math.round(15+t*85)}%, var(--seq0));color:${t>.45?'#fff':'var(--ink)'}" title="${c} · 이동 달성 ${(pr*100).toFixed(0)}% · 생존 ${(sv*100).toFixed(0)}% · return ${avg(a,'ret').toFixed(1)}"><span class="c">${c}</span><span class="r">${(pr*100).toFixed(0)}%</span><span class="sv">생존 ${(sv*100).toFixed(0)}%</span></div>`;
+    }
+  }
+  $('morph').innerHTML=h;
+})();
+
+(() => {
+  const label={0:'1 위 (최상위)',63:'64 위 (중간)','-1':'128 위 (최하위)'};
+  $('vids').innerHTML=D.videos.map(v=>`<div class="vid"><video src="videos/${v.file}" controls muted loop playsinline preload="metadata"></video>
+    <div class="cap"><h3>${label[v.rank]} · <span class="mono">${v.choices}</span> seed ${v.seed}</h3>
+    <dl class="kv"><dt>평가 평균</dt><dd>return ${fmt(v.eval_return)} · 생존 ${(v.eval_survived*100).toFixed(0)}%</dd>
+    <dt>이 영상</dt><dd>return ${fmt(v.video_return)} · ${v.video_steps} step (${(v.video_steps*0.02).toFixed(1)} s)</dd>
+    <dt>월드 x 이동</dt><dd>${fmt(v.x_displacement_m)} m</dd>
+    <dt>받은 명령 vx, vy</dt><dd>${v.commands.map(c=>`(${c[0].toFixed(2)}, ${c[1].toFixed(2)})`).join(' · ')}</dd></dl></div></div>`).join('');
+})();
+
+drawCharts();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',drawCharts);
+new MutationObserver(drawCharts).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+</script>

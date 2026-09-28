@@ -77,6 +77,16 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 | D41 | **surrogate·topology 확장·Sim2Real 은 현재 범위 밖.** simulator return 을 직접 사용하고 broad topology 는 Stage 2/3 성립 후 확장한다. |
 | D42 | **repo 는 단계별로 분리한다.** 기존 coevolution 코드는 삭제하지 않고 archive/후속 Stage 3 로 보류하며 Stage 2 전용 locomotion/controller/hardware-guidance 경로를 새로 둔다. |
 | D43 | **2026-09-25 Stage 2 세부.** design space = `umi_on_legs_plus_plus` 128 조합 중 **바퀴형 제외**, **팔(arx5) 고정 payload**. reward = legged_gym **`LeggedRobotCfg` base** (A1 override 미사용). 접촉 링크명만 TT 형상으로 매핑 |
+| D44 | **2026-09-27 A1 override 적용 (D43 수정).** action_scale 0.25, torques −0.0002, dof_pos_limits −10 (soft 0.9), P 목표 ctrlrange clamp 해제. 로봇 고유값(init pos·기본각·kp20/kd0.5)은 TT 유지. PPO adaptive-KL(desired_kl 0.01) 복원, only_positive True 유지. 근거: t5_smoke_nopos 빨리 죽기(ep_len 64→14), diag_fall_modes 무입력 820 vs std1.0 99 step |
+| D45 | **2026-09-27 only_positive False 확정 + tracking_lin_vel 1.0→5.0 (D36 예외, 단변수).** t5_a1_nopos_1000it: 생존 16→47 %, 단 선속도 추종 = 최대치 19 % = 정지 시 몫(σ 0.25)과 동일 → 버티기 정책. ×5 로 페널티 대비 추종 비중 확대, 200 iter 시범 `stage2/runs/t5_lin5_200it`. Stage 2 run 은 `stage2/runs/` 에 둔다 |
+| D46 | **2026-09-27 팔(arx5+그리퍼) 제거 (D35/D43 예외).** 4.05 kg(전체 ~22 %) payload 가 무게중심을 올려 버티기 성향 유발 판단. `REMOVE_ARM=True`, 레일(bit 5) 유지, obs 차원 불변. ×5 유지한 채 200 iter 비교 `stage2/runs/t5_noarm_200it` (기준: t5_lin5_200it) |
+| D47 | **2026-09-27 레일 제거 + tracking_lin_vel 5→3, 1000 iter (사용자 결정, 2 변수 동시).** noarm ×5 200 iter: 추종 36 % 이나 생존 22→13 %, 흔들림 1.4~1.5 배. 레일(1.18 kg) 도 제거해 bit 5 무효, 질량 13.3~13.6 kg. `stage2/runs/t5_norail_x3_1000it` |
+| D48 | **2026-09-27 평가 = 고정 명령 4 개 + 실제 이동 거리.** 전진·후진·왼쪽 0.5 m/s, 회전 0.5 rad/s, 20 s 유지. 무작위 명령 평가는 순위가 명령 운(느린 명령 = 서 있어도 고득점)이라 폐기. t5_norail_x3_1000it: 생존 95 %, 이동 달성 89 %, 전부 낙상 0/128 → 첫 보행 성공 |
+| D49 | **2026-09-27 Stage 2 형상 공간 = 팔·레일 없는 TT 다리 형상으로 확정 (D35·D43 수정, 사용자 결정 A안).** TT prior 가 낸 choice+uniform 으로 조립 후 arx5·rail 제거 (π_θ 학습·평가·π_φ 채점 동일 규칙). bit 5·팔 위치 uniform 은 무효 차원. 팔은 확장 단계에서 무게 커리큘럼으로 재도입. 다음: 전체 choice 학습 |
+| D50 | **2026-09-27 tracking_ang_vel 0.5→1.5 (D36 예외, 사용자 결정 A안).** t5_norail_x3_1000it 회전 달성 20~36 % (서 있기만 37 %). 선속도 ×3 과 같은 원리. T5 통과 기준 = 이동 ≥80 %·회전 ≥50 %·생존 ≥90 % (128 choice). `stage2/runs/T5_try1` |
+| D51 | **2026-09-27 평가·채점 명령 = 대칭 고정 7 개 (D48 확장, 사용자 결정).** 전진·후진·왼쪽·오른쪽 0.5 m/s, 빠른 전진 1.0 m/s, 좌·우회전 0.5 rad/s, 각 20 s 유지, 모든 형상 동일. 학습 명령은 Q9 원본 무작위 그대로. 4 개 세트는 좌우 비대칭을 못 잡아 확장 |
+| D52 | **2026-09-27 원칙: 원본 따르기 + 하드웨어 생성 가능성만 가장 단순·빠르게 검증 (사용자 지시).** 평가·채점 DR 끔(legged_gym play.py: 노이즈·push·마찰 DR 없음). T6 = 미학습 seed(choice 당 1, 128 형상)를 2 회 평가 → 순위 상관 ≥ 0.8 + T5 기준 충족. 형상당 7 에피소드(명령 7 개, Q11). T7 = 공진화 코드의 TT 생성(reference mask)+bank 최근접 변환 재사용, π_φ Stage 1 기본값, T7_try1 100 업데이트. 체인 T5→T6→T7 자동, 기준 미달 시 정지·알림 |
+| D53 | **2026-09-28 T6 통과 기준 개정 (D52 수정, 사용자 결정).** 절대 T5 기준은 T5 게이트 몫으로 분리. T6 = ① 재측정 순위상관 ≥ 0.8 (유지) ② 미학습 seed 평균 ≥ 학습 seed 평균(T5 eval) × 0.9 (이동·회전·생존 각각) ③ choice 순위상관(학습 seed 평균 return vs 미학습 seed return) ≥ 0.8. 0.9·0.8 은 임의 여유값. `stage2/runs/T6_try1` |
 
 핵심 질문: *reference motion·reward gradient 없이, task 수행 결과만으로 diffusion 의 denoising
 전략을 RL 로 학습할 수 있는가?*
@@ -89,7 +99,7 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 |---|------|------|
 | **Q6** | multi-task reward 합성식 G, physical penalty, task 별 제한 시간 | **Stage 3 이후로 보류** |
 | **Q8** | topology 확장 범위(다리 수·DoF·연결 구조) | **Stage 2/3 성립 후 보류** |
-| **Q9** | Stage 2 평지 locomotion command 를 고정 target 속도로 둘지 원본 command range 를 사용할지 | 미정 |
+| **Q9** | Stage 2 평지 locomotion command 를 고정 target 속도로 둘지 원본 command range 를 사용할지 | **결정 (2026-09-27): 학습 = 원본 command range** (vx·vy ±1, heading ±π), **평가·채점 = 대칭 고정 7 개 (D51)**. 회전도 학습해야 T5 완료 |
 | **Q10** | morphology-conditioned pi_theta 선학습에 사용할 TT morphology sampling 수·분포 | 미정 |
 | **Q11** | Stage 2 pi_phi 갱신 시 morphology 당 rollout seed 수와 batch 크기 | 미정 |
 
@@ -387,6 +397,10 @@ Round 0/1 모두 유효 형상 4개·invalid 0개·checkpoint 저장·π_φ 갱�
 기록·체크포인트 `runs/pi_theta_RL4/`. 의심 순위 ① fine-tune LR 이 출고 학습값 그대로 ② D22 종료(bad_contact+fellover 0.1)가
 warm start 직후 상시 발동. **40 M 은 렌더 단계 X11 끊김으로 프로세스가 죽었을 뿐 학습은 완주**했다 (→ `MUJOCO_GL=egl` 고정).
 
+**5.30 T5 π_θ 시범 200 it 시작 (2026-09-25, tmux `t5_screen`, `runs/t5_screen_200it/`)**
+조건: 128 choice × bank seed 8 = 형상 1024 (32 구조 그룹) · 4096 env · 19.7 M step · LeggedRobotCfgPPO (lr 1e-3 고정, adaptive-KL·clipped value 없음) · 마찰 U(0.5,1.25) · V100.
+smoke(256 env)에서 KL 0.099 — 원본 목표 0.01 대비 과대. 시범 결과 보고 lr 판단.
+
 ---
 
 ## 6. 결정 로그
@@ -408,6 +422,7 @@ warm start 직후 상시 발동. **40 M 은 렌더 단계 X11 끊김으로 프�
 | 2026-09-25 | **D33~D42 개정.** Stage 1 완료 확인; 공진화 우선 경로를 Stage 3 로 보류하고 Stage 2 를 `TT morphology + frozen locomotion pi_theta + legged_robot reward + pi_phi only` 로 단순화 |
 | 2026-09-25 | **A1 역할 확정.** A1 URDF 는 사용하지 않고 legged_gym/legged_robot 의 locomotion reward·observation·PPO 설계만 참고; simulator 는 MJX 유지 |
 | 2026-09-21 | π_θ fine-tune 1 차 40 M 실패 (§5.29). LR·종료조건 재검토 후 2 차. 학습은 **`MUJOCO_GL=egl` 필수** |
+| 2026-09-28 | T5_try1 기준 미달, T6_smoke·T7_try1 원인 분석. **D53** T6 기준 개정 → T6_try1 시작 후 중단(git 우선). codesign GitHub 정리 (CLAUDE.md·SETUP §7·stage2/README·run 전체+동결 π_θ). stage2 코드 → `stage2/code/`. 체인 tmux 대기 버그(접두 매칭) 수정 `-t =이름` |
 
 ---
 
@@ -425,27 +440,41 @@ warm start 직후 상시 발동. **40 M 은 렌더 단계 X11 끊김으로 프�
 기존 `train_coevolution.py`, 과거 reward·공진화 스크립트는 삭제하지 말고 `archive/` 또는 Stage 3 경로로 이동한다.
 Stage 2 전용 `locomotion_env`, `train_locomotion_policy`, `eval_locomotion_policy`, `train_hardware_guidance` 경로를 분리한다.
 
-### T3. TT locomotion environment 작성
+### T3. TT locomotion environment 작성 — 완료 (2026-09-25)
 
-TT `umi_on_legs_plus_plus` morphology → MJX model 생성 경로는 그대로 사용하고 평지 single-task locomotion environment 를 만든다.
-A1 URDF/Isaac Gym 으로 바꾸지 않으며 legged_robot 의 observation·command 구조만 필요한 범위에서 이식한다.
+**완료:** `stage2/locomotion_env.py` — TT 형상·액추에이터·접촉(발 sphere+floor만) 유지, obs 48(LeggedRobotCfg blind)+E 21=69, action 12, command(heading)·리셋·push 원본대로. `test_locomotion_env.py` PASS, brax wrapper 연결 확인.
+reward=0·done=0 은 T4 몫, timeout 은 EpisodeWrapper 1000 step, friction DR 은 T5 randomization_fn. command range 는 원본 기본값 (Q9 원본으로 결정).
+**T4 주의:** 발만 충돌해 넘어지면 몸통이 바닥을 통과한다 (base z −0.25). seed 0 에서 `01111111`·`00000001` 은 home 무입력으로도 뒤집힌다 (plain MuJoCo 동일).
 
-### T4. legged_robot 원본 reward 그대로 이식
+### T4. legged_robot 원본 reward 이식 — 완료, 이후 수정 (2026-09-25 → 09-27)
 
-`LeggedRobot` 원본 reward config 의 항·scale·termination 설정을 그대로 옮기고 임의로 reward 를 빼거나 새 항을 추가하지 않는다.
-Stage 2 hardware reward 는 이 환경에서 얻은 episode return 자체로 정의한다.
+**현재:** A1 override(D44) + only_positive False + tracking_lin_vel ×3(D45·D47, D36 예외). 종료 = 몸통(`quadruped_body`) 접촉만, thigh·calf 는 collision 페널티.
+이력: 원본 그대로는 screen 생존 0 %·보상 0 고착 → 종료 완화(09-26) → A1 override → only_positive 끔 → 추종 ×5→×3.
 
-### T5. Morphology-conditioned locomotion pi_theta 선학습
+### T5. Morphology-conditioned locomotion pi_theta 선학습 — 진행 중, 첫 보행 성공 (2026-09-27)
 
-TT design space 에서 다양한 유효 morphology 를 샘플링해 `pi_theta(o,E,command)` 하나를 충분히 PPO 학습한다.
-형상별 locomotion 성능·분산을 확인한 뒤 checkpoint 와 observation normalization 을 저장한다.
+**T5_try1 (2026-09-28): 기준 미달.** 생존 84 %·이동 69 %·회전 56 % (회전만 통과). 학습 보상 끝까지 상승 중(미수렴), 형상당 경험 1/8.
+낙상은 부품 무관하게 고르게 분포(링크 다리 수별 생존 83~86 %), 전후 이동 57~60 % 가 약점. 회전 ×3(D50)은 효과 확인.
+보고서 `stage2/runs/T5_try1/report.html` · 다음 후보 T5_try2 (사전 결정) · T6 는 D53 기준으로 T5_try1 선진행 (T6_try1 재실행 대기).
+
+**결과:** `stage2/runs/t5_norail_x3_1000it` 고정 명령 평가 생존 95 %, 이동 달성 89 %, 전부 낙상 0/128 (D48). 팔·레일 제거(D46·D47) 조건.
+**남은 것:** ① 16 choice(`--max-groups 4`)만 학습, 112 choice 미학습 ② 팔·레일 없는 π_θ ↔ TT 형상(팔 있음) 불일치 ③ 회전 미학습(요구 각도 20~36 %, Q9 원본 결정으로 T5 필수).
+**완료 조건 (2026-09-27 사용자 결정):** 128 choice 전체, 고정 명령 7 개(D51) 평가에서 **이동 달성 ≥ 80 %, 회전 달성 ≥ 50 %, 생존 ≥ 90 %** + checkpoint·obs normalization 저장.
+**실패 시 (사용자 결정):** T5_try2 = env 4096 · 1000 iter (학습량 4 배, 나머지 동일).
 
 ### T6. pi_theta 동결 및 evaluator 검증
 
+**T6_smoke (09-27, 파일럿 π_θ): 불합격.** 코드 정상. 학습한 16 choice 생존 98 % vs 미학습 112 choice 25 % → 형상 커버리지 부족 확인.
+**T6_try1 (09-28): 시작 직후 중단 (사용자, git 정리 우선).** 결과 없음, `designs.json` (미학습 seed 128, seed 0 고정)만 있음. 재실행: `stage2/README.md` T6 명령 그대로.
+
 Stage 2 시작 전에 pi_theta weight 와 normalization 을 고정하고 동일 morphology 를 여러 seed 로 반복 rollout 한다.
 seed 간 분산보다 morphology 간 return 차이가 식별 가능한지 확인한 뒤 hardware search 로 넘어간다.
+**결정 (2026-09-27):** ④ 점수 = legged_gym episode return (D39 유지). ⑤ 채점 명령 = 대칭 고정 7 개 (D51), 모든 형상 동일. ⑥~⑧ D52 (DR 끔, 순위 상관 ≥ 0.8, 미학습 seed 로 T5 기준).
 
 ### T7. Stage 2 RL-guided hardware generation 연결
+
+**T7_smoke (09-27): 성공.** 3 업데이트, 형상 48/48 유효. 업데이트당 ~28 분 → 100 업데이트 ≈ 47 시간.
+**T7_try1 (09-27, 파일럿 π_θ): 중단.** 채점기는 π_θ 가 학습한 구조 키만 채점 가능, 파일럿은 16 중 2 종 → `01000` 에서 ValueError. T5_try1 (16 종 전부) 로는 발생 안 함.
 
 기존 Stage 1 의 고정 TT denoiser + residual pi_phi 경로를 재사용해 noise 에서 최종 TT morphology E 를 생성한다.
 중간 denoising 에서는 physics 를 돌리지 않고 최종 E 만 동결 pi_theta 로 MJX rollout 한다.

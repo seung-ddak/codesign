@@ -88,12 +88,35 @@ MUJOCO_GL=egl bash "$CODESIGN/archive/finetune_pi_theta.sh" \
 `$CODESIGN_TT/umi_on_legs_plus_plus_rl_policies_11nov2025/run-20251110_145212-z08g0hc7/files/checkpoints/4006084608`
 로 준다. **단 40 M 결과가 baseline 보다 나빴다** — remind.md §5.25 를 먼저 읽을 것.
 
+## 7. Stage 2 이어하기 (2026-09-28)
+
+폴더 배치 — 스크립트가 서로를 상대경로로 찾으므로 **세 개를 같은 부모 아래** 둔다.
+
+```
+<ROOT>/codesign/                 # 이 저장소
+<ROOT>/transformer-transformer/  # §1 (+ §2 자산, §4 패치)
+<ROOT>/scripts/                  # cp -r codesign/rl_scripts <ROOT>/scripts
+```
+
+- 텔레그램 알림을 쓰려면 `~/.config/telegram_bot.env` 에 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 를 넣는다 (git 에 없음). 없으면 `TMUX_RUN_NOTIFY=0`.
+- 동결 π_θ 체크포인트(T5_try1, t5_norail_x3_1000it 마지막 step)는 git 에 들어 있다. 다른 step 은 없다.
+- 동작 확인 (codesign/ 에서):
+
+```sh
+P=../transformer-transformer/.venv/bin/python
+$P stage2/code/t6_evaluator_check.py t5 --run stage2/runs/T5_try1   # 수 초, exit 3 = 기준 미달 (정상 판정)
+MUJOCO_GL=egl $P stage2/code/test_locomotion_env.py                  # env·reward·종료
+MUJOCO_GL=egl $P stage2/code/test_multi_design_env.py                # 구조 그룹 vmap
+```
+
+이후 실행법과 run 목록은 `stage2/README.md`, 작업 규칙은 `CLAUDE.md`.
+
 ---
 
 ## 실행 규칙
 
 모든 학습·평가는 **tmux** 에서 돌린다 (nohup 금지). 기존 머신에서는
-`bash scripts/tmux_run.sh <세션> "<명령>"` 을 썼다.
+`bash ../scripts/tmux_run.sh <세션> "<명령>"` (§7 배치).
 
 ## 주요 스크립트
 

@@ -32,3 +32,21 @@ index 70c5195..666fa87 100644
      )
  
      eval_env = _maybe_wrap_env(
+diff --git a/t2/mjx_env/wrapper.py b/t2/mjx_env/wrapper.py
+index a4995f2..47be70c 100644
+--- a/t2/mjx_env/wrapper.py
++++ b/t2/mjx_env/wrapper.py
+@@ -199,8 +199,11 @@ class BraxAutoResetWrapper(Wrapper):
+             next_info = jax.tree.map(where_done, reset_state.info, state.info)
+             next_info[done_count_key] = state.info[done_count_key]
+ 
+-            if "steps" in next_info:
+-                next_info["steps"] = state.info["steps"]
++            # Keep the finished episode's EpisodeWrapper bookkeeping (brax AutoResetWrapper
++            # never resets info); EpisodeWrapper zeroes it on the next step via prev_done.
++            for key in ("steps", "episode_done", "episode_metrics"):
++                if key in next_info:
++                    next_info[key] = state.info[key]
+             preserve_info_key = f"{self._info_key}_preserve_info"
+             if preserve_info_key in next_info:
+                 next_info[preserve_info_key] = state.info[preserve_info_key]

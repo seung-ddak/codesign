@@ -1,0 +1,65 @@
+# Stage 2 — 동결 π_θ + π_φ 형상 생성
+
+코드 `code/`, 결과 `runs/<run>/`. 명령은 전부 **`codesign/` 에서** 실행한다 (경로가 `stage2/...` 기준).
+결정·결과 정본은 `../remind.md` (D43~D53, TODO T5~T7).
+
+## 흐름
+
+T5 π_θ 학습 → T5 게이트 (이동 ≥ 80 %, 회전 ≥ 50 %, 생존 ≥ 90 %) → T6 평가기 검증 (D53) → T7 π_φ 학습.
+
+```sh
+P=../transformer-transformer/.venv/bin/python
+S=../scripts/tmux_run.sh                      # rl_scripts/ 를 codesign 옆 scripts/ 로 복사해 둔 것 (SETUP.md)
+
+# T5 π_θ 학습 + 후처리 체인 (평가·영상·보고서)
+TMUX_RUN_CWD=$PWD bash $S T5_tryN "$P stage2/code/train_locomotion_policy.py --out stage2/runs/T5_tryN --timesteps 24576000 --checkpoints 10"   # T5_try1 조건 (= config.json)
+TMUX_RUN_CWD=$PWD bash $S T5_tryN_post "bash stage2/code/chain_after_train.sh T5_tryN stage2/runs/T5_tryN stage2/runs/T5_tryN 'T5 π_θ 선학습' 'T5 tryN'"
+
+# T5 게이트 (eval json 만 읽음, 수 초)
+$P stage2/code/t6_evaluator_check.py t5 --run stage2/runs/T5_try1
+
+# T6 평가기 검증 (~50 분) → 보고서
+TMUX_RUN_CWD=$PWD bash $S T6_tryN "$P stage2/code/t6_evaluator_check.py t6 --run stage2/runs/T5_try1 --out stage2/runs/T6_tryN"
+$P stage2/code/make_stage_report.py t6 --run stage2/runs/T6_tryN --title T6_tryN
+
+# T7 π_φ (업데이트당 ~28 분, 100 업데이트 ≈ 47 시간) + 보고서
+TMUX_RUN_CWD=$PWD bash $S T7_tryN "bash stage2/code/run_t7.sh stage2/runs/T5_try1 stage2/runs/T7_tryN 100"
+```
+
+T7 의 `--pi-theta` 는 **16 구조 키를 모두 학습한 run** 이어야 한다 (파일럿 `t5_norail_x3_1000it` 은 2 종뿐 → T7_try1 ValueError).
+
+## 코드
+
+| 파일 | 하는 일 |
+|---|---|
+| `locomotion_env.py` | T3 env (TT 형상·액추에이터, obs 69, action 12) + T4 reward·종료 |
+| `multi_design_env.py` | 구조 그룹별 MJX vmap, `structure_key` (레일 제거로 bit 5 무효) |
+| `train_locomotion_policy.py` | T5 π_θ PPO (brax). run 폴더에 config·designs·progress·checkpoints |
+| `eval_locomotion_policy.py` | 고정 명령 7 개 평가 (D51·D52, DR 끔) → `eval_<step>.json`, `view` 는 MuJoCo 뷰어 |
+| `record_eval_video.py` | 평가 순위별 영상 (무작위 / `--fixed` 고정 명령) |
+| `make_report.py` + `report_template.html` + `report_style.css` | T5 보고서 (`timeline.json` 이 서술부) |
+| `t6_evaluator_check.py` | T5 게이트 (`t5`) / T6 검증 (`t6`, D53 기준 ①②③) |
+| `design_scorer.py` | T7 채점기 — 동결 π_θ 로 임의 TT 형상 return, 1 회 컴파일 |
+| `train_hardware_guidance.py` | T7/T8 π_φ 학습 (TT prior + residual, `../stage3_coevolution` 재사용) |
+| `make_stage_report.py` | T6·T7 보고서 |
+| `chain_after_train.sh` · `chain_t6_t7.sh` · `run_t7.sh` | 자동 체인. 대기는 `tmux has-session -t =이름` (정확 일치) |
+| `diag_fall_modes.py` | 무입력 vs 무작위 행동 낙상 진단 |
+| `test_locomotion_env.py` · `test_multi_design_env.py` | env 동작 확인 (새 PC 첫 점검용) |
+
+## run · 보고서 (아티팩트)
+
+각 run 의 `report.html` 이 아티팩트 원본이다. 링크는 claude.ai 비공개 페이지 (소유자만 열림).
+체크포인트는 T5_try1 · t5_norail_x3_1000it 의 **마지막 것만** git 에 있다 (T6·T7 이 동결 π_θ 로 씀).
+
+| run | 결과 | 보고서 | 아티팩트 |
+|---|---|---|---|
+| `t5_a1_nopos_1000it` | 버티기 정책 (D45 근거) | `report.html` · `flow.html` | [발자취](https://claude.ai/artifact/3T7nYqhuFMjwFpbafHG4p3) · [흐름](https://claude.ai/artifact/GNC4pYyfDqK9nN6guGPg6C) |
+| `t5_noarm_200it` | 팔 제거 시범, 생존 하락 (D47 근거) | `report.html` · `flow.html` | [보고서](https://claude.ai/artifact/B38EyhgpLwX5ZAnJoZaH3g) · [흐름](https://claude.ai/artifact/E6vDEqufAgckEP3JqTwp25) |
+| `t5_norail_x3_1000it` | 첫 보행 성공 (16 choice), 파일럿 π_θ | `report.html` · `flow.html` | [보고서](https://claude.ai/artifact/RCiJo8zL1BAqh29UKoyBgQ) · [흐름](https://claude.ai/artifact/34tHVv4EdUsH7karioNpDj) |
+| `T5_try1` | 128 choice, 생존 84 %·이동 69 %·회전 56 % → 게이트 미달 | `report.html` | [보고서](https://claude.ai/artifact/QNH9jqS4ocGjo3nYe6z1k4) |
+| `T6_smoke` | 파일럿 π_θ 로 T6 스크립트 점검, 불합격 (커버리지) | `report.html` | [보고서](https://claude.ai/artifact/4Ug1HfYLNPNjJTTbvikkhk) |
+| `T6_try1` | 시작 직후 중단, 재실행 대기 (`designs.json` 만) | — | — |
+| `T7_smoke` | 파이프라인 3 업데이트 성공, 업데이트당 ~28 분 | `report.html` | [보고서](https://claude.ai/artifact/JGnqcAA2NJkyyJn2WVTpvv) |
+| `T7_try1` | 파일럿 π_θ 구조 키 부족 → ValueError | `report.html` | [보고서](https://claude.ai/artifact/4gFyWk2r7EqmMu3NXL3TqT) |
+
+그 외 `t5_screen_200it` · `t5_smoke_*` · `t5_a1_1000it` · `t5_lin5_200it` 는 T4/T5 조정 과정 기록 (remind D43~D47).
