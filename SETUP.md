@@ -46,7 +46,6 @@ TT=/path/to/transformer-transformer
 # 새 파일들 (경로 구조 그대로)
 cp -r "$CODESIGN/tt_patch/t2"      "$TT/"
 cp -r "$CODESIGN/tt_patch/config"  "$TT/"
-cp -r "$CODESIGN/tt_patch/scripts" "$TT/"
 
 # 기존 파일 수정분 (jax 0.10 호환 — train.py + track_env.py 2 곳)
 cd "$TT" && git apply "$CODESIGN/tt_patch/tt_compat.diff"

@@ -26,10 +26,10 @@ TT  : guidance = scale · ∇_x R̂(x̂)      모델 예측 reward 를 미분   
 | `remind.md` | **정본** — 결정(D1~D53) · 열린 안건 · 실험 결과 · TODO |
 | `CLAUDE.md` | 작업 규칙 (tmux·알림·기록·보고서) |
 | `code/` | Stage 1 (TT vs RL tracking guidance) — 회귀 검사용 보존 |
-| `stage2/` | Stage 2 (동결 π_θ + π_φ 형상 생성). 코드 = `stage2/code/`, 결과 = `stage2/runs/`. `code/locomotion_env.py` = T3 env + T4 reward·종료, 다음 T5 π_θ 선학습 |
+| `stage2/` | Stage 2 (동결 π_θ + π_φ 형상 생성). 코드 = `stage2/code/`, 결과 = `stage2/runs/`. run 별 보고서·아티팩트 링크는 `stage2/README.md` |
 | `stage3_coevolution/` | Stage 3 공진화 코드 (보류). 실행법 `COEVOLUTION.md` |
-| `archive/` | 폐기된 D22 reward · L0~L3 · π_θ fine-tune 스크립트 |
-| `tt_patch/` | TT 레포에 얹을 파일들. 경로 구조 그대로. `train.py.diff` 는 기존 파일 수정분 |
+| `archive/` | 폐기된 D22 reward · L0~L3 · π_θ fine-tune 스크립트. `tt_patch_stairs_L0L3/` = 계단(D16)·L0~L3(D17) TT 패치 |
+| `tt_patch/` | TT 레포에 얹을 파일 (경로 구조 그대로): `rl_guidance.py`·`rl_residual.yaml` (Stage 1 RL guidance) + `tt_compat.diff` (기존 파일 수정분) |
 | `results/` | 결과 jsonl·json, 비교 영상, 설계 렌더, 복원된 MJCF |
 | `assets/` | 단일 설계 store (`*.zarr`) — π_θ 학습 입력 |
 | `rl_scripts/` | tmux 런처·텔레그램 전송기. 다른 PC 에선 codesign 옆 `scripts/` 로 복사 (SETUP §7) |
@@ -38,16 +38,10 @@ TT  : guidance = scale · ∇_x R̂(x̂)      모델 예측 reward 를 미분   
 
 **Stage 2 진행 중.** T5_try1 (128 choice π_θ) 기준 미달 (생존 84 %·이동 69 %·회전 56 %), T6_try1 (평가기 검증, D53) 진행. 상세 `stage2/README.md`.
 
-### 이전 (2026-09-21)
+- **Stage 1 (완료, 09-25)**: TT 행 재현 (Pos Err 3.0 cm / Survival 99.4 %), RL guidance 치환 동작 확인. 코드 `code/`.
+- **Stage 3 (보류)**: 공진화 코드 `stage3_coevolution/`. Stage 2 성립 후 재개.
 
-**2026-09-22 갱신:** reference 없는 전진 보행 공진화 코드를 연결했다. 전체 실행 검증은 미완료이며 사용자 요청으로 검증을 중지하고 형상 bank 다운로드만 진행한다. 현재 실행 경로는 [`COEVOLUTION.md`](stage3_coevolution/COEVOLUTION.md).
-
-- **1 단 (동등성)**: TT 행 재현 ✅ (Pos Err 3.0 cm / Survival 99.4 %, 논문 2.6/99.4).
-  RL 행 완주 ✅ (3.0 cm / 97.8 %). 단 π_φ 가 학습되지 않아 **치환의 기계적 성립까지만** 확인.
-  guidance 효과가 유의한 지점을 아직 못 찾았다 (§5.15·§5.16).
-- **2 단 (확장)**: reward 확정 (D22 — 접촉 종료 + 1.0 m 전진). π_θ fine-tune 진행 중.
-
-다음 할 일은 `remind.md` §7.
+다음 할 일은 `remind.md` 의 TODO (T5~T12) 와 "현재 우선순위".
 
 ## 이어서 하기 (다른 컴퓨터)
 
@@ -59,4 +53,4 @@ less SETUP.md          # TT 레포 + 공개 자산 16 GB 받는 절차
 ```
 
 이어받은 뒤 **가장 먼저 할 것**: `CLAUDE.md` → `remind.md` §0 · §1 · TODO → `stage2/README.md`. Stage 2 배치·점검은 SETUP §7.
-배선이 살아 있는지는 `archive/eval_design_d22.py` 로 40 초면 확인된다.
+Stage 1 배선은 `archive/eval_design_d22.py` (40 초), Stage 2 는 SETUP §7 점검 명령으로 확인한다.

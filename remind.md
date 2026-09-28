@@ -164,12 +164,12 @@ A1/legged_gym 에서는 검증된 locomotion reward·observation·command 설계
 |------|-----|------|
 | GPU | Tesla V100-PCIE-32GB (sm_70) 1 장, `CUDA_VISIBLE_DEVICES=0` | `nvidia-smi -L` |
 | 드라이버 / CUDA | 575.64.03 / 12.9. **CUDA 13 금지** (Volta 지원 제거) | `nvidia-smi` |
-| 코드 | 실체 `RL/transformer-transformer`, 색인 `RL/tt_codesign/code/` | — |
+| 코드 | 실체 `RL/transformer-transformer`, 색인 `codesign/code/` (구 `RL/tt_codesign`, 09-28 `RL/tt_codesign_pre0922.tar.zst` 로 보관) | — |
 | 파이썬 env | `.venv` (uv, py3.12). isaacgym conda env 와 완전 분리 | `.venv/bin/python -V` |
 | 패키지 | jax 0.10.2 / mujoco·mjx 3.10.0 / torch 2.14.0+cu126 / brax PPO | `uv pip list` |
 | design space | TT `umi_on_legs_plus_plus` (4 족+팔). **팔 고정**, 13 개 연속 uniform | `t2/robogen/umi_on_legs_plus_plus.py` |
 | V100 필수 플래그 | `use_flash_attn=false` (sm_80+ 전용) / `use_mixed_precision=false` (bf16 없음) / `use_torch_compile=false` | — |
-| 산출물 | `tt_codesign/runs/` · `results/` · `assets/` | — |
+| 산출물 | `runs/` · `results/` · `assets/` (구 `tt_codesign/`) | — |
 | 로깅 | `WANDB_MODE=offline`, 콘솔 `RL/logs/tmux_run/<세션>_<시각>.log` | — |
 | 실행 | 반드시 tmux (`bash scripts/tmux_run.sh`), nohup 금지 | `CLAUDE.md` |
 
@@ -302,7 +302,7 @@ denoising 5 → 2 회로 줄이면 2.5 배 공짜, 품질 동일 (이동 1.027 �
 
 **5.13 TT 행 재현 성공 — 배선이 맞다 (2026-09-21, 궤적 20 × seed 9 = 180, 55 분)**
 Quadruped/Tracking Only/Single/DSG: Pos Err **3.0 cm** (논문 2.6) · Orn Err **8.0°** (7.4) · **Survival 99.4 %** (99.4, 일치) · Reward 280.5.
-명령 = `tt_codesign/code/repro_table4_TT.sh 16 guided_diffusion` (ckpt `xrh4wk4l/040.pt`, scale 100, eta 1.0, V100 플래그).
+명령 = `code/repro_table4_TT.sh 16 guided_diffusion` (ckpt `xrh4wk4l/040.pt`, scale 100, eta 1.0, V100 플래그).
 §5.12 의 10 배 격차가 사라졌다 → 포복·전복은 정책 결함이 아니라 **우리 평가 세팅의 산물**이었다.
 
 
@@ -422,7 +422,7 @@ smoke(256 env)에서 KL 0.099 — 원본 목표 0.01 대비 과대. 시범 결�
 | 2026-09-25 | **D33~D42 개정.** Stage 1 완료 확인; 공진화 우선 경로를 Stage 3 로 보류하고 Stage 2 를 `TT morphology + frozen locomotion pi_theta + legged_robot reward + pi_phi only` 로 단순화 |
 | 2026-09-25 | **A1 역할 확정.** A1 URDF 는 사용하지 않고 legged_gym/legged_robot 의 locomotion reward·observation·PPO 설계만 참고; simulator 는 MJX 유지 |
 | 2026-09-21 | π_θ fine-tune 1 차 40 M 실패 (§5.29). LR·종료조건 재검토 후 2 차. 학습은 **`MUJOCO_GL=egl` 필수** |
-| 2026-09-28 | T5_try1 기준 미달, T6_smoke·T7_try1 원인 분석. **D53** T6 기준 개정 → T6_try1 시작 후 중단(git 우선). codesign GitHub 정리 (CLAUDE.md·SETUP §7·stage2/README·run 전체+동결 π_θ). stage2 코드 → `stage2/code/`. 체인 tmux 대기 버그(접두 매칭) 수정 `-t =이름` |
+| 2026-09-28 | T5_try1 기준 미달, T6_smoke·T7_try1 원인 분석. **D53** T6 기준 개정 → T6_try1 시작 후 중단(git 우선). codesign GitHub 정리 (CLAUDE.md·SETUP §7·stage2/README·run 전체+동결 π_θ). stage2 코드 → `stage2/code/`. 체인 tmux 대기 버그(접두 매칭) 수정 `-t =이름`. 폴더 정리: bundle·visual-check 삭제, 계단·L0~L3 TT 패치 → `archive/tt_patch_stairs_L0L3/`, `RL/tt_codesign` → tar.zst |
 
 ---
 
@@ -442,7 +442,7 @@ Stage 2 전용 `locomotion_env`, `train_locomotion_policy`, `eval_locomotion_pol
 
 ### T3. TT locomotion environment 작성 — 완료 (2026-09-25)
 
-**완료:** `stage2/locomotion_env.py` — TT 형상·액추에이터·접촉(발 sphere+floor만) 유지, obs 48(LeggedRobotCfg blind)+E 21=69, action 12, command(heading)·리셋·push 원본대로. `test_locomotion_env.py` PASS, brax wrapper 연결 확인.
+**완료:** `stage2/code/locomotion_env.py` — TT 형상·액추에이터·접촉(발 sphere+floor만) 유지, obs 48(LeggedRobotCfg blind)+E 21=69, action 12, command(heading)·리셋·push 원본대로. `test_locomotion_env.py` PASS, brax wrapper 연결 확인.
 reward=0·done=0 은 T4 몫, timeout 은 EpisodeWrapper 1000 step, friction DR 은 T5 randomization_fn. command range 는 원본 기본값 (Q9 원본으로 결정).
 **T4 주의:** 발만 충돌해 넘어지면 몸통이 바닥을 통과한다 (base z −0.25). seed 0 에서 `01111111`·`00000001` 은 home 무입력으로도 뒤집힌다 (plain MuJoCo 동일).
 
