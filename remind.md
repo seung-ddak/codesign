@@ -427,6 +427,7 @@ smoke(256 env)에서 KL 0.099 — 원본 목표 0.01 대비 과대. 시범 결�
 ---
 
 ## TODO
+<<<<<<< HEAD
 
 ### T1. Stage 1 기록 봉인 — 완료
 
@@ -529,3 +530,450 @@ broad topology, surrogate, Sim2Real 은 그 이후 확장으로 유지한다.
 → `multi-task`
 → `broad topology design space`
 → `One Hardware + One Multi-task Policy`
+=======
+
+## 1. 기존 RL Guidance 치환 실험 결과 정리
+
+- TT prior 고정
+- UMI gripper tracking 조건 유지
+- 기존 DSG의 reward-gradient guidance 대신 RL guidance 적용
+- morphology가 정상적으로 생성되는지 확인
+- 생성된 morphology에서 UMI motion tracking이 정상적으로 수행되는지 확인
+- 이 단계의 결론은 **“RL guidance를 TT diffusion 과정에 삽입하는 구조 자체는 동작한다”**로 한정
+
+---
+
+## 2. Reference Motion을 제거한 Single-task 환경 정의
+
+- UMI trajectory와 tracking reward 제거
+- 첫 task는 가장 단순한 **평지 전진 locomotion**으로 설정 (isaacgym기본 reward에 빨리 달리는 텀 추가)
+- 목표는 “정해진 motion을 따라가기”가 아니라 **실제로 앞으로 이동하는 결과 자체**
+- 초기 reward는 단순하게 구성
+  - 전진 거리 또는 전진 속도: positive reward
+  - 후진: negative reward
+  - 낙상: termination 또는 penalty
+- energy penalty, joint penalty 등의 복잡한 항은 초기에는 제외
+
+### 핵심 질문
+
+> **Reference motion 없이 실제 task 수행 결과만으로 RL-guided hardware generation이 가능한가?**
+
+---
+
+## 3. Hardware 평가용 Controller 고정
+
+- morphology-conditioned controller 또는 기존 사용 가능한 locomotion controller 준비
+- hardware generation RL 학습 중에는 controller weight를 고정
+- 모든 morphology를 동일한 controller와 동일한 simulator 조건에서 평가
+- 목적은 **controller 학습 효과와 hardware generation 효과를 분리**하는 것
+
+### 이 단계에서 측정하는 값
+
+현재 평가는 다음과 같은 의미로 해석한다.
+
+`J(E, theta_fixed)`
+
+즉, **현재 고정된 controller와 결합했을 때 해당 hardware가 어느 정도 성능을 내는가**를 평가한다.
+
+---
+
+## 4. Task-result 기반 RL-guided Hardware Generation 구현
+
+### RL Guidance 입력
+
+- 현재 noisy RoboToken
+- diffusion timestep
+- task condition
+
+### 진행 과정
+
+- RL guidance를 이용하여 denoising 진행
+- 최종 morphology `E` 생성
+- 중간 denoising step에서는 physics simulator를 사용하지 않음
+- 최종 morphology가 완성된 뒤 simulator로 전달
+
+### 전체 생성 흐름
+
+`Noise`
+
+→ `TT prior + RL guidance`
+
+→ `Denoising`
+
+→ `Final morphology E`
+
+---
+
+## 5. 최종 Morphology를 Physics Simulator에서 평가
+
+- 생성된 `E`를 MuJoCo / MJX 등의 physics simulator에 로드
+- 고정 controller로 locomotion rollout 수행
+- 동일 morphology를 여러 random seed에서 반복 평가
+- 각 morphology에 대해 다음 항목 기록
+  - 전진 거리
+  - 평균 속도
+  - 낙상 여부
+  - episode return
+  - success 여부
+
+### Reward 연결
+
+Physics simulator에서 얻은 task return을 **hardware generation RL의 terminal reward**로 사용한다.
+
+즉,
+
+`Hardware Generation`
+
+→ `Final morphology E`
+
+→ `Physics Simulator Rollout`
+
+→ `Task Return`
+
+→ `Hardware Generation RL Reward`
+
+의 구조로 연결한다.
+
+---
+
+## 6. Hardware Generation RL 학습 루프 구성
+
+전체 학습 루프는 다음과 같이 구성한다.
+
+1. Noise sampling
+2. RL-guided denoising
+3. Final morphology 생성
+4. Physics simulator에서 rollout
+5. Task return 계산
+6. 해당 return을 전체 denoising trajectory의 terminal reward로 사용
+7. RL guidance policy 업데이트
+8. 반복
+
+### 핵심 확인 항목
+
+- 학습이 진행될수록 높은 reward를 받는 morphology가 더 자주 생성되는가
+- RL guidance가 hardware distribution 자체를 task에 적합한 방향으로 변화시키는가
+
+---
+
+## 7. RL-guided Hardware Generation 효과 비교
+
+최소 비교군은 다음과 같이 구성한다.
+
+### Baseline 1. Unguided TT Diffusion
+
+- 별도의 reward guidance 없이 TT prior만 사용
+
+### Baseline 2. 기존 DSG Gradient Guidance
+
+- TT의 기존 reward-gradient guidance 사용
+
+### Proposed. RL Guidance
+
+- 제안하는 RL-guided denoising 사용
+- 최종 simulator task return을 reward로 학습
+
+### 비교 조건
+
+세 방법 모두 다음 조건을 동일하게 유지한다.
+
+- TT prior
+- hardware design space
+- controller
+- physics simulator
+- random seed
+- simulation budget
+
+### 비교 지표
+
+- 평균 task return
+- best task return
+- success rate
+- 낙상률
+- 생성 morphology 분포
+- optimization cost
+- sample efficiency
+
+---
+
+## 8. RL Guidance가 실제로 Task-specific Morphology를 만드는지 분석
+
+- 학습 전후 morphology parameter 비교
+- 높은 reward morphology에서 반복적으로 나타나는 형상 특성 확인
+- 동일 noise seed에서 RL guidance 적용 전후 morphology 비교
+- reward 증가뿐만 아니라 **형상 자체가 task 수행에 적합한 방향으로 변화했는지 확인**
+
+### 확인할 핵심 질문
+
+> **RL guidance가 단순히 diffusion에 noise를 추가하는 것이 아니라, 실제 task 성능이 높은 morphology distribution을 학습하는가?**
+
+---
+
+## 9. 고정 Controller의 한계 확인
+
+고정 controller를 사용하면 현재 평가하는 값은
+
+`J(E, theta_fixed)`
+
+이다.
+
+하지만 실제로 원하는 값은
+
+`max_theta J(E, theta)`
+
+이다.
+
+즉 구조적으로 좋은 hardware라도 현재 controller가 해당 morphology에 익숙하지 않으면 낮게 평가될 수 있다.
+
+### 확인 방법
+
+- RL-guided hardware search에서 상위 morphology와 하위 morphology 일부 선택
+- 각 morphology에 대해 controller를 별도로 추가 학습
+- controller 학습 전후 hardware ranking 비교
+- ranking 변화가 큰지 확인
+
+### 판정
+
+- ranking 변화가 작음  
+  → 고정 controller 기반 hardware search가 어느 정도 타당
+
+- ranking 변화가 큼  
+  → hardware와 controller를 함께 최적화하는 co-design 필요
+
+---
+
+## 10. Hardware–Policy Co-design으로 확장
+
+고정 controller의 한계가 확인되면 두 policy를 분리하여 함께 학습한다.
+
+### Hardware Generation Policy
+
+`pi_phi`
+
+역할:
+
+- hardware generation
+- denoising guidance
+
+### Robot Control Policy
+
+`pi_theta`
+
+역할:
+
+- 생성된 morphology에서 실제 task 수행
+
+### 기본 반복 구조
+
+1. `pi_phi`로 morphology 생성
+2. 해당 morphology에서 `pi_theta` 일정량 학습
+3. physics simulator에서 task rollout
+4. task return 계산
+5. return을 이용하여 `pi_phi` 업데이트
+6. 반복
+
+### 주의점
+
+- 처음부터 두 policy를 매 step 동시에 무작정 업데이트하지 않음
+- hardware generation과 controller learning의 timescale을 분리
+- 각 성능 향상이 어느 policy 변화에서 발생했는지 추적
+
+---
+
+## 11. Single-task Co-design 안정성 검증
+
+Round가 증가하면서 다음을 확인한다.
+
+- hardware parameter가 실제로 변하는가
+- controller parameter가 실제로 변하는가
+- task return이 증가하는가
+- success rate가 증가하는가
+- hardware만 변하고 controller가 그대로인지
+- controller만 좋아지고 hardware는 의미 있게 변하지 않는지
+- 둘이 함께 개선되는지
+
+### 이 단계의 핵심 질문
+
+> **Hardware와 controller가 함께 변화하면서 single-task performance가 실제로 상승하는가?**
+
+---
+
+## 12. Multi-task로 단계적 확장
+
+Single-task co-design이 안정적으로 동작한 이후 multi-task로 확장한다.
+
+### 단계적 확장 예시
+
+#### Stage 1
+- 평지 전진
+
+#### Stage 2
+- 평지 전진
+- 계단 상승
+
+#### Stage 3
+- 평지 전진
+- 계단 상승
+- 불균형 지형
+
+### Multi-task reward 구성 시 고려
+
+- task별 reward scale 정규화
+- 평균 성능 고려
+- 가장 낮은 task 성능 고려
+- 특정 task 하나에서만 높은 성능을 내는 morphology가 선택되지 않도록 구성
+
+### 최종 목표
+
+**하나의 hardware + 하나의 multi-task policy**
+
+---
+
+## 13. Broad Design Space 확장
+
+Multi-task co-design이 기본 quadruped design space에서 안정적으로 성립한 이후 확장한다.
+
+### Continuous Parameter
+
+- link length
+- body length
+- body width
+- actuator parameter
+- 기타 morphology parameter
+
+### Discrete Parameter
+
+- leg count
+- joint count
+- DoF
+- topology
+- connection structure
+
+### 목표
+
+기존의 fixed quadruped optimization을 넘어서 task set에 따라
+
+- quadruped
+- hexapod
+- 다른 articulated legged structure
+
+등이 선택될 수 있는지 검증한다.
+
+---
+
+## 14. 계산량이 병목일 경우에만 Surrogate 추가
+
+초기 연구에서는 physics simulator return을 직접 사용한다.
+
+Hardware 평가 비용이 실제 학습 병목으로 확인된 경우에만 surrogate model을 추가한다.
+
+### Surrogate 역할
+
+`Hardware E`
+
+→ `Predicted Task Return`
+
+### 사용 목적
+
+- simulator 호출 횟수 감소
+- 대량 candidate 빠른 screening
+
+### 주의점
+
+- surrogate가 RL guidance 자체를 대체하지 않음
+- hardware generation 방향은 계속 RL guidance가 결정
+- surrogate는 simulation cost 절감을 위한 보조 수단으로만 사용
+
+---
+
+# 현재 우선순위
+
+지금 바로 진행해야 할 범위는 **2 ~ 8번**이다.
+
+즉 현재 완료된
+
+`TT prior + UMI tracking + RL guidance`
+
+실험에서 한 단계 더 나아가,
+
+`Reference motion 제거`
+
+→ `Single locomotion task`
+
+→ `RL-guided hardware generation`
+
+→ `Physics simulator task rollout`
+
+→ `Task return`
+
+→ `Hardware generation RL update`
+
+구조를 먼저 검증한다.
+
+---
+
+# 연구 진행 순서 요약
+
+## 완료
+
+`TT prior`
+
+→ `RL Guidance`
+
+→ `Hardware 생성`
+
+→ `UMI Motion Tracking`
+
+→ **RL guidance 치환 가능성 확인**
+
+---
+
+## 다음 단계
+
+`TT prior`
+
+→ `RL Guidance`
+
+→ `Hardware 생성`
+
+→ `Physics Simulator`
+
+→ `Single-task 수행`
+
+→ `Task Return`
+
+→ `RL Guidance 업데이트`
+
+→ **Reference-motion-free Task-driven Hardware Generation 검증**
+
+---
+
+## 이후
+
+`RL Hardware Guidance pi_phi`
+
+→ `Hardware E`
+
+→ `Control Policy pi_theta 학습`
+
+→ `Physics Simulator`
+
+→ `Task Return`
+
+→ `pi_phi + pi_theta 반복 최적화`
+
+→ **Hardware–Policy Co-design**
+
+---
+
+## 최종 확장
+
+`Single-task`
+
+→ `Multi-task`
+
+→ `Broad Design Space`
+
+→ **One Hardware + One Multi-task Policy**
+
+>>>>>>> bc6001b (Update coevolution notes)
