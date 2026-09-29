@@ -14,10 +14,10 @@
 
 ```
 TT  : guidance = scale · ∇_x R̂(x̂)      모델 예측 reward 를 미분   (학습 없음)
-우리 : guidance = π_φ(x_t, k)           결과로부터 학습된 residual  (critic 으로 학습)
+우리 : TT ψ ← DDPO(J(E, θ_fixed))       실제 rollout return으로 denoiser 학습
 ```
 
-나머지(prior·샘플러·평가기·지표)는 전부 동일하게 두고 **guidance 를 만드는 주체만** 바꾼다.
+Stage 2에서는 `π_θ`를 동결해 TT `ψ`의 효과만 검증하고, 통과한 뒤 Stage 3에서 두 정책을 번갈아 갱신한다.
 
 ## 폴더
 
@@ -26,22 +26,22 @@ TT  : guidance = scale · ∇_x R̂(x̂)      모델 예측 reward 를 미분   
 | `remind.md` | **정본** — 결정(D1~D53) · 열린 안건 · 실험 결과 · TODO |
 | `CLAUDE.md` | 작업 규칙 (tmux·알림·기록·보고서) |
 | `code/` | Stage 1 (TT vs RL tracking guidance) — 회귀 검사용 보존 |
-| `stage2/` | Stage 2 (동결 π_θ + π_φ 형상 생성). 코드 = `stage2/code/`, 결과 = `stage2/runs/`. run 별 보고서·아티팩트 링크는 `stage2/README.md` |
-| `stage3_coevolution/` | Stage 3 공진화 코드 (보류). 실행법 `COEVOLUTION.md` |
+| `stage2/` | Stage 2 (동결 π_θ + TT ψ DDPO). 코드 = `stage2/code/`, 결과 = `stage2/runs/`. run 별 보고서·아티팩트 링크는 `stage2/README.md` |
+| `stage3/` | **Stage 2 성공 후의 hardware–policy co-design**. 코드 = `stage3/code/`, 결과 = `stage3/runs/`, 실행법 = `stage3/README.md` |
 | `archive/` | 폐기된 D22 reward · L0~L3 · π_θ fine-tune 스크립트. `tt_patch_stairs_L0L3/` = 계단(D16)·L0~L3(D17) TT 패치 |
 | `tt_patch/` | TT 레포에 얹을 파일 (경로 구조 그대로): `rl_guidance.py`·`rl_residual.yaml` (Stage 1 RL guidance) + `tt_compat.diff` (기존 파일 수정분) |
 | `results/` | 결과 jsonl·json, 비교 영상, 설계 렌더, 복원된 MJCF |
 | `assets/` | 단일 설계 store (`*.zarr`) — π_θ 학습 입력 |
 | `rl_scripts/` | tmux 런처·텔레그램 전송기. 다른 PC 에선 codesign 옆 `scripts/` 로 복사 (SETUP §7) |
 
-## 지금 상태 (2026-09-28)
+## 지금 상태 (2026-09-29)
 
-**Stage 2 진행 중.** T5_try1 (128 choice π_θ) 기준 미달 (생존 84 %·이동 69 %·회전 56 %), T6_try1 (평가기 검증, D53) 진행. 상세 `stage2/README.md`.
+**Stage 2 진행 중.** T5·T6 완료 후 T7 DDPO 전체 smoke를 준비 중이다. Stage 3 co-design은 아직 시작하지 않았다. 상세 `stage2/README.md`.
 
 - **Stage 1 (완료, 09-25)**: TT 행 재현 (Pos Err 3.0 cm / Survival 99.4 %), RL guidance 치환 동작 확인. 코드 `code/`.
-- **Stage 3 (보류)**: 공진화 코드 `stage3_coevolution/`. Stage 2 성립 후 재개.
+- **Stage 3 (보류)**: Stage 2에서 DDPO 효과가 확인된 뒤 `ψ`와 `π_θ`를 번갈아 갱신하는 co-design.
 
-다음 할 일은 `remind.md` 의 TODO (T5~T12) 와 "현재 우선순위".
+다음 할 일은 `remind.md`의 TODO와 "현재 우선순위".
 
 ## 이어서 하기 (다른 컴퓨터)
 

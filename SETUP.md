@@ -103,7 +103,7 @@ MUJOCO_GL=egl bash "$CODESIGN/archive/finetune_pi_theta.sh" \
 
 ```sh
 P=../transformer-transformer/.venv/bin/python
-$P stage2/code/t6_evaluator_check.py t5 --run stage2/runs/T5_try1   # 수 초, exit 3 = 기준 미달 (정상 판정)
+$P stage2/code/t6_evaluator_check.py t5 --run stage2/runs/T5/try1   # 수 초, exit 3 = 기준 미달 (정상 판정)
 MUJOCO_GL=egl $P stage2/code/test_locomotion_env.py                  # env·reward·종료
 MUJOCO_GL=egl $P stage2/code/test_multi_design_env.py                # 구조 그룹 vmap
 ```

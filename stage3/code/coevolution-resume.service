@@ -1,0 +1,12 @@
+[Unit]
+Description=Resume codesign coevolution in tmux after boot
+After=default.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+KillMode=process
+ExecStart=/home/cgr-ugrad-2026/quad_ws/codesign/stage3/code/start_coevolution_tmux.sh /home/cgr-ugrad-2026/quad_ws/codesign/stage3/runs/coevolution_live_20260922
+
+[Install]
+WantedBy=default.target

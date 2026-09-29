@@ -25,6 +25,8 @@ FRICTION_RANGE = (0.5, 1.25)  # LeggedRobotCfg.domain_rand.friction_range
 def structure_key(choices):
     """Designs whose choices differ only in the last two bits share one MJX structure. With the
     rail removed (REMOVE_PARTS, D49) bit 5 no longer changes the robot either."""
+    # T6 진단: "differs from its group" 또는 vmap shape 오류는 구조가 다른 로봇을 같은
+    # 그룹으로 묶었다는 뜻이다. 평가기가 아니라 이 key를 수정한다.
     bits = list(choices[:-2])
     if "/rail/" in REMOVE_PARTS:
         del bits[5]
@@ -35,6 +37,8 @@ class DesignGroupEnv:
     """Batched env over K designs of one structure group (reset/step take a batch)."""
 
     def __init__(self, designs, **env_kwargs):
+        # T6 진단: 형상별 모델 생성, body/contact 불일치, 그룹 검증 오류는 정책 rollout 전에
+        # 이 생성자에서 발생한다.
         self.envs = [LocomotionEnv(list(c), s, **env_kwargs) for c, s in designs]
         base = self.env = self.envs[0]
         for e in self.envs[1:]:

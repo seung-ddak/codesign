@@ -1,0 +1,248 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "animation": "none",
+    "quality_profile": "standard",
+    "title": "T7 Overview ① — Generation and Scoring",
+    "output": "architecture/t7_hardware_guidance/t7_generation_scoring.html"
+  },
+  "lanes": [
+    {
+      "id": "generation",
+      "label": "TT morphology generation"
+    },
+    {
+      "id": "storage",
+      "label": "Disk trajectory handoff"
+    },
+    {
+      "id": "scoring",
+      "label": "Frozen πθ + MJX scoring"
+    },
+    {
+      "id": "output",
+      "label": "Outputs to DDPO"
+    }
+  ],
+  "phases": [
+    {
+      "id": "generate",
+      "label": "Generate",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "materialize",
+      "label": "Persist + decode",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "dashed"
+    },
+    {
+      "id": "evaluate",
+      "label": "Group + score",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "emphasis"
+    }
+  ],
+  "groups": [
+    {
+      "id": "bounded_generation",
+      "label": "RAM bounded by generation_microbatch",
+      "lane": "generation",
+      "fromCol": 0,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "group_jit",
+      "label": "Compile only observed structure groups",
+      "lane": "scoring",
+      "fromCol": 3,
+      "toCol": 5,
+      "variant": "emphasis"
+    }
+  ],
+  "mainPath": [
+    "policy",
+    "microbatch",
+    "decode",
+    "partition",
+    "jit",
+    "rollout",
+    "returns"
+  ],
+  "semanticChecks": {
+    "allowedRoots": [
+      "policy"
+    ],
+    "allowedTerminals": [
+      "returns",
+      "zarr"
+    ],
+    "requiredPaths": [
+      {
+        "from": "policy",
+        "to": "returns"
+      }
+    ],
+    "requiredEdges": [
+      {
+        "from": "microbatch",
+        "to": "zarr"
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "policy",
+      "lane": "generation",
+      "col": 0,
+      "type": "backend",
+      "label": "Current TT ψ",
+      "sublabel": "trainable denoiser",
+      "tag": "GPU",
+      "width": 130
+    },
+    {
+      "id": "microbatch",
+      "lane": "generation",
+      "col": 1,
+      "type": "backend",
+      "label": "Stochastic DDIM",
+      "sublabel": "100 steps · microbatch",
+      "tag": "xT → x0",
+      "width": 150
+    },
+    {
+      "id": "zarr",
+      "lane": "storage",
+      "col": 2,
+      "type": "database",
+      "label": "Zarr state chain",
+      "sublabel": "FP32 states + old log p",
+      "tag": "panel ② input",
+      "width": 154
+    },
+    {
+      "id": "decode",
+      "lane": "generation",
+      "col": 3,
+      "type": "backend",
+      "label": "Decode + bank match",
+      "sublabel": "RoboToken → choices, seed",
+      "width": 166
+    },
+    {
+      "id": "partition",
+      "lane": "scoring",
+      "col": 3,
+      "type": "messagebus",
+      "label": "Group by structure_key",
+      "sublabel": "preserve design indices",
+      "width": 176
+    },
+    {
+      "id": "jit",
+      "lane": "scoring",
+      "col": 4,
+      "type": "cloud",
+      "label": "Lazy group JIT",
+      "sublabel": "fixed slots · compile once",
+      "tag": "XLA",
+      "width": 154
+    },
+    {
+      "id": "rollout",
+      "lane": "scoring",
+      "col": 5,
+      "type": "backend",
+      "label": "MJX rollout × 7",
+      "sublabel": "dynamic command · frozen πθ",
+      "tag": "lax.scan",
+      "width": 170
+    },
+    {
+      "id": "returns",
+      "lane": "output",
+      "col": 5,
+      "type": "database",
+      "label": "Terminal returns",
+      "sublabel": "7-command mean · invalid→worst",
+      "tag": "panel ② input",
+      "width": 178
+    }
+  ],
+  "edges": [
+    {
+      "id": "policy_noise",
+      "from": "policy",
+      "to": "microbatch",
+      "label": "predict εψ",
+      "variant": "emphasis"
+    },
+    {
+      "id": "state_write",
+      "from": "microbatch",
+      "to": "zarr",
+      "label": "write each stochastic state",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "final_decode",
+      "from": "microbatch",
+      "to": "decode",
+      "label": "final samples",
+      "variant": "emphasis"
+    },
+    {
+      "id": "structure_partition",
+      "from": "decode",
+      "to": "partition",
+      "label": "valid designs"
+    },
+    {
+      "id": "cache_lookup",
+      "from": "partition",
+      "to": "jit",
+      "label": "cache miss → compile",
+      "variant": "emphasis"
+    },
+    {
+      "id": "compiled_rollout",
+      "from": "jit",
+      "to": "rollout",
+      "label": "reuse executable"
+    },
+    {
+      "id": "score_return",
+      "from": "rollout",
+      "to": "returns",
+      "label": "per-design returns",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Generation memory",
+      "items": [
+        "Only generation_microbatch states stay live on GPU/CPU",
+        "Every stochastic transition is written immediately",
+        "Adjacent transitions share one stored state chain"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Scoring compilation",
+      "items": [
+        "No global MultiDesignEnv JIT",
+        "A group compiles only when first observed",
+        "Seven commands reuse one dynamic-input executable"
+      ]
+    }
+  ]
+}

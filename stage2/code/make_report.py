@@ -1,6 +1,6 @@
 """Build <run>/report.html from a finished run (the result-report format, 2026-09-27).
 
-  python stage2/code/make_report.py --run stage2/runs/T5_try1 --task "T5 π_θ 선학습" \
+  python stage2/code/make_report.py --run stage2/runs/T5/try1 --task "T5 π_θ 선학습" \
       --title "T5 try1" [--baseline stage2/runs/<run> --baseline-label "..."]
 
 Reads config.json, progress.jsonl, the latest eval_*.json, videos/videos.json and

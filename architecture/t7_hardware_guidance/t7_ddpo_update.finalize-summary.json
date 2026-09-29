@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "workflow",
+  "quality": "standard",
+  "specification": {
+    "path": "/home/cgr-ugrad-2026/quad_ws/codesign/architecture/t7_hardware_guidance/t7_ddpo_update.workflow.json",
+    "sha256": "ceb30701dc540d2e0f570fdb17c9645379a8e3265d9fd18b462a48ebc2999f48",
+    "bytes": 5514
+  },
+  "artifact": {
+    "path": "/home/cgr-ugrad-2026/quad_ws/codesign/architecture/t7_hardware_guidance/t7_ddpo_update.html",
+    "sha256": "7c975b1a479185a1ea6716302daea2a37d67312c91b654ab001a79d21e951784",
+    "bytes": 763502
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/home/cgr-ugrad-2026/quad_ws/codesign/architecture/t7_hardware_guidance/t7_ddpo_update.finalize.json",
+    "summaryReceipt": "/home/cgr-ugrad-2026/quad_ws/codesign/architecture/t7_hardware_guidance/t7_ddpo_update.finalize-summary.json",
+    "browserCheckReceipt": "/home/cgr-ugrad-2026/quad_ws/codesign/architecture/t7_hardware_guidance/t7_ddpo_update.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.0.1",
+    "availableVersion": "3.0.1",
+    "releaseNotes": null,
+    "checkedAt": "2026-09-29T07:28:52.658Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 1456,
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 2,
+      "routesOverSuggestedStretch": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "recompute_logprob",
+            "from": "read",
+            "to": "logprob",
+            "label": "GPU tensors",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "bends": 3,
+          "stretch": 1.388
+        },
+        {
+          "relationship": {
+            "id": "zarr_read",
+            "from": "zarr",
+            "to": "read",
+            "label": "paired state chain",
+            "collectionIndex": 7,
+            "artifactIndex": 8
+          },
+          "bends": 3,
+          "stretch": 1.108,
+          "directCorridorBlockers": [
+            {
+              "id": "shuffle",
+              "label": "Transition shuffle",
+              "box": [
+                396.4,
+                217,
+                148,
+                68
+              ]
+            }
+          ]
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "read → logprob needs 3 bends: move node read or logprob so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

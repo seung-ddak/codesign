@@ -18,14 +18,14 @@ TT 의 "noise → denoising → 형상" 틀은 유지하되, reference motion + 
 | 단계 | 무엇을 하나 | 핵심 질문 | 상태 |
 |------|-------------|-----------|------|
 | **1 단계 · RL guidance 성립** | 고정 TT prior + UMI tracking 조건에서 DSG 자리에 RL guidance 적용 | RL guidance 로 형상이 생성되고 tracking 이 유지되는가 | **완료** |
-| **2 단계 · task-result hardware generation** | TT design space 에서 locomotion policy 를 먼저 학습·고정하고 pi_phi 만 task return 으로 학습 | reference motion 없이 실제 locomotion 결과로 좋은 형상을 생성하는가 | **현재 우선순위** |
-| **3 단계 · hardware-policy co-design** | 2 단계 통과 후 pi_phi 와 pi_theta 를 분리된 timescale 로 함께 최적화 | 형상과 정책을 함께 개선할 수 있는가 | 후속 |
+| **2 단계 · task-result hardware generation** | locomotion `π_θ`를 먼저 학습·고정하고 TT denoiser `ψ`만 DDPO로 학습 | reference motion 없이 실제 locomotion 결과로 좋은 형상을 생성하는가 | **현재 우선순위** |
+| **3 단계 · hardware-policy co-design** | 2 단계 통과 후 TT `ψ`와 locomotion `π_θ`를 분리된 timescale로 번갈아 최적화 | 형상과 정책을 함께 개선할 수 있는가 | 후속·미진입 |
 | **확장** | multi-task → broad topology design space | 하나의 hardware + 하나의 multi-task policy 로 확장 가능한가 | 후속 |
 
 **현재 우선순위: 2 단계 단순 실험부터 진행한다 (2026-09-25 개정).** 과거 D12·D26의 공진화 경로는 폐기하지 않고 3 단계로 보류한다.
 형상은 TT `umi_on_legs_plus_plus` design space 와 MJX 경로를 유지하고, A1 URDF 로 교체하지 않는다.
 
-**현재 2 단계의 한 round:** ① 고정 TT prior + pi_phi residual 로 morphology 생성 → ② 동결된 morphology-conditioned pi_theta 로 평지 locomotion rollout → ③ legged_robot 원본 reward 의 episode return 계산 → ④ 같은 형상을 여러 seed 로 평가 → ⑤ return 으로 pi_phi 갱신 → ⑥ 다음 round.
+**현재 2 단계의 한 round:** ① trainable TT denoiser `ψ`로 stochastic DDIM morphology 생성·transition 기록 → ② 동결된 morphology-conditioned `π_θ`로 평지 locomotion rollout → ③ legged_robot 원본 reward의 episode return 계산 → ④ return을 batch advantage로 정규화 → ⑤ clipped DDPO-IS로 `ψ` 갱신 → ⑥ 다음 round.
 pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphology 로 충분히 학습한 뒤 고정한다.
 
 ---
@@ -83,10 +83,13 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 | D47 | **2026-09-27 레일 제거 + tracking_lin_vel 5→3, 1000 iter (사용자 결정, 2 변수 동시).** noarm ×5 200 iter: 추종 36 % 이나 생존 22→13 %, 흔들림 1.4~1.5 배. 레일(1.18 kg) 도 제거해 bit 5 무효, 질량 13.3~13.6 kg. `stage2/runs/t5_norail_x3_1000it` |
 | D48 | **2026-09-27 평가 = 고정 명령 4 개 + 실제 이동 거리.** 전진·후진·왼쪽 0.5 m/s, 회전 0.5 rad/s, 20 s 유지. 무작위 명령 평가는 순위가 명령 운(느린 명령 = 서 있어도 고득점)이라 폐기. t5_norail_x3_1000it: 생존 95 %, 이동 달성 89 %, 전부 낙상 0/128 → 첫 보행 성공 |
 | D49 | **2026-09-27 Stage 2 형상 공간 = 팔·레일 없는 TT 다리 형상으로 확정 (D35·D43 수정, 사용자 결정 A안).** TT prior 가 낸 choice+uniform 으로 조립 후 arx5·rail 제거 (π_θ 학습·평가·π_φ 채점 동일 규칙). bit 5·팔 위치 uniform 은 무효 차원. 팔은 확장 단계에서 무게 커리큘럼으로 재도입. 다음: 전체 choice 학습 |
-| D50 | **2026-09-27 tracking_ang_vel 0.5→1.5 (D36 예외, 사용자 결정 A안).** t5_norail_x3_1000it 회전 달성 20~36 % (서 있기만 37 %). 선속도 ×3 과 같은 원리. T5 통과 기준 = 이동 ≥80 %·회전 ≥50 %·생존 ≥90 % (128 choice). `stage2/runs/T5_try1` |
+| D50 | **2026-09-27 tracking_ang_vel 0.5→1.5 (D36 예외, 사용자 결정 A안).** t5_norail_x3_1000it 회전 달성 20~36 % (서 있기만 37 %). 선속도 ×3 과 같은 원리. T5 통과 기준 = 이동 ≥80 %·회전 ≥50 %·생존 ≥90 % (128 choice). `stage2/runs/T5/try1` |
 | D51 | **2026-09-27 평가·채점 명령 = 대칭 고정 7 개 (D48 확장, 사용자 결정).** 전진·후진·왼쪽·오른쪽 0.5 m/s, 빠른 전진 1.0 m/s, 좌·우회전 0.5 rad/s, 각 20 s 유지, 모든 형상 동일. 학습 명령은 Q9 원본 무작위 그대로. 4 개 세트는 좌우 비대칭을 못 잡아 확장 |
 | D52 | **2026-09-27 원칙: 원본 따르기 + 하드웨어 생성 가능성만 가장 단순·빠르게 검증 (사용자 지시).** 평가·채점 DR 끔(legged_gym play.py: 노이즈·push·마찰 DR 없음). T6 = 미학습 seed(choice 당 1, 128 형상)를 2 회 평가 → 순위 상관 ≥ 0.8 + T5 기준 충족. 형상당 7 에피소드(명령 7 개, Q11). T7 = 공진화 코드의 TT 생성(reference mask)+bank 최근접 변환 재사용, π_φ Stage 1 기본값, T7_try1 100 업데이트. 체인 T5→T6→T7 자동, 기준 미달 시 정지·알림 |
-| D53 | **2026-09-28 T6 통과 기준 개정 (D52 수정, 사용자 결정).** 절대 T5 기준은 T5 게이트 몫으로 분리. T6 = ① 재측정 순위상관 ≥ 0.8 (유지) ② 미학습 seed 평균 ≥ 학습 seed 평균(T5 eval) × 0.9 (이동·회전·생존 각각) ③ choice 순위상관(학습 seed 평균 return vs 미학습 seed return) ≥ 0.8. 0.9·0.8 은 임의 여유값. `stage2/runs/T6_try1` |
+| D53 | **2026-09-28 T6 통과 기준 개정 (D52 수정, 사용자 결정).** 절대 T5 기준은 T5 게이트 몫으로 분리. T6 = ① 재측정 순위상관 ≥ 0.8 (유지) ② 미학습 seed 평균 ≥ 학습 seed 평균(T5 eval) × 0.9 (이동·회전·생존 각각) ③ choice 순위상관(학습 seed 평균 return vs 미학습 seed return) ≥ 0.8. 0.9·0.8 은 임의 여유값. `stage2/runs/T6/try1` |
+| D54 | **2026-09-29 T5 단계 완료 및 T6 진입 (사용자 결정).** T5_try1은 기존 정량 게이트(이동 80 %·회전 50 %·생존 90 %) 중 회전만 통과했으나, 영상에서 명령 추종을 확인했으므로 추가 T5 학습 없이 현재 checkpoint를 동결해 T6를 진행한다. 이는 정량 게이트 통과 판정이 아니다. |
+| D55 | **2026-09-29 작업 문서화 규칙 (사용자 결정).** 새 작업은 Ponytail full로 진행하고, 착수 시 Archify로 실제 구현 흐름을 그린다. `architecture/<작업명>/` 하나에 source JSON·HTML·간단한 README를 함께 둔다. |
+| D56 | **2026-09-29 T6 통과 기준 재정의 (D53 수정, 사용자 결정).** 실제 채점 단위는 discrete choice 평균이 아니라 `choice + continuous parameters`인 구체 morphology다. 필수 gate는 ① 동일 morphology 반복 순위상관 ≥ 0.8 ② 두 반복 평균이 T5 seen 평균의 90 % 이상(이동·회전·생존); choice 순위상관은 진단값으로만 보존한다. |
 
 핵심 질문: *reference motion·reward gradient 없이, task 수행 결과만으로 diffusion 의 denoising
 전략을 RL 로 학습할 수 있는가?*
@@ -101,7 +104,7 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 | **Q8** | topology 확장 범위(다리 수·DoF·연결 구조) | **Stage 2/3 성립 후 보류** |
 | **Q9** | Stage 2 평지 locomotion command 를 고정 target 속도로 둘지 원본 command range 를 사용할지 | **결정 (2026-09-27): 학습 = 원본 command range** (vx·vy ±1, heading ±π), **평가·채점 = 대칭 고정 7 개 (D51)**. 회전도 학습해야 T5 완료 |
 | **Q10** | morphology-conditioned pi_theta 선학습에 사용할 TT morphology sampling 수·분포 | 미정 |
-| **Q11** | Stage 2 pi_phi 갱신 시 morphology 당 rollout seed 수와 batch 크기 | 미정 |
+| **Q11** | Stage 2 TT `ψ` 갱신 시 morphology 당 rollout seed 수와 batch 크기 | 미정 |
 
 ---
 
@@ -155,7 +158,7 @@ A1/legged_gym 에서는 검증된 locomotion reward·observation·command 설계
 
 ## 4. 실험 규약
 
-> §4.1~4.3은 1단 비교 실험의 당시 규약이다. 현재 2단 공진화 조건은 D26~D31과 `runs/coevolution_live_20260922/config.json`을 따른다.
+> §4.1~4.3은 1단 비교 실험의 당시 규약이다. D26~D31의 과거 공진화 설정은 `stage3/runs/coevolution_live_20260922/config.json`에 보존돼 있으며 현재 Stage 2 규약이 아니다.
 > **조건이 적히지 않은 결과는 기록으로 쓰지 않는다.**
 
 ### 4.1 이전 V100 실험 환경 (2026-09-20 기록; 현재 공진화에는 D27·D31 적용)
@@ -211,10 +214,10 @@ L0~L3 사다리는 폐기. **형상 생성 방식만 다른 둘**을 같은 평�
 | task | **single-task flat locomotion** |
 | reward | **legged_robot 원본 reward config 전체를 그대로 이식**; 임의 항 삭제·추가 없음 |
 | controller | `pi_theta(o,E,command)` morphology-conditioned PPO, Stage 2 전에 선학습 후 **동결** |
-| hardware guidance | 고정 TT denoiser + residual `pi_phi`; 기존 Stage 1 RL guidance 경로 재사용 |
+| hardware policy | pretrained TT denoiser `ψ`를 stochastic DDIM + clipped DDPO-IS로 fine-tuning |
 | simulator | **MJX/MuJoCo 유지**; Isaac Gym/A1 URDF 로 교체하지 않음 |
 | evaluation | 최종 morphology 에서만 physics rollout, 여러 seed 평균 episode return 사용 |
-| update | Stage 2 동안 **pi_phi 만 업데이트**, pi_theta 는 고정 |
+| update | Stage 2 동안 **TT ψ만 업데이트**, `π_θ`는 고정. 두 정책 동시 변화는 Stage 3에서만 허용 |
 | 비교 | unguided TT prior / RL-guided hardware generation; DSG 비교는 task reward 미분 가능성에 따라 별도 판단 |
 | 제외 | coevolution, multi-task, topology 확장, surrogate, Sim2Real |
 
@@ -376,10 +379,10 @@ TT 형상 score **0.15** (298 step 종료) vs RL 형상 **0.38** (453 step) — 
 **5.26 2단 smoke 완료 — 배선 통과, 보행 성공 미확인 (2026-09-22)**
 Round 0/1 모두 유효 형상 4개·invalid 0개·checkpoint 저장·π_φ 갱신에 성공했고, Round 1에서 `theta_parameter_delta=0.4165`, `phi_parameter_delta=0.0517`로 두 정책이 실제 갱신됐다.
 하지만 `success_mean=0.0`이고 `return_mean`은 **0.0124 → -0.0553**으로 악화됐다. 이는 보행 성능 향상의 증거가 아니며, 이후 D31 조건으로 본 학습을 시작했다.
-산출물은 `runs/coevolution_smoke/round_0000~0001/{theta.pkl,phi.pt,best.xml,designs.json}` 및 `history.jsonl`이다.
+산출물은 당시 `coevolution_smoke/round_0000~0001/{theta.pkl,phi.pt,best.xml,designs.json}` 및 `history.jsonl`이었으며 현재는 과거 Stage 3 기록으로 취급한다.
 
 **5.27 본 학습 기록 — 완료 round 0~2 (2026-09-22)**
-`runs/coevolution_live_20260922/history.jsonl` 기준 8개 형상씩 유효·invalid 0, `return_mean` **0.0063 → 0.0293 → 0.0618**, `success_mean` **0 → 0 → 0**이다.
+`stage3/runs/coevolution_live_20260922/history.jsonl` 기준 8개 형상씩 유효·invalid 0, `return_mean` **0.0063 → 0.0293 → 0.0618**, `success_mean` **0 → 0 → 0**이다.
 매 round π_φ가 갱신됐고 round 1·2의 `theta_parameter_delta`는 2.4609·1.9075다. return 상승은 관찰됐으나 아직 1.0 m 성공이나 최적 형상 발견의 근거는 아니다.
 기록 확인 시점의 마지막 저장 checkpoint는 `round_0002`; `train.log`에는 round 3의 controller 8/8까지 기록됐다. round 3은 완료 기록이 없어 성능 판정에서 제외한다.
 
@@ -423,11 +426,16 @@ smoke(256 env)에서 KL 0.099 — 원본 목표 0.01 대비 과대. 시범 결�
 | 2026-09-25 | **A1 역할 확정.** A1 URDF 는 사용하지 않고 legged_gym/legged_robot 의 locomotion reward·observation·PPO 설계만 참고; simulator 는 MJX 유지 |
 | 2026-09-21 | π_θ fine-tune 1 차 40 M 실패 (§5.29). LR·종료조건 재검토 후 2 차. 학습은 **`MUJOCO_GL=egl` 필수** |
 | 2026-09-28 | T5_try1 기준 미달, T6_smoke·T7_try1 원인 분석. **D53** T6 기준 개정 → T6_try1 시작 후 중단(git 우선). codesign GitHub 정리 (CLAUDE.md·SETUP §7·stage2/README·run 전체+동결 π_θ). stage2 코드 → `stage2/code/`. 체인 tmux 대기 버그(접두 매칭) 수정 `-t =이름`. 폴더 정리: bundle·visual-check 삭제, 계단·L0~L3 TT 패치 → `archive/tt_patch_stairs_L0L3/`, `RL/tt_codesign` → tar.zst |
+| 2026-09-29 | **D54** T5를 사용자 판단으로 완료 처리하고 T6_try1 재실행. 기존 수치 기준 미달은 유지하며 T5_try2는 보류. |
+| 2026-09-29 | **D55** 새 작업마다 Archify 다이어그램과 README를 `architecture/<작업명>/`에 함께 보관하고 Ponytail full 적용. |
+| 2026-09-29 | **D56** choice 순위상관을 T6 필수 gate에서 제외하고 진단값으로 전환. T6_try1은 반복 안정성·두 반복 평균 일반화를 통과해 T6 완료, T7 진입 승인. |
+| 2026-09-29 | **D57** `stage3_coevolution/`을 `stage3/`로 변경. co-design 구현은 `stage3/code/`, run과 checkpoint는 `stage3/runs/`, 과거 결과는 `stage3/results/`, 실행 문서는 `stage3/README.md`에 둔다. |
+| 2026-09-29 | **D58** T7을 고정 TT + residual `π_φ`에서 **TT denoiser `ψ` 자체의 DDPO-IS fine-tuning**으로 변경. 구현은 `stage2/code/ddpo_hardware.py`이며, 동결 `π_θ`의 7-command 실제 rollout 평균을 terminal reward로 사용한다. 기존 residual 구현은 `archive/legacy_residual_guidance.py`에 보존한다. |
+| 2026-09-29 | **D59** Stage 3는 별도 추가 실험이 아니라 **Stage 2 성공 후 시작하는 hardware–policy co-design**으로 정의한다. `stage3/` 코드는 보류 상태이며, Stage 2 T7의 learner 재사용은 Stage 3 진입으로 간주하지 않는다. |
 
 ---
 
 ## TODO
-<<<<<<< HEAD
 
 ### T1. Stage 1 기록 봉인 — 완료
 
@@ -436,7 +444,7 @@ smoke(256 env)에서 KL 0.099 — 원본 목표 0.01 대비 과대. 시범 결�
 
 ### T2. Repo 를 Stage 2 기준으로 정리 — 완료 (2026-09-25)
 
-**완료:** `code/`=Stage 1 보존 · `stage3_coevolution/`=공진화 7 파일+COEVOLUTION.md · `archive/`=D22·L0~L3·fine-tune 10 파일 · `stage2/`=신규.
+**완료:** `code/`=Stage 1 보존 · `stage2/`=frozen-controller DDPO · `stage3/code/`=co-design orchestration, `stage3/runs/`=실험 결과, `stage3/results/`=과거 보고서 · `archive/`=폐기 구현 보존.
 폴더 깊이를 유지해 `CODESIGN_ROOT` 자동 추정이 그대로 동작, `test_coevolution.py` 새 위치에서 PASS. **팔 고정 + legged_gym base config** 확정.
 기존 `train_coevolution.py`, 과거 reward·공진화 스크립트는 삭제하지 말고 `archive/` 또는 Stage 3 경로로 이동한다.
 Stage 2 전용 `locomotion_env`, `train_locomotion_policy`, `eval_locomotion_policy`, `train_hardware_guidance` 경로를 분리한다.
@@ -452,55 +460,46 @@ reward=0·done=0 은 T4 몫, timeout 은 EpisodeWrapper 1000 step, friction DR �
 **현재:** A1 override(D44) + only_positive False + tracking_lin_vel ×3(D45·D47, D36 예외). 종료 = 몸통(`quadruped_body`) 접촉만, thigh·calf 는 collision 페널티.
 이력: 원본 그대로는 screen 생존 0 %·보상 0 고착 → 종료 완화(09-26) → A1 override → only_positive 끔 → 추종 ×5→×3.
 
-### T5. Morphology-conditioned locomotion pi_theta 선학습 — 진행 중, 첫 보행 성공 (2026-09-27)
+### T5. Morphology-conditioned locomotion pi_theta 선학습 — 완료 (2026-09-29, D54)
 
-**T5_try1 (2026-09-28): 기준 미달.** 생존 84 %·이동 69 %·회전 56 % (회전만 통과). 학습 보상 끝까지 상승 중(미수렴), 형상당 경험 1/8.
-낙상은 부품 무관하게 고르게 분포(링크 다리 수별 생존 83~86 %), 전후 이동 57~60 % 가 약점. 회전 ×3(D50)은 효과 확인.
-보고서 `stage2/runs/T5_try1/report.html` · 다음 후보 T5_try2 (사전 결정) · T6 는 D53 기준으로 T5_try1 선진행 (T6_try1 재실행 대기).
+**결과:** T5_try1은 128 choice에서 생존 84 %·이동 69 %·회전 56 %로 기존 정량 게이트 중 회전만 통과했으나, 영상에서 명령 추종을 확인했다.
+**판정:** D54에 따라 현재 checkpoint·obs normalization을 동결하고 T6로 진행한다. 정량 게이트 미달과 미수렴 가능성은 한계로 유지하며 T5_try2는 보류한다.
+보고서 `stage2/runs/T5/try1/report.html`.
 
-**결과:** `stage2/runs/t5_norail_x3_1000it` 고정 명령 평가 생존 95 %, 이동 달성 89 %, 전부 낙상 0/128 (D48). 팔·레일 제거(D46·D47) 조건.
-**남은 것:** ① 16 choice(`--max-groups 4`)만 학습, 112 choice 미학습 ② 팔·레일 없는 π_θ ↔ TT 형상(팔 있음) 불일치 ③ 회전 미학습(요구 각도 20~36 %, Q9 원본 결정으로 T5 필수).
-**완료 조건 (2026-09-27 사용자 결정):** 128 choice 전체, 고정 명령 7 개(D51) 평가에서 **이동 달성 ≥ 80 %, 회전 달성 ≥ 50 %, 생존 ≥ 90 %** + checkpoint·obs normalization 저장.
-**실패 시 (사용자 결정):** T5_try2 = env 4096 · 1000 iter (학습량 4 배, 나머지 동일).
-
-### T6. pi_theta 동결 및 evaluator 검증
+### T6. pi_theta 동결 및 evaluator 검증 — 완료 (2026-09-29, D56)
 
 **T6_smoke (09-27, 파일럿 π_θ): 불합격.** 코드 정상. 학습한 16 choice 생존 98 % vs 미학습 112 choice 25 % → 형상 커버리지 부족 확인.
-**T6_try1 (09-28): 시작 직후 중단 (사용자, git 정리 우선).** 결과 없음, `designs.json` (미학습 seed 128, seed 0 고정)만 있음. 재실행: `stage2/README.md` T6 명령 그대로.
+**T6_try1 (09-29): D56 기준 통과.** 반복 순위상관 0.913, 두 반복 평균 이동 0.686·회전 0.585·생존 0.841로 T5 seen의 90 % 기준을 모두 넘었다.
+choice 순위상관 0.374는 같은 choice 내부 continuous variation 영향의 진단값으로 남긴다. 동결 π_θ를 구체 morphology 채점기로 사용해 T7로 진행한다.
 
 Stage 2 시작 전에 pi_theta weight 와 normalization 을 고정하고 동일 morphology 를 여러 seed 로 반복 rollout 한다.
 seed 간 분산보다 morphology 간 return 차이가 식별 가능한지 확인한 뒤 hardware search 로 넘어간다.
 **결정 (2026-09-27):** ④ 점수 = legged_gym episode return (D39 유지). ⑤ 채점 명령 = 대칭 고정 7 개 (D51), 모든 형상 동일. ⑥~⑧ D52 (DR 끔, 순위 상관 ≥ 0.8, 미학습 seed 로 T5 기준).
 
-### T7. Stage 2 RL-guided hardware generation 연결
+### T7. DDPO 기반 task-driven hardware diffusion — 구현 완료, 전체 smoke 대기
 
-**T7_smoke (09-27): 성공.** 3 업데이트, 형상 48/48 유효. 업데이트당 ~28 분 → 100 업데이트 ≈ 47 시간.
-**T7_try1 (09-27, 파일럿 π_θ): 중단.** 채점기는 π_θ 가 학습한 구조 키만 채점 가능, 파일럿은 16 중 2 종 → `01000` 에서 ValueError. T5_try1 (16 종 전부) 로는 발생 안 함.
+**과거 residual T7_smoke/T7_try1:** D58 이전 방식이므로 DDPO 성능 근거에서 제외한다.
+**DDPO GPU sampler smoke (09-29): 통과.** batch 2·DDIM 100 step에서 형상 2개와 stochastic transition 99개를 기록했고, DDPO 1 epoch에서 `psi_parameter_delta=0.00280`을 확인했다. 실제 MJX 채점까지 포함한 전체 update smoke는 아직 실행 전이다.
 
-기존 Stage 1 의 고정 TT denoiser + residual pi_phi 경로를 재사용해 noise 에서 최종 TT morphology E 를 생성한다.
+pretrained TT checkpoint를 초기 policy로 사용하고 100-step stochastic DDIM trajectory를 기록한다. 동결 `π_θ`의 실제 return으로 clipped DDPO-IS를 수행해 TT `ψ` 자체를 갱신한다.
 중간 denoising 에서는 physics 를 돌리지 않고 최종 E 만 동결 pi_theta 로 MJX rollout 한다.
 
-### T8. Episode return 으로 pi_phi 학습
+### T8. Stage 3 진입 — Hardware–Policy Co-design
 
-동일 E 의 여러-seed episode return 평균을 terminal reward 로 사용해 pi_phi 만 업데이트한다.
-`Noise → RL guidance → E → frozen pi_theta rollout → return → pi_phi update` 를 반복한다.
+T7에서 pretrained TT 대비 return 개선과 invalid·mode collapse 기준 통과가 확인된 뒤에만 `ψ`와 `π_θ`를 번갈아 갱신한다.
+`DDPO ψ → E → π_θ update → physics return → ψ update`를 반복하며 두 정책의 checkpoint를 round 단위로 보존한다.
 
-### T9. Stage 2 효과 검증
+### T9. Stage 3 효과 검증
 
-unguided TT prior 와 RL-guided generation 을 동일 TT prior·controller·seed·sim budget 으로 비교한다.
-평균/best return, 성공률, 낙상/termination, morphology 분포, optimization cost 를 기록한다.
+Stage 2의 frozen-controller 결과와 Stage 3 co-design을 동일 seed·sim budget으로 비교한다.
+평균/best return, 성공률, 낙상/termination, 두 policy 변화량, morphology 분포와 optimization cost를 기록한다.
 
 ### T10. Task-specific morphology 변화 분석
 
 동일 noise seed 의 guidance 전후 형상과 학습 전후 morphology parameter 분포를 비교한다.
 높은 return 과 반복적으로 연결되는 형상 특성이 있는지 확인해 RL guidance 가 단순 noise 가 아님을 검증한다.
 
-### T11. Stage 2 통과 후에만 Hardware–Policy Co-design 재개
-
-Stage 2 가 성립하면 과거 coevolution 코드를 복구해 pi_phi 와 pi_theta 를 분리된 timescale 로 함께 최적화한다.
-이때 `J(E, theta_fixed)` 에서 `max_theta J(E,theta)` 를 향하는 Stage 3 로 해석한다.
-
-### T12. Multi-task / topology / surrogate 는 후속
+### T11. Multi-task / topology / surrogate 는 후속
 
 single-task Stage 2 → single-task co-design Stage 3 가 먼저 성립한 뒤 multi-task 를 단계적으로 추가한다.
 broad topology, surrogate, Sim2Real 은 그 이후 확장으로 유지한다.
@@ -509,471 +508,24 @@ broad topology, surrogate, Sim2Real 은 그 이후 확장으로 유지한다.
 
 ## 현재 우선순위
 
-**T2 → T3 → T4 → T5 → T6 → T7 → T8 → T9** 순서로 진행한다.
-현재 핵심 목표는 **검증된 고정 locomotion policy 아래에서 실제 locomotion return 만으로 RL guidance 가 더 좋은 TT morphology 를 생성하는지 확인하는 것**이다.
+**현재 T7 DDPO 전체 smoke → pretrained TT 대조 평가 → T8.** T2~T6는 완료했다.
+현재 핵심 목표는 **검증된 고정 locomotion policy 아래에서 실제 locomotion return만으로 DDPO-finetuned TT가 더 좋은 morphology를 생성하는지 확인하는 것**이다.
 
 ### 현재 실험 흐름
 
 `TT design space morphology sampling`
 → `morphology-conditioned pi_theta locomotion 학습`
 → `pi_theta freeze`
-→ `Noise + TT prior + pi_phi`
+→ `Noise + trainable TT ψ`
 → `Final morphology E`
 → `MJX locomotion rollout`
 → `legged_robot episode return`
-→ `pi_phi update`
+→ `DDPO ψ update`
 
 ### 이후 흐름
 
 `Stage 2 성공`
-→ `pi_phi + pi_theta co-design`
+→ `TT ψ + locomotion πθ co-design (Stage 3)`
 → `multi-task`
 → `broad topology design space`
 → `One Hardware + One Multi-task Policy`
-=======
-
-## 1. 기존 RL Guidance 치환 실험 결과 정리
-
-- TT prior 고정
-- UMI gripper tracking 조건 유지
-- 기존 DSG의 reward-gradient guidance 대신 RL guidance 적용
-- morphology가 정상적으로 생성되는지 확인
-- 생성된 morphology에서 UMI motion tracking이 정상적으로 수행되는지 확인
-- 이 단계의 결론은 **“RL guidance를 TT diffusion 과정에 삽입하는 구조 자체는 동작한다”**로 한정
-
----
-
-## 2. Reference Motion을 제거한 Single-task 환경 정의
-
-- UMI trajectory와 tracking reward 제거
-- 첫 task는 가장 단순한 **평지 전진 locomotion**으로 설정 (isaacgym기본 reward에 빨리 달리는 텀 추가)
-- 목표는 “정해진 motion을 따라가기”가 아니라 **실제로 앞으로 이동하는 결과 자체**
-- 초기 reward는 단순하게 구성
-  - 전진 거리 또는 전진 속도: positive reward
-  - 후진: negative reward
-  - 낙상: termination 또는 penalty
-- energy penalty, joint penalty 등의 복잡한 항은 초기에는 제외
-
-### 핵심 질문
-
-> **Reference motion 없이 실제 task 수행 결과만으로 RL-guided hardware generation이 가능한가?**
-
----
-
-## 3. Hardware 평가용 Controller 고정
-
-- morphology-conditioned controller 또는 기존 사용 가능한 locomotion controller 준비
-- hardware generation RL 학습 중에는 controller weight를 고정
-- 모든 morphology를 동일한 controller와 동일한 simulator 조건에서 평가
-- 목적은 **controller 학습 효과와 hardware generation 효과를 분리**하는 것
-
-### 이 단계에서 측정하는 값
-
-현재 평가는 다음과 같은 의미로 해석한다.
-
-`J(E, theta_fixed)`
-
-즉, **현재 고정된 controller와 결합했을 때 해당 hardware가 어느 정도 성능을 내는가**를 평가한다.
-
----
-
-## 4. Task-result 기반 RL-guided Hardware Generation 구현
-
-### RL Guidance 입력
-
-- 현재 noisy RoboToken
-- diffusion timestep
-- task condition
-
-### 진행 과정
-
-- RL guidance를 이용하여 denoising 진행
-- 최종 morphology `E` 생성
-- 중간 denoising step에서는 physics simulator를 사용하지 않음
-- 최종 morphology가 완성된 뒤 simulator로 전달
-
-### 전체 생성 흐름
-
-`Noise`
-
-→ `TT prior + RL guidance`
-
-→ `Denoising`
-
-→ `Final morphology E`
-
----
-
-## 5. 최종 Morphology를 Physics Simulator에서 평가
-
-- 생성된 `E`를 MuJoCo / MJX 등의 physics simulator에 로드
-- 고정 controller로 locomotion rollout 수행
-- 동일 morphology를 여러 random seed에서 반복 평가
-- 각 morphology에 대해 다음 항목 기록
-  - 전진 거리
-  - 평균 속도
-  - 낙상 여부
-  - episode return
-  - success 여부
-
-### Reward 연결
-
-Physics simulator에서 얻은 task return을 **hardware generation RL의 terminal reward**로 사용한다.
-
-즉,
-
-`Hardware Generation`
-
-→ `Final morphology E`
-
-→ `Physics Simulator Rollout`
-
-→ `Task Return`
-
-→ `Hardware Generation RL Reward`
-
-의 구조로 연결한다.
-
----
-
-## 6. Hardware Generation RL 학습 루프 구성
-
-전체 학습 루프는 다음과 같이 구성한다.
-
-1. Noise sampling
-2. RL-guided denoising
-3. Final morphology 생성
-4. Physics simulator에서 rollout
-5. Task return 계산
-6. 해당 return을 전체 denoising trajectory의 terminal reward로 사용
-7. RL guidance policy 업데이트
-8. 반복
-
-### 핵심 확인 항목
-
-- 학습이 진행될수록 높은 reward를 받는 morphology가 더 자주 생성되는가
-- RL guidance가 hardware distribution 자체를 task에 적합한 방향으로 변화시키는가
-
----
-
-## 7. RL-guided Hardware Generation 효과 비교
-
-최소 비교군은 다음과 같이 구성한다.
-
-### Baseline 1. Unguided TT Diffusion
-
-- 별도의 reward guidance 없이 TT prior만 사용
-
-### Baseline 2. 기존 DSG Gradient Guidance
-
-- TT의 기존 reward-gradient guidance 사용
-
-### Proposed. RL Guidance
-
-- 제안하는 RL-guided denoising 사용
-- 최종 simulator task return을 reward로 학습
-
-### 비교 조건
-
-세 방법 모두 다음 조건을 동일하게 유지한다.
-
-- TT prior
-- hardware design space
-- controller
-- physics simulator
-- random seed
-- simulation budget
-
-### 비교 지표
-
-- 평균 task return
-- best task return
-- success rate
-- 낙상률
-- 생성 morphology 분포
-- optimization cost
-- sample efficiency
-
----
-
-## 8. RL Guidance가 실제로 Task-specific Morphology를 만드는지 분석
-
-- 학습 전후 morphology parameter 비교
-- 높은 reward morphology에서 반복적으로 나타나는 형상 특성 확인
-- 동일 noise seed에서 RL guidance 적용 전후 morphology 비교
-- reward 증가뿐만 아니라 **형상 자체가 task 수행에 적합한 방향으로 변화했는지 확인**
-
-### 확인할 핵심 질문
-
-> **RL guidance가 단순히 diffusion에 noise를 추가하는 것이 아니라, 실제 task 성능이 높은 morphology distribution을 학습하는가?**
-
----
-
-## 9. 고정 Controller의 한계 확인
-
-고정 controller를 사용하면 현재 평가하는 값은
-
-`J(E, theta_fixed)`
-
-이다.
-
-하지만 실제로 원하는 값은
-
-`max_theta J(E, theta)`
-
-이다.
-
-즉 구조적으로 좋은 hardware라도 현재 controller가 해당 morphology에 익숙하지 않으면 낮게 평가될 수 있다.
-
-### 확인 방법
-
-- RL-guided hardware search에서 상위 morphology와 하위 morphology 일부 선택
-- 각 morphology에 대해 controller를 별도로 추가 학습
-- controller 학습 전후 hardware ranking 비교
-- ranking 변화가 큰지 확인
-
-### 판정
-
-- ranking 변화가 작음  
-  → 고정 controller 기반 hardware search가 어느 정도 타당
-
-- ranking 변화가 큼  
-  → hardware와 controller를 함께 최적화하는 co-design 필요
-
----
-
-## 10. Hardware–Policy Co-design으로 확장
-
-고정 controller의 한계가 확인되면 두 policy를 분리하여 함께 학습한다.
-
-### Hardware Generation Policy
-
-`pi_phi`
-
-역할:
-
-- hardware generation
-- denoising guidance
-
-### Robot Control Policy
-
-`pi_theta`
-
-역할:
-
-- 생성된 morphology에서 실제 task 수행
-
-### 기본 반복 구조
-
-1. `pi_phi`로 morphology 생성
-2. 해당 morphology에서 `pi_theta` 일정량 학습
-3. physics simulator에서 task rollout
-4. task return 계산
-5. return을 이용하여 `pi_phi` 업데이트
-6. 반복
-
-### 주의점
-
-- 처음부터 두 policy를 매 step 동시에 무작정 업데이트하지 않음
-- hardware generation과 controller learning의 timescale을 분리
-- 각 성능 향상이 어느 policy 변화에서 발생했는지 추적
-
----
-
-## 11. Single-task Co-design 안정성 검증
-
-Round가 증가하면서 다음을 확인한다.
-
-- hardware parameter가 실제로 변하는가
-- controller parameter가 실제로 변하는가
-- task return이 증가하는가
-- success rate가 증가하는가
-- hardware만 변하고 controller가 그대로인지
-- controller만 좋아지고 hardware는 의미 있게 변하지 않는지
-- 둘이 함께 개선되는지
-
-### 이 단계의 핵심 질문
-
-> **Hardware와 controller가 함께 변화하면서 single-task performance가 실제로 상승하는가?**
-
----
-
-## 12. Multi-task로 단계적 확장
-
-Single-task co-design이 안정적으로 동작한 이후 multi-task로 확장한다.
-
-### 단계적 확장 예시
-
-#### Stage 1
-- 평지 전진
-
-#### Stage 2
-- 평지 전진
-- 계단 상승
-
-#### Stage 3
-- 평지 전진
-- 계단 상승
-- 불균형 지형
-
-### Multi-task reward 구성 시 고려
-
-- task별 reward scale 정규화
-- 평균 성능 고려
-- 가장 낮은 task 성능 고려
-- 특정 task 하나에서만 높은 성능을 내는 morphology가 선택되지 않도록 구성
-
-### 최종 목표
-
-**하나의 hardware + 하나의 multi-task policy**
-
----
-
-## 13. Broad Design Space 확장
-
-Multi-task co-design이 기본 quadruped design space에서 안정적으로 성립한 이후 확장한다.
-
-### Continuous Parameter
-
-- link length
-- body length
-- body width
-- actuator parameter
-- 기타 morphology parameter
-
-### Discrete Parameter
-
-- leg count
-- joint count
-- DoF
-- topology
-- connection structure
-
-### 목표
-
-기존의 fixed quadruped optimization을 넘어서 task set에 따라
-
-- quadruped
-- hexapod
-- 다른 articulated legged structure
-
-등이 선택될 수 있는지 검증한다.
-
----
-
-## 14. 계산량이 병목일 경우에만 Surrogate 추가
-
-초기 연구에서는 physics simulator return을 직접 사용한다.
-
-Hardware 평가 비용이 실제 학습 병목으로 확인된 경우에만 surrogate model을 추가한다.
-
-### Surrogate 역할
-
-`Hardware E`
-
-→ `Predicted Task Return`
-
-### 사용 목적
-
-- simulator 호출 횟수 감소
-- 대량 candidate 빠른 screening
-
-### 주의점
-
-- surrogate가 RL guidance 자체를 대체하지 않음
-- hardware generation 방향은 계속 RL guidance가 결정
-- surrogate는 simulation cost 절감을 위한 보조 수단으로만 사용
-
----
-
-# 현재 우선순위
-
-지금 바로 진행해야 할 범위는 **2 ~ 8번**이다.
-
-즉 현재 완료된
-
-`TT prior + UMI tracking + RL guidance`
-
-실험에서 한 단계 더 나아가,
-
-`Reference motion 제거`
-
-→ `Single locomotion task`
-
-→ `RL-guided hardware generation`
-
-→ `Physics simulator task rollout`
-
-→ `Task return`
-
-→ `Hardware generation RL update`
-
-구조를 먼저 검증한다.
-
----
-
-# 연구 진행 순서 요약
-
-## 완료
-
-`TT prior`
-
-→ `RL Guidance`
-
-→ `Hardware 생성`
-
-→ `UMI Motion Tracking`
-
-→ **RL guidance 치환 가능성 확인**
-
----
-
-## 다음 단계
-
-`TT prior`
-
-→ `RL Guidance`
-
-→ `Hardware 생성`
-
-→ `Physics Simulator`
-
-→ `Single-task 수행`
-
-→ `Task Return`
-
-→ `RL Guidance 업데이트`
-
-→ **Reference-motion-free Task-driven Hardware Generation 검증**
-
----
-
-## 이후
-
-`RL Hardware Guidance pi_phi`
-
-→ `Hardware E`
-
-→ `Control Policy pi_theta 학습`
-
-→ `Physics Simulator`
-
-→ `Task Return`
-
-→ `pi_phi + pi_theta 반복 최적화`
-
-→ **Hardware–Policy Co-design**
-
----
-
-## 최종 확장
-
-`Single-task`
-
-→ `Multi-task`
-
-→ `Broad Design Space`
-
-→ **One Hardware + One Multi-task Policy**
-
->>>>>>> bc6001b (Update coevolution notes)

@@ -1,0 +1,75 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "T6 평가기 검증 흐름",
+    "quality_profile": "showcase"
+  },
+  "lanes": [
+    { "id": "inputs", "label": "T5 동결 입력" },
+    { "id": "orchestration", "label": "T6 실행" },
+    { "id": "evaluation", "label": "MJX 평가" },
+    { "id": "decision", "label": "판정과 다음 단계", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "prepare", "label": "준비", "fromCol": 0, "toCol": 1 },
+    { "id": "measure", "label": "반복 측정", "fromCol": 2, "toCol": 4, "variant": "emphasis" },
+    { "id": "judge_phase", "label": "판정", "fromCol": 5, "toCol": 5, "variant": "dashed" }
+  ],
+  "mainPath": ["t5_assets", "sample_unseen", "build_env", "repeat_one", "repeat_two", "judge", "pass_t7"],
+  "semanticChecks": {
+    "allowedRoots": ["t5_assets"],
+    "allowedTerminals": ["pass_t7", "fail_review"],
+    "requiredPaths": [
+      { "from": "t5_assets", "to": "pass_t7" },
+      { "from": "judge", "to": "fail_review" }
+    ]
+  },
+  "nodes": [
+    { "id": "t5_assets", "lane": "inputs", "col": 0, "type": "database", "label": "T5_try1 동결", "sublabel": "checkpoint · 정규화 · 평가 기록", "width": 164 },
+    { "id": "sample_unseen", "lane": "orchestration", "col": 1, "type": "backend", "label": "미학습 형상 128개", "sublabel": "choice당 학습에 쓰지 않은 seed 1개", "width": 164 },
+    { "id": "build_env", "lane": "evaluation", "col": 2, "type": "backend", "label": "MultiDesignEnv 생성", "sublabel": "16 그룹 · DR 끔 · 명령 7개", "width": 164 },
+    { "id": "repeat_one", "lane": "evaluation", "col": 3, "type": "cloud", "label": "평가 1", "sublabel": "reset seed 1 · deterministic πθ", "tag": "eval_rep1.json", "width": 156 },
+    { "id": "repeat_two", "lane": "evaluation", "col": 4, "type": "cloud", "label": "평가 2", "sublabel": "reset seed 2 · 같은 형상과 명령", "tag": "eval_rep2.json", "width": 156 },
+    { "id": "judge", "lane": "orchestration", "col": 5, "type": "security", "label": "D56 필수 기준 판정", "sublabel": "반복 안정성 · 평균 일반화", "tag": "t6_result.json", "width": 168 },
+    { "id": "pass_t7", "lane": "decision", "col": 5, "type": "messagebus", "label": "통과 → T7", "sublabel": "동결 πθ로 hardware guidance 진행", "width": 164 },
+    { "id": "fail_review", "lane": "decision", "col": 4, "type": "security", "label": "실패 원인 재검토", "sublabel": "평가기 안정성 · T5 일반화", "width": 164 }
+  ],
+  "edges": [
+    { "id": "load_assets", "from": "t5_assets", "to": "sample_unseen", "label": "동결 입력 로드", "variant": "default" },
+    { "id": "group_designs", "from": "sample_unseen", "to": "build_env", "label": "structure_key로 그룹화", "variant": "default" },
+    { "id": "run_first", "from": "build_env", "to": "repeat_one", "label": "896 episodes", "variant": "emphasis" },
+    { "id": "run_second", "from": "repeat_one", "to": "repeat_two", "label": "동일 조건 재측정", "variant": "emphasis" },
+    { "id": "calculate", "from": "repeat_two", "to": "judge", "label": "세 지표 계산", "variant": "default" },
+    { "id": "passed", "from": "judge", "to": "pass_t7", "label": "모두 통과", "variant": "emphasis", "role": "main" },
+    { "id": "failed", "from": "judge", "to": "fail_review", "label": "하나라도 실패", "variant": "security", "role": "error" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "T6는 학습이 아니다",
+      "items": [
+        "T5의 πθ와 관측 정규화를 고정한 채 평가만 반복한다",
+        "평가 중 정책 파라미터와 형상은 갱신하지 않는다"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "D56 통과 기준",
+      "items": [
+        "반복 평가 Spearman ≥ 0.8",
+        "두 반복 평균 ≥ T5 평균의 90%",
+        "choice 순위 상관은 진단값"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "실패 지표가 가리키는 곳",
+      "items": [
+        "반복 순위: reset·종료·명령 할당",
+        "일반화 gap: T5 학습 범위와 reward",
+        "choice 순위: continuous variation 진단"
+      ]
+    }
+  ]
+}

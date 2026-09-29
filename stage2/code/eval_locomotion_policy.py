@@ -41,6 +41,8 @@ from multi_design_env import MultiDesignEnv
 
 
 def load_policy(ckpt_dir):
+    # T6 진단: checkpoint·정규화·shape 오류는 여기서 발생한다. 저장된 running statistics는
+    # T5에서 사용한 것과 정확히 같은 NETWORK로 불러와야 한다.
     # checkpoint.load_policy fails on the saved config (kernel_init_kwargs None -> KeyError),
     # so the network is rebuilt from the training NETWORK.
     from brax.training.acme import running_statistics
@@ -54,7 +56,7 @@ def load_policy(ckpt_dir):
 
 
 # (name, vx, vy, yaw rate) in the base frame. Training keeps the original random command range (Q9);
-# evaluation and pi_phi scoring use this symmetric fixed set (2026-09-27 user decision, D51).
+# evaluation and DDPO scoring use this symmetric fixed set (2026-09-27 user decision, D51).
 EVAL_COMMANDS = (("forward_0.5", .5, 0., 0.), ("backward_0.5", -.5, 0., 0.),
                  ("left_0.5", 0., .5, 0.), ("right_0.5", 0., -.5, 0.), ("forward_1.0", 1., 0., 0.),
                  ("turn_left_0.5", 0., 0., .5), ("turn_right_0.5", 0., 0., -.5))
@@ -69,6 +71,8 @@ def evaluate(run, ckpt, seed):
     # command i // K.
     commands = jp.array([[vx, vy, wz, 0.] for _, vx, vy, wz in EVAL_COMMANDS])[np.arange(per_group) // K]
     t = time.time()
+    # T6 진단: "built ... designs" 전 실패는 MultiDesignEnv의 형상 생성·그룹화 문제다.
+    # 그 이후 실패는 대개 정책 로딩, JAX 컴파일 또는 rollout 문제다.
     env = MultiDesignEnv(groups, EPISODE_STEPS, hold_command=True, domain_rand=False)
     print(f"built {len(designs)} designs: {time.time() - t:.0f}s", flush=True)
     policy = load_policy(ckpt)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# T7 pi_phi training + report + telegram. Run from codesign/ inside tmux:
+# T7 TT ψ DDPO training + report + telegram. Run from codesign/ inside tmux:
 #   bash stage2/code/run_t7.sh <t5_run> <t7_out> [updates]
 set -euo pipefail
 T5=$1 OUT=$2 UPDATES=${3:-100}

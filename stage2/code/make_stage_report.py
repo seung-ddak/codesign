@@ -1,7 +1,7 @@
-"""report.html for T6 (evaluator check) and T7 (pi_phi training) runs, same styling as T5.
+"""report.html for T6 (evaluator check) and T7 (TT DDPO training) runs, same styling as T5.
 
-  python stage2/code/make_stage_report.py t6 --run stage2/runs/T6_try1 --title "T6 try1"
-  python stage2/code/make_stage_report.py t7 --run stage2/runs/T7_try1 --title "T7 try1"
+  python stage2/code/make_stage_report.py t6 --run stage2/runs/T6/try1 --title "T6 try1"
+  python stage2/code/make_stage_report.py t7 --run stage2/runs/T7/try1 --title "T7 try1"
 
 T6 reads t6_result.json, eval_rep1.json, eval_rep2.json. T7 reads config.json and history.jsonl.
 Charts are static inline SVG (no script), so the file works as a Telegram attachment.
@@ -102,8 +102,8 @@ def t6(run, title):
     ok = lambda b: "통과" if b else "미달"
     sec = [("판정", tiles([
         ("① 재측정 순위 상관 (≥ 0.8)", f"{r['spearman']:.3f}", f"{ok(r['spearman_pass'])} · 2 회 채점의 형상 순위 일치도"),
-        ("③ choice 순위 상관 (≥ 0.8)", f"{r['choice_spearman']:.3f}",
-         f"{ok(r['choice_spearman_pass'])} · 학습 seed 평균 vs 처음 보는 seed")]
+        ("진단 · choice 순위 상관", f"{r['choice_spearman']:.3f}",
+         "gate 제외 · 학습 seed 평균 vs unseen seed 1개")]
         + [(f"② {n} (학습 seed × 0.9)", f"{pct(g['value'])}", f"{ok(g['pass'])} · 학습 seed {pct(g['seen'])}, 기준 {pct(g['min'])}")
            for n, g in (("이동 달성", r["generalisation_gap"]["cmd_progress_ratio"]),
                         ("회전 달성", r["generalisation_gap"]["cmd_turn_ratio"]),
@@ -132,7 +132,8 @@ def t7(run, title):
         1, sum(1 for r in rs for d in r["designs"] if "invalid" not in d))
     top = sorted(valid, key=lambda d: -(d["return"] or -1e9))[:10]
     lede = (f"동결 π_θ (<code>{html.escape(Path(cfg['pi_theta_ckpt']).parent.parent.name)}</code>) 로 채점한 "
-            f"return 을 보상으로 π_φ 를 {len(rows)} 업데이트 학습했습니다. 업데이트당 형상 {cfg['batch']} 개.")
+            f"return을 보상으로 TT ψ를 DDPO {len(rows)}회 갱신했습니다. "
+            f"업데이트당 형상 {cfg.get('global_batch', cfg.get('batch'))}개.")
     sec = [("요약", tiles([
         ("업데이트", str(len(rows)), f"목표 {cfg['updates']}"),
         ("평균 return", f"{avg(first, 'return_mean'):.1f} → {avg(last, 'return_mean'):.1f}", "처음 10 → 마지막 10 업데이트"),
@@ -144,8 +145,8 @@ def t7(run, title):
          + line_svg([("평균", "--s2", [(r["update"], r["return_mean"]) for r in rows]),
                      ("최대", "--s1", [(r["update"], r["return_max"]) for r in rows])], "형상 return (업데이트별)")
          + line_svg([("기본 다리 비율", "--s3", share)], "기본 다리 형상 비율 (bit 1~4 = 0)")
-         + line_svg([("π_φ 변화량", "--s1", [(r["update"], r.get("phi_parameter_delta")) for r in rows])],
-                    "π_φ 파라미터 변화량") + "</div>"),
+         + line_svg([("gradient norm", "--s1", [(r["update"], r.get("gradient_norm")) for r in rows])],
+                    "DDPO gradient norm") + "</div>"),
         ("비트별 선택 비율 변화", table(["비트", "의미", "처음 10", "마지막 10"], [
             [f"bit {b}", n, pct(bits(first, b)), pct(bits(last, b))] for b, n in
             [(1, "앞-왼 링크 다리"), (2, "앞-오 링크 다리"), (3, "뒤-왼 링크 다리"), (4, "뒤-오 링크 다리"),

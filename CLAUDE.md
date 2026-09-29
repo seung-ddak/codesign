@@ -12,10 +12,10 @@
 - 알림은 한 줄만 (`<이름> 학습 완료`). 자격증명은 `~/.config/telegram_bot.env` (RL 봇). 비-RL 봇과 섞지 않는다.
 - 여러 단계 명령은 `bash -c '...'` 한 덩어리로 넘긴다 (`;` 로 이으면 마지막 명령만 로그에 남는다).
 - tmux 대기는 반드시 `tmux has-session -t "=이름"` (정확 일치). 접두 매칭 때문에 체인이 17 시간 멈춘 적이 있다.
-- 새 run 폴더·세션 이름 = `T{TODO}_try{N}` (예 `stage2/runs/T5_try1`).
+- run 폴더 = `stage2/runs/T{TODO}/try{N}`, tmux 세션 = `T{TODO}_try{N}`.
 - 학습 중에는 git 명령을 쓰지 않는다. 마지막 단계에서 기록한 뒤 한 번만 push 한다.
 
 ## 결과 보고
-- 학습이 끝나면 `stage2/runs/<run>/report.html` (+ `videos/`) 을 만들어 아티팩트로 올린다. 실패한 run 은 원인 분석을 포함한다.
+- 학습이 끝나면 `stage2/runs/T{TODO}/try{N}/report.html` (+ `videos/`) 을 만들어 아티팩트로 올린다. 실패한 run 은 원인 분석을 포함한다.
 - 아티팩트 링크는 `stage2/README.md` 의 run 표에 추가한다.
 - 평가는 DR 을 끈 고정 명령 7 개로 한다 (D51·D52). reward 수치보다 실제 이동·회전·생존을 먼저 본다.
