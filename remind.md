@@ -88,7 +88,7 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 | D52 | **2026-09-27 원칙: 원본 따르기 + 하드웨어 생성 가능성만 가장 단순·빠르게 검증 (사용자 지시).** 평가·채점 DR 끔(legged_gym play.py: 노이즈·push·마찰 DR 없음). T6 = 미학습 seed(choice 당 1, 128 형상)를 2 회 평가 → 순위 상관 ≥ 0.8 + T5 기준 충족. 형상당 7 에피소드(명령 7 개, Q11). T7 = 공진화 코드의 TT 생성(reference mask)+bank 최근접 변환 재사용, π_φ Stage 1 기본값, T7_try1 100 업데이트. 체인 T5→T6→T7 자동, 기준 미달 시 정지·알림 |
 | D53 | **2026-09-28 T6 통과 기준 개정 (D52 수정, 사용자 결정).** 절대 T5 기준은 T5 게이트 몫으로 분리. T6 = ① 재측정 순위상관 ≥ 0.8 (유지) ② 미학습 seed 평균 ≥ 학습 seed 평균(T5 eval) × 0.9 (이동·회전·생존 각각) ③ choice 순위상관(학습 seed 평균 return vs 미학습 seed return) ≥ 0.8. 0.9·0.8 은 임의 여유값. `stage2/runs/T6/try1` |
 | D54 | **2026-09-29 T5 단계 완료 및 T6 진입 (사용자 결정).** T5_try1은 기존 정량 게이트(이동 80 %·회전 50 %·생존 90 %) 중 회전만 통과했으나, 영상에서 명령 추종을 확인했으므로 추가 T5 학습 없이 현재 checkpoint를 동결해 T6를 진행한다. 이는 정량 게이트 통과 판정이 아니다. |
-| D55 | **2026-09-29 작업 문서화 규칙 (사용자 결정).** 새 작업은 Ponytail full로 진행하고, 착수 시 Archify로 실제 구현 흐름을 그린다. `architecture/<작업명>/` 하나에 source JSON·HTML·간단한 README를 함께 둔다. |
+| D55 | **2026-09-29 작업 문서화 규칙 (사용자 결정).** 새 작업은 Ponytail full로 진행하고, 착수 시 Archify로 실제 구현 흐름을 그린다. `artifacts/<작업명>/` 하나에 source JSON·HTML·간단한 README를 함께 둔다 (09-30 `architecture/` → `artifacts/` 개명). |
 | D56 | **2026-09-29 T6 통과 기준 재정의 (D53 수정, 사용자 결정).** 실제 채점 단위는 discrete choice 평균이 아니라 `choice + continuous parameters`인 구체 morphology다. 필수 gate는 ① 동일 morphology 반복 순위상관 ≥ 0.8 ② 두 반복 평균이 T5 seen 평균의 90 % 이상(이동·회전·생존); choice 순위상관은 진단값으로만 보존한다. |
 
 핵심 질문: *reference motion·reward gradient 없이, task 수행 결과만으로 diffusion 의 denoising

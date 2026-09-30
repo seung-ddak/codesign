@@ -1,0 +1,230 @@
+<title>T7 구현 해설</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* layout: 한 줄 흐름 (파이프라인 도식 → 단계별 구현 → 데이터·설정 표). codesign run 보고서와 같은 토큰 */
+:root{
+  --plane:#f5f6f3; --surface:#fcfcfb; --ink:#14161a; --ink2:#4d5057; --muted:#85878c; --line:#e1e2dc; --grid:#ecece7;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --warn:#b37a00; --bad:#d03b3b; --tag:#e8eef8;
+  --gen:#e7effa; --score:#fdeee6; --upd:#e3f5ee;
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark; --plane:#0f1011; --surface:#1a1a19; --ink:#f4f4f2; --ink2:#c3c2b7; --muted:#8d8c86; --line:#2e2f2c; --grid:#262724;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --warn:#e0a526; --bad:#e66767; --tag:#1d2635;
+  --gen:#18222f; --score:#2a1d16; --upd:#15261f;}}
+:root[data-theme="dark"]{
+  color-scheme:dark; --plane:#0f1011; --surface:#1a1a19; --ink:#f4f4f2; --ink2:#c3c2b7; --muted:#8d8c86; --line:#2e2f2c; --grid:#262724;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --warn:#e0a526; --bad:#e66767; --tag:#1d2635;
+  --gen:#18222f; --score:#2a1d16; --upd:#15261f;}
+*{box-sizing:border-box}
+body{background:var(--plane);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.7;padding-inline:20px;padding-block:32px 72px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+h1,h2,h3{text-wrap:balance;margin:0;line-height:1.3}
+h1{font-size:30px;font-weight:700;letter-spacing:-.01em}
+h2{font-size:21px;font-weight:600}
+h3{font-size:16px;font-weight:600}
+p{margin:0;max-width:70ch}
+section{display:flex;flex-direction:column;gap:16px;min-width:0}
+header{display:flex;flex-direction:column;gap:12px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.lede{color:var(--ink2);font-size:16px}
+code,.mono{font-family:var(--mono);font-size:.88em}
+code{background:var(--tag);padding:1px 5px;border-radius:4px;word-break:break-word}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:13px}
+.scroll{overflow-x:auto}
+svg text{font-family:var(--sans);fill:var(--ink)}
+svg .m{font-family:var(--mono);font-size:11px;fill:var(--ink2)}
+svg .t{font-size:13px;font-weight:600}
+svg .cap{font-family:var(--mono);font-size:11px;fill:var(--muted);letter-spacing:.05em}
+.stage{display:grid;grid-template-columns:200px 1fr;gap:20px;padding-top:20px;border-top:1px solid var(--line)}
+.stage>div{min-width:0;display:flex;flex-direction:column;gap:12px}
+.stage .side{gap:6px}
+.chip{display:inline-block;font-family:var(--mono);font-size:12px;padding:2px 9px;border-radius:99px;width:max-content}
+.chip.gen{background:var(--gen);color:var(--s1)} .chip.score{background:var(--score);color:var(--s2)} .chip.upd{background:var(--upd);color:var(--s3)} .chip.run{background:var(--tag);color:var(--ink2)}
+.side .file{font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;max-width:74ch}
+pre{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-family:var(--mono);font-size:12.5px;line-height:1.6;overflow-x:auto;color:var(--ink)}
+pre .c{color:var(--muted)}
+.note{border-left:3px solid var(--warn);padding:2px 0 2px 14px;color:var(--ink2);font-size:14px;max-width:74ch}
+table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-weight:500;color:var(--muted);font-size:12.5px;white-space:nowrap}
+td:first-child{font-family:var(--mono);white-space:nowrap}
+.bar{display:flex;height:26px;border-radius:6px;overflow:hidden;font-family:var(--mono);font-size:12px}
+.bar span{display:flex;align-items:center;padding-left:8px;white-space:nowrap;overflow:hidden}
+@media (max-width:640px){.stage{grid-template-columns:1fr;gap:10px}h1{font-size:25px}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">codesign · Stage 2 · T7</div>
+  <h1>T7 구현 해설</h1>
+  <p class="lede">T7 은 형상 생성 모델 TT 의 denoiser ψ 를 DDPO 로 직접 fine-tuning 합니다. 보상은 T5 에서 얼린 보행 정책 π<sub>θ</sub> 가 그 형상으로 실제로 걸었을 때의 return 입니다. 이 페이지는 코드가 한 update 안에서 무엇을 어떤 순서로 하는지 설명합니다.</p>
+  <div class="meta"><span>기준: 2026-09-30 코드 (A안 vmap 채점 반영)</span><span>stage2/code/</span><span>D58</span></div>
+</header>
+
+<section>
+  <h2>한 update 의 흐름</h2>
+  <p>한 update 는 세 단계입니다. ψ 로 형상 32 개를 만들고, 얼린 π<sub>θ</sub> 로 채점하고, 그 점수로 ψ 를 한 번 고칩니다. 이 반복을 <code>--updates</code> 번 합니다.</p>
+  <div class="scroll">
+  <svg viewBox="0 0 960 330" width="100%" style="min-width:760px" role="img" aria-label="T7 update 흐름: 생성, 채점, 갱신">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink2)"/></marker></defs>
+    <rect x="10" y="30" width="290" height="230" rx="10" fill="var(--gen)"/>
+    <rect x="335" y="30" width="290" height="230" rx="10" fill="var(--score)"/>
+    <rect x="660" y="30" width="290" height="230" rx="10" fill="var(--upd)"/>
+    <text class="cap" x="24" y="22">1 생성 · ddpo_hardware.generate</text>
+    <text class="cap" x="349" y="22">2 채점 · design_scorer.score</text>
+    <text class="cap" x="674" y="22">3 갱신 · ddpo_hardware.update</text>
+
+    <g><rect x="28" y="48" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="40" y="70">TT ψ 확률적 DDIM 100 step</text><text class="m" x="40" y="89">microbatch 4 × 8 회 = 형상 32 개</text></g>
+    <g><rect x="28" y="116" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="40" y="138">step 마다 상태·log p 기록</text><text class="m" x="40" y="157">buffer/update_*.zarr (99 transition)</text></g>
+    <g><rect x="28" y="184" width="254" height="60" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="40" y="206">bank 최근접 형상으로 변환</text><text class="m" x="40" y="225">→ (choices 8 bit, seed)</text><text class="m" x="40" y="239">실패 시 invalid</text></g>
+
+    <g><rect x="353" y="48" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="365" y="70">structure_key 로 그룹 분류</text><text class="m" x="365" y="89">16 그룹, 처음 본 그룹만 JIT</text></g>
+    <g><rect x="353" y="116" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="365" y="138">π_θ rollout 1000 step × 명령 7</text><text class="m" x="365" y="157">vmap 으로 7 명령 동시, DR 끔</text></g>
+    <g><rect x="353" y="184" width="254" height="60" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="365" y="206">형상 점수 = 7 명령 평균 return</text><text class="m" x="365" y="225">invalid 는 배치 최저 점수</text></g>
+
+    <g><rect x="678" y="48" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="690" y="70">advantage = 배치 표준화</text><text class="m" x="690" y="89">(R − 평균) / 표준편차</text></g>
+    <g><rect x="678" y="116" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="690" y="138">transition 3168 개 섞어 재계산</text><text class="m" x="690" y="157">minibatch 32 · 4 epoch</text></g>
+    <g><rect x="678" y="184" width="254" height="60" rx="7" fill="var(--surface)" stroke="var(--line)"/>
+      <text class="t" x="690" y="206">clipped DDPO-IS → AdamW</text><text class="m" x="690" y="225">lr 1e-6 · clip 0.2 · grad ≤ 1</text><text class="m" x="690" y="239">buffer 삭제, 10 회마다 psi_*.pt</text></g>
+
+    <path d="M155 100v16M155 168v16M480 100v16M480 168v16M805 100v16M805 168v16" stroke="var(--ink2)" stroke-width="1.5" marker-end="url(#ah)"/>
+    <path d="M282 214h71" stroke="var(--ink2)" stroke-width="1.5" marker-end="url(#ah)"/>
+    <path d="M607 214h24v-140h47" stroke="var(--ink2)" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+    <path d="M155 260v40h650v-56" stroke="var(--s1)" stroke-width="1.5" fill="none" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+    <text class="m" x="330" y="318">zarr trajectory (상태 체인 + old log p) 는 채점을 건너뛰어 갱신 단계로 바로 감</text>
+  </svg>
+  </div>
+  <p style="font-size:13.5px;color:var(--ink2)">π<sub>θ</sub> 는 모든 단계에서 얼어 있습니다. 바뀌는 것은 ψ 의 가중치뿐입니다. 다음 update 의 생성은 방금 고친 ψ 로 돌아갑니다.</p>
+</section>
+
+<section>
+  <h2>단계별 구현</h2>
+
+  <div class="stage">
+    <div class="side"><span class="chip run">0 · 준비</span><span class="file">train_hardware_guidance.py</span><span class="file">:53–73</span></div>
+    <div>
+      <ol class="steps">
+        <li><code>--pi-theta</code> 로 받은 T5 run 에서 마지막 체크포인트와 <code>designs.json</code> 을 읽어 <code>DesignScorer</code> 를 만듭니다. <code>designs.json</code> 은 T5 가 학습한 16 개 구조 그룹의 템플릿입니다.</li>
+        <li><code>DesignLearner</code> 가 TT prior(<code>umi_on_legs_plus_plus/xrh4wk4l/040.pt</code>)를 <code>disable_grad=False</code>, <code>eta=1.0</code> 으로 불러옵니다. 이 모델 전체가 학습 대상 ψ 이고, 옵티마이저는 AdamW 입니다.</li>
+        <li>RoboToken bank 128 개(<code>umi_on_legs_plus_plus_robotokens/*.zarr</code>)를 임시 폴더에 심볼릭 링크로 모읍니다. 이름이 8 자리 0/1 인 것만 씁니다.</li>
+        <li><code>--out</code> 폴더를 새로 만들고(<code>exist_ok=False</code>) <code>config.json</code> 을 씁니다. 기존 run 폴더를 지정하면 여기서 멈춥니다.</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="side"><span class="chip gen">1 · 생성</span><span class="file">ddpo_hardware.py</span><span class="file">generate() :148–236</span></div>
+    <div>
+      <p>TT 의 원래 추론 루프를 그대로 쓰지 않고, DDIM 한 step 을 직접 풀어 씁니다. DDPO 는 매 step 의 확률이 필요한데, 원래 루프는 그 값을 내주지 않기 때문입니다.</p>
+      <ol class="steps">
+        <li>형상 32 개를 <code>--generation-microbatch</code> 4 개씩 8 번에 나눠 만듭니다. 조건 입력은 단위 행렬 pose 로 채운 더미 궤적이고, <code>hardware_goal/mask</code> 를 전부 켜서 하드웨어 전체를 생성하게 합니다.</li>
+        <li>100 step 마다 backbone 으로 노이즈를 예측하고 <code>_ddim_stats</code> 로 다음 상태의 평균 μ 와 표준편차 σ 를 구합니다(eta=1). 거기서 x<sub>t−1</sub> = μ + σ·ε 를 뽑습니다.</li>
+        <li>σ 가 0 인 마지막 t=0 step 은 결정적이라 빼고, 나머지 <b>99 개 transition</b> 마다 상태 x<sub>t</sub>, x<sub>t−1</sub> 와 <code>old_log_prob</code> 을 zarr 에 씁니다.</li>
+        <li>log p 는 활성 차원의 <b>평균</b>입니다(<code>_log_prob</code>). 합으로 두면 차원이 많아 확률비가 쉽게 포화하기 때문입니다.</li>
+        <li>디코딩한 링크·관절·액추에이터 값을 bank 에서 가장 가까운 형상으로 바꿉니다(<code>hardware_to_nearest_neighbor_params</code>, <code>local_only=True</code>). 결과는 <code>choices</code>(8 bit)와 <code>seed</code> 이고, 맞는 원형이 없거나 거리가 무한이면 <code>invalid</code> 로 표시합니다.</li>
+      </ol>
+      <pre><span class="c"># ddpo_hardware.py:192–195  한 step 의 확률적 전이</span>
+mean, std = self._ddim_stats(sample, pred[name], timesteps)
+proposal = mean + std * torch.randn(sample.shape, ..., generator=generator)
+next_samples[name] = torch.where(dont_update[name], sample, proposal)</pre>
+      <p class="note">생성 단계는 update 시간의 절반(약 12 분)입니다. step 마다 GPU→CPU 복사와 zarr 청크 (1, 1) 쓰기가 일어나고, bank 매칭은 CPU 한 코어에서 128 개 zarr 를 차례로 비교합니다. 이 부분이 C안 최적화 대상입니다.</p>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="side"><span class="chip score">2 · 채점</span><span class="file">design_scorer.py</span><span class="file">score() :97–117</span></div>
+    <div>
+      <p>MJX 는 구조가 같은 로봇끼리만 한 번에 계산할 수 있습니다. 그래서 형상을 구조별로 묶고, 묶음마다 컴파일된 rollout 함수를 따로 둡니다.</p>
+      <ol class="steps">
+        <li><code>structure_key(choices)</code> 는 마지막 2 bit 와 bit 5(레일, 제거됨)를 뺀 5 bit 입니다. 이 키가 T5 의 16 개 그룹 중 어디에 속하는지 찾습니다. T5 에 없는 키면 <code>ValueError</code> 입니다(옛 T7_try1 실패 원인).</li>
+        <li>그룹을 처음 만나면 <code>_group()</code> 이 <code>MultiDesignEnv</code> 를 만들고 rollout 을 JIT 합니다(lazy). 한 번에 약 1 분, RAM +0.4~1.3 GiB 가 듭니다. 이후 update 에서는 재사용합니다.</li>
+        <li><code>_stacked()</code> 가 그룹 템플릿의 슬롯에 새 형상의 <code>mjx_model</code> 과 <code>morphology</code> 벡터를 끼워 넣습니다. 슬롯 수는 <code>--slots</code>(현재 1)이라 형상 하나씩 돕니다.</li>
+        <li>rollout 은 1000 step(20 s)입니다. π<sub>θ</sub> 는 관측에 붙은 morphology 벡터(choices + uniform)를 보고 행동합니다. 넘어지기 전까지의 보상만 더합니다(<code>ret += reward * alive</code>).</li>
+        <li><b>A안</b>: 고정 명령 7 개를 <code>jax.vmap</code> 으로 한 번에 돌립니다. 명령마다 rng 키는 예전 순차 방식과 같게 <code>fold_in(seed, i)</code> 로 만듭니다.</li>
+        <li>형상 점수 = 7 명령 return 의 평균. DR·노이즈·push 는 끄고 명령은 고정합니다(D51·D52).</li>
+      </ol>
+      <pre><span class="c"># design_scorer.py:75  7 명령을 한 프로그램으로</span>
+"rollout": jax.jit(jax.vmap(rollout, in_axes=(None, 0, 0)))
+<span class="c">#                               designs  command  rng</span></pre>
+      <div class="scroll"><table><thead><tr><th>명령</th><th>vx</th><th>vy</th><th>ωz</th></tr></thead><tbody>
+        <tr><td>forward_0.5</td><td>0.5</td><td>0</td><td>0</td></tr><tr><td>backward_0.5</td><td>−0.5</td><td>0</td><td>0</td></tr>
+        <tr><td>left_0.5</td><td>0</td><td>0.5</td><td>0</td></tr><tr><td>right_0.5</td><td>0</td><td>−0.5</td><td>0</td></tr>
+        <tr><td>forward_1.0</td><td>1.0</td><td>0</td><td>0</td></tr><tr><td>turn_left_0.5</td><td>0</td><td>0</td><td>0.5</td></tr>
+        <tr><td>turn_right_0.5</td><td>0</td><td>0</td><td>−0.5</td></tr></tbody></table></div>
+      <p class="note">return 은 T5 보상식 그대로입니다(추종 lin 3.0 · ang 1.5 · feet_air_time 1.0, 벌점 7 종, 전부 ×dt). 따라서 ψ 가 배우는 기준도 T5 보상이 좋다고 보는 형상입니다.</p>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="side"><span class="chip upd">3 · 갱신</span><span class="file">ddpo_hardware.py</span><span class="file">update() :247–313</span></div>
+    <div>
+      <ol class="steps">
+        <li>invalid 형상은 그 배치의 최저 valid 점수를 받습니다(<code>train_hardware_guidance.py:87–88</code>).</li>
+        <li>advantage 는 배치 32 개로 표준화합니다. 모든 점수가 같으면(표준편차 &lt; 1e-6) 갱신을 건너뛰고 <code>psi_updated=False</code> 를 남깁니다.</li>
+        <li>32 형상 × 99 step = <b>3168 transition</b> 을 섞어 <code>--ddpo-minibatch</code> 32 개씩 읽습니다. 한 epoch 에 99 번 역전파하고, 이를 4 epoch 반복합니다.</li>
+        <li>각 transition 에서 현재 ψ 로 노이즈를 다시 예측해 μ, σ 를 구하고, 저장된 x<sub>t−1</sub> 의 log p 를 새로 계산합니다. 그 형상의 advantage 를 99 step 모두에 똑같이 줍니다.</li>
+        <li>PPO 와 같은 clipped 목적함수로 loss 를 만들고, gradient norm 을 1 로 자른 뒤 AdamW 한 step 을 밟습니다.</li>
+        <li>끝나면 zarr buffer 를 지우고 <code>history.jsonl</code> 에 한 줄을 씁니다. 10 update 마다, 그리고 마지막에 <code>psi_XXXX.pt</code>(모델 + 옵티마이저)를 저장합니다.</li>
+      </ol>
+      <pre><span class="c"># ddpo_hardware.py:23–29</span>
+ratio     = exp(clamp(log p_new − log p_old, −20, 20))
+loss      = −mean( min(ratio·A, clip(ratio, 0.8, 1.2)·A) )
+approx_kl = mean(log p_old − log p_new)</pre>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>시간 배분</h2>
+  <p>업데이트 한 번의 시간입니다. 앞 막대는 smoke2 update 1 의 실측값, 뒤 막대는 A안 적용 후 추정값입니다.</p>
+  <div style="display:flex;flex-direction:column;gap:10px;max-width:760px">
+    <div><div class="mono" style="font-size:12.5px;color:var(--muted);margin-bottom:4px">smoke2 실측 · 50 분</div>
+      <div class="bar"><span style="width:24%;background:var(--gen);color:var(--s1)">생성 12</span><span style="width:63%;background:var(--score);color:var(--s2)">채점 31.5</span><span style="width:13%;background:var(--upd);color:var(--s3)">갱신 6.5</span></div></div>
+    <div><div class="mono" style="font-size:12.5px;color:var(--muted);margin-bottom:4px">A안 추정 · 24 분</div>
+      <div class="bar" style="width:48%;min-width:220px"><span style="width:50%;background:var(--gen);color:var(--s1)">생성 12</span><span style="width:21%;background:var(--score);color:var(--s2)">5</span><span style="width:29%;background:var(--upd);color:var(--s3)">6.5</span></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>설정값과 산출물</h2>
+  <div class="scroll"><table><thead><tr><th>인자</th><th>기본</th><th>뜻</th></tr></thead><tbody>
+    <tr><td>--updates</td><td>100</td><td>ψ 갱신 횟수. T7_try6 은 50</td></tr>
+    <tr><td>--global-batch</td><td>32</td><td>한 update 의 형상 수 = advantage 표준화 범위</td></tr>
+    <tr><td>--generation-microbatch</td><td>4</td><td>TT 가 동시에 만드는 형상 수 (GPU 메모리)</td></tr>
+    <tr><td>--slots</td><td>1</td><td>한 그룹 rollout 에 동시에 넣는 형상 수 (MJX 병렬도)</td></tr>
+    <tr><td>--ddpo-minibatch</td><td>32</td><td>역전파 한 번에 읽는 transition 수</td></tr>
+    <tr><td>--ddpo-epochs</td><td>4</td><td>같은 3168 transition 을 몇 번 볼지</td></tr>
+    <tr><td>--psi-lr</td><td>1e-6</td><td>ψ 학습률. smoke2 에서 approx_kl ≤ 6e-4</td></tr>
+    <tr><td>--clip-range</td><td>0.2</td><td>확률비 clip. smoke2 에서 한 번도 닿지 않음</td></tr>
+    <tr><td>--save-every</td><td>10</td><td>psi_*.pt 저장 주기</td></tr>
+  </tbody></table></div>
+  <div class="scroll"><table><thead><tr><th>파일 (run 폴더)</th><th>내용</th></tr></thead><tbody>
+    <tr><td>config.json</td><td>인자 + π<sub>θ</sub> 체크포인트·prior·bank 경로</td></tr>
+    <tr><td>history.jsonl</td><td>update 마다 한 줄: 시간, RAM, 컴파일 그룹 수, return 평균·최고, 형상 32 개(choices·seed·return), loss·KL·clip·grad norm</td></tr>
+    <tr><td>psi_XXXX.pt</td><td>ψ 가중치 + 옵티마이저 상태 (약 137 MB)</td></tr>
+    <tr><td>buffer/</td><td>진행 중인 update 의 zarr trajectory. update 가 끝나면 지워짐</td></tr>
+    <tr><td>report.html</td><td><code>run_t7.sh</code> 가 학습 뒤 <code>make_stage_report.py t7</code> 로 생성, 텔레그램 전송</td></tr>
+  </tbody></table></div>
+</section>
+
+<section>
+  <h2>구현상 한계</h2>
+  <ol class="steps">
+    <li><b>이어 돌리기 없음.</b> <code>DesignLearner.load()</code> 는 있지만 <code>train_hardware_guidance.py</code> 가 쓰지 않습니다. 중간에 멈추면 마지막 <code>psi_*.pt</code> 이후 갱신은 사라집니다.</li>
+    <li><b>채점 대상은 T5 가 본 16 구조 그룹뿐입니다.</b> ψ 는 bank 128 형상 밖으로 나갈 수 없습니다. 생성 결과를 항상 최근접 bank 형상으로 바꾸기 때문입니다.</li>
+    <li><b>채점 1 회.</b> 형상마다 명령당 에피소드 1 개라 같은 형상도 seed 에 따라 점수가 흔들립니다(smoke2 에서 <code>01000001</code> 이 74.8 과 79.7).</li>
+    <li><b>vmap 채점은 예전 순차 채점과 비트 단위로 같지 않습니다.</b> 최대 0.07% 차이이고, smoke2 이전 기록과 직접 비교할 때 주의가 필요합니다.</li>
+  </ol>
+</section>
+</div>

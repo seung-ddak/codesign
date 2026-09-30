@@ -71,7 +71,9 @@ class DesignScorer:
             finally:
                 group.designs = saved
 
-        entry = {"base": base, "rollout": jax.jit(rollout), "compiled": False}
+        # 7 commands share one compiled program (vmap), instead of 7 sequential rollouts.
+        entry = {"base": base, "rollout": jax.jit(jax.vmap(rollout, in_axes=(None, 0, 0))),
+                 "compiled": False}
         self.group_cache[index] = entry
         return entry
 
@@ -87,6 +89,11 @@ class DesignScorer:
                 array[slot] = np.asarray(value)
         return jax.tree.unflatten(treedef, [jp.asarray(x) for x in arrays])
 
+    def keys_for(self, seed):
+        """Same per-command keys as the former sequential loop."""
+        return jp.stack([jax.random.fold_in(jax.random.PRNGKey(seed), i)
+                         for i in range(len(self.commands))])
+
     def score(self, designs, seed=0):
         """Return each design's mean return over the unchanged seven commands."""
         by_group = {}
@@ -99,16 +106,12 @@ class DesignScorer:
             for start in range(0, len(positions), self.slots):
                 selected = positions[start:start + self.slots]
                 stacked = self._stacked(entry["base"], [designs[i] for i in selected])
-                returns = []
-                for command_index, command in enumerate(self.commands):
-                    if not entry["compiled"]:
-                        log_memory(f"before_group_{group_index}_compile", len(self.group_cache) - 1)
-                    value = entry["rollout"](
-                        stacked, command, jax.random.fold_in(jax.random.PRNGKey(seed), command_index))
-                    value.block_until_ready()
-                    if not entry["compiled"]:
-                        entry["compiled"] = True
-                        log_memory(f"after_group_{group_index}_compile", len(self.group_cache))
-                    returns.append(np.asarray(jax.device_get(value))[:len(selected)])
-                scores[selected] = np.stack(returns).mean(axis=0)
+                if not entry["compiled"]:
+                    log_memory(f"before_group_{group_index}_compile", len(self.group_cache) - 1)
+                value = entry["rollout"](stacked, self.commands, self.keys_for(seed))
+                value.block_until_ready()
+                if not entry["compiled"]:
+                    entry["compiled"] = True
+                    log_memory(f"after_group_{group_index}_compile", len(self.group_cache))
+                scores[selected] = np.asarray(jax.device_get(value))[:, :len(selected)].mean(axis=0)
         return scores
