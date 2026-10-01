@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T7 One-shot Morphology RL 구현 해설</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root{--plane:#f5f6f3;--surface:#fcfcfb;--ink:#14161a;--ink2:#4d5057;--muted:#85878c;--line:#e1e2dc;--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--warn:#b37a00;--tag:#e8eef8;--gen:#e7effa;--score:#fdeee6;--upd:#e3f5ee;--sans:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;--mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--plane:#0f1011;--surface:#1a1a19;--ink:#f4f4f2;--ink2:#c3c2b7;--muted:#8d8c86;--line:#2e2f2c;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--warn:#e0a526;--tag:#1d2635;--gen:#18222f;--score:#2a1d16;--upd:#15261f}}
+*{box-sizing:border-box}body{margin:0;background:var(--plane);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.7;padding:32px 20px 72px}.wrap{max-width:1000px;margin:auto;display:flex;flex-direction:column;gap:56px}header,section{display:flex;flex-direction:column;gap:16px;min-width:0}header{gap:12px}h1,h2,h3{margin:0;line-height:1.3;text-wrap:balance}h1{font-size:30px}h2{font-size:21px}h3{font-size:16px}p{margin:0;max-width:74ch}.eyebrow,.mono,code,pre,.file{font-family:var(--mono)}.eyebrow{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.lede{font-size:16px;color:var(--ink2)}.meta{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:13px}code{font-size:.88em;background:var(--tag);padding:1px 5px;border-radius:4px}.scroll{overflow-x:auto}.stage{display:grid;grid-template-columns:200px 1fr;gap:20px;padding-top:20px;border-top:1px solid var(--line)}.stage>div{min-width:0;display:flex;flex-direction:column;gap:12px}.side{gap:6px!important}.chip{display:inline-block;font-family:var(--mono);font-size:12px;padding:2px 9px;border-radius:99px;width:max-content}.chip.gen{background:var(--gen);color:var(--s1)}.chip.score{background:var(--score);color:var(--s2)}.chip.upd{background:var(--upd);color:var(--s3)}.chip.run{background:var(--tag);color:var(--ink2)}.file{font-size:12.5px;color:var(--ink2)}ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px;max-width:76ch}pre{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:12.5px;line-height:1.6;overflow-x:auto;color:var(--ink)}.c{color:var(--muted)}.note{border-left:3px solid var(--warn);padding:2px 0 2px 14px;color:var(--ink2);font-size:14px;max-width:76ch}table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{font-weight:500;color:var(--muted);font-size:12.5px;white-space:nowrap}td:first-child{font-family:var(--mono);white-space:nowrap}.yes{color:var(--s3);font-weight:600}.no{color:var(--s2);font-weight:600}svg text{font-family:var(--sans);fill:var(--ink)}svg .m{font-family:var(--mono);font-size:11px;fill:var(--ink2)}svg .t{font-size:13px;font-weight:600}svg .cap{font-family:var(--mono);font-size:11px;fill:var(--muted);letter-spacing:.05em}@media(max-width:640px){.stage{grid-template-columns:1fr;gap:10px}h1{font-size:25px}}
+</style>
+</head>
+<body><div class="wrap">
+<header>
+  <div class="eyebrow">codesign · Stage 2 · T7B</div>
+  <h1>One-shot Morphology RL 구현 해설</h1>
+  <p class="lede">TT denoiser를 수정하는 대신, 작은 정책 π<sub>φ</sub>가 latent noise에서 유효 topology 하나와 13개 continuous parameter를 한 번에 뽑습니다. 그 파라미터로 만든 바로 그 로봇을 동결된 보행 정책 π<sub>θ</sub>로 채점하고 π<sub>φ</sub>만 갱신합니다.</p>
+  <div class="meta"><span>기준: 2026-10-01 코드</span><span>stage2/code/</span><span>D60</span><span>학습 미실행 · self-check 통과</span></div>
+</header>
+
+<section>
+  <h2>한 update의 흐름</h2>
+  <p>한 update는 batch만큼의 완성된 morphology를 한 번에 생성하고, 7개 locomotion command 평균 return을 얻은 뒤, 형상별 action log-probability에 terminal advantage를 적용합니다.</p>
+  <div class="scroll"><svg viewBox="0 0 960 330" width="100%" style="min-width:760px" role="img" aria-label="One-shot morphology RL의 생성, 채점, 갱신 흐름">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--ink2)"/></marker></defs>
+    <rect x="10" y="30" width="290" height="230" rx="10" fill="var(--gen)"/><rect x="335" y="30" width="290" height="230" rx="10" fill="var(--score)"/><rect x="660" y="30" width="290" height="230" rx="10" fill="var(--upd)"/>
+    <text class="cap" x="24" y="22">1 생성 · MorphologyPolicy</text><text class="cap" x="349" y="22">2 직접 채점 · DesignScorer</text><text class="cap" x="674" y="22">3 갱신 · horizon-1 PPO</text>
+    <g><rect x="28" y="48" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="40" y="70">z ~ Normal(0, I)</text><text class="m" x="40" y="89">batch 16 · latent size 32</text></g>
+    <g><rect x="28" y="116" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="40" y="138">MLP → Categorical + Beta</text><text class="m" x="40" y="157">128 topology · 13 uniforms</text></g>
+    <g><rect x="28" y="184" width="254" height="60" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="40" y="206">canonical robot 직접 생성</text><text class="m" x="40" y="225">bank projection 없음</text><text class="m" x="40" y="239">denoising transition 없음</text></g>
+    <g><rect x="353" y="48" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="365" y="70">MJX structure group 분류</text><text class="m" x="365" y="89">처음 본 그룹만 lazy JIT</text></g>
+    <g><rect x="353" y="116" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="365" y="138">frozen πθ · 1000 step</text><text class="m" x="365" y="157">고정 command 7개 · DR off</text></g>
+    <g><rect x="353" y="184" width="254" height="60" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="365" y="206">R = 7-command 평균 return</text><text class="m" x="365" y="225">생성한 연속값 그대로 평가</text></g>
+    <g><rect x="678" y="48" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="690" y="70">A = (R − mean) / std</text><text class="m" x="690" y="89">형상 batch 안에서 표준화</text></g>
+    <g><rect x="678" y="116" width="254" height="52" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="690" y="138">joint action log probability</text><text class="m" x="690" y="157">log p(topology) + Σ log p(u)</text></g>
+    <g><rect x="678" y="184" width="254" height="60" rx="7" fill="var(--surface)" stroke="var(--line)"/><text class="t" x="690" y="206">clipped loss + entropy</text><text class="m" x="690" y="225">Adam · epoch 1 · grad ≤ 1</text><text class="m" x="690" y="239">phi_XXXX.pt 저장</text></g>
+    <path d="M155 100v16M155 168v16M480 100v16M480 168v16M805 100v16M805 168v16" stroke="var(--ink2)" stroke-width="1.5" marker-end="url(#ah)"/><path d="M282 214h71M607 214h71" stroke="var(--ink2)" stroke-width="1.5" marker-end="url(#ah)"/><path d="M805 244v45H155v-45" fill="none" stroke="var(--s1)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+    <text class="m" x="345" y="311">갱신된 πφ가 다음 batch의 topology·uniforms 생성분포를 바꿈</text>
+  </svg></div>
+  <p style="font-size:13.5px;color:var(--ink2)">π<sub>θ</sub>와 observation normalization은 읽기 전용입니다. 학습되는 가중치는 one-shot morphology policy π<sub>φ</sub>뿐입니다.</p>
+</section>
+
+<section><h2>단계별 구현</h2>
+  <div class="stage"><div class="side"><span class="chip run">0 · 유효 공간</span><span class="file">train_oneshot_morphology.py</span><span class="file">valid_choices()</span></div><div>
+    <ol><li>TT의 학습 checkpoint나 RoboToken bank를 읽지 않고 canonical generator의 <code>enumerate_choices(COMPONENTS)</code>를 호출합니다.</li><li>열거 결과 138개 중 T5와 호환되는 <code>8-bit</code>, binary, <code>13-uniform</code> 조건을 모두 만족하는 128개만 남깁니다.</li><li>topology action은 이 목록에 대한 categorical index이므로 정의되지 않은 topology는 처음부터 뽑을 수 없습니다.</li><li>continuous action은 Beta distribution에서 나오므로 각 값은 자동으로 <code>(0, 1)</code> 안에 있습니다.</li></ol>
+    <pre><span class="c"># canonical generator가 정의한 4족 보행 범위</span>
+choices = [c for c, n in enumerate_choices(COMPONENTS)
+           if len(c) == 8 and set(c) &lt;= {0, 1} and n == 13]
+assert len(choices) == 128</pre>
+  </div></div>
+
+  <div class="stage"><div class="side"><span class="chip gen">1 · one-shot 생성</span><span class="file">MorphologyPolicy</span><span class="file">sample()</span></div><div>
+    <ol><li>각 episode의 state는 32차원 latent <code>z ~ N(0,I)</code>입니다. 이 값은 corrupted morphology가 아니라 서로 다른 설계를 유도하는 random code입니다.</li><li>두 층의 128-unit tanh MLP가 topology logit 128개와 Beta의 α·β parameter 26개를 출력합니다.</li><li>마지막 head를 0으로 초기화하므로 update 0의 topology는 균등분포이고, 각 continuous parameter는 <code>Beta(1,1)</code>, 즉 uniform distribution입니다.</li><li>topology 하나와 uniforms 13개가 policy의 단일 joint action입니다. 99개 transition이나 중간 morphology는 없습니다.</li><li>학습용 log-probability는 categorical과 13차원 Beta의 log-probability 합입니다.</li></ol>
+    <pre><span class="c"># 한 번의 morphology action</span>
+topology = Categorical(logits=logits)
+continuous = Independent(Beta(exp(alpha), exp(beta)), 1)
+choice_index = topology.sample()
+uniforms = continuous.sample()
+log_p = topology.log_prob(choice_index) + continuous.log_prob(uniforms)</pre>
+  </div></div>
+
+  <div class="stage"><div class="side"><span class="chip score">2 · 직접 형상</span><span class="file">locomotion_env.py</span><span class="file">design_scorer.py</span></div><div>
+    <ol><li><code>LocomotionEnv</code>는 기존 재현용 <code>seed</code> 입력과 새 <code>uniforms</code> 직접 입력을 모두 지원합니다. 둘을 동시에 주거나 13개가 아니거나 범위를 벗어나면 즉시 중단합니다.</li><li><code>umi_on_legs_plus_plus_from_params(choices, uniforms)</code>로 MJCF를 만들고 기존과 동일하게 arm/rail subtree를 제거합니다.</li><li>morphology observation은 T5 때와 같은 <code>[8 choices, 13 uniforms]</code> 21차원입니다. 따라서 frozen π<sub>θ</sub>의 입력 계약을 바꾸지 않습니다.</li><li><code>DesignScorer._stacked()</code>는 두 번째 값이 scalar면 과거 seed 방식, vector면 direct uniforms 방식으로 환경을 만듭니다.</li><li>structure group별 MJX lazy JIT, 1000-step rollout, 고정 명령 7개 vmap, DR·noise·push off는 T7 DDPO 평가와 동일합니다.</li></ol>
+    <p class="note">nearest bank로 다른 로봇을 고르는 단계가 없습니다. π<sub>φ</sub>가 출력한 uniforms로 생성한 실제 geometry가 곧 채점 대상입니다.</p>
+  </div></div>
+
+  <div class="stage"><div class="side"><span class="chip upd">3 · horizon-1 갱신</span><span class="file">train_oneshot_morphology.py</span><span class="file">main()</span></div><div>
+    <ol><li>기본 batch 16개 형상의 return을 평균과 표준편차로 정규화합니다. 모든 return이 같으면 학습 신호가 없으므로 update를 건너뜁니다.</li><li>같은 latent와 sampled action의 현재 log-probability를 다시 계산하고, 기존 <code>ddpo_clipped_loss</code>를 일반적인 PPO clipped objective로 재사용합니다.</li><li>topology entropy를 <code>log(128)</code>로, continuous entropy를 13으로 나누어 합하고 <code>entropy_coef=0.01</code>로 collapse를 늦춥니다.</li><li>gradient norm은 1로 제한합니다. 기본값은 PPO epoch 1이라 같은 batch를 반복해서 과적합하지 않습니다.</li><li><code>history.jsonl</code>에는 생성한 실제 choices·uniforms·return과 entropy·KL·clip·gradient norm을 남깁니다.</li></ol>
+    <pre><span class="c"># 하나의 terminal reward가 하나의 morphology action에 대응</span>
+A = (returns - returns.mean()) / returns.std()
+loss_ppo, diagnostics = clipped_loss(log_p_new, log_p_old, A, 0.2)
+loss = loss_ppo - 0.01 * normalized_entropy</pre>
+  </div></div>
+</section>
+
+<section><h2>기존 DDPO와 달라진 점</h2><div class="scroll"><table><thead><tr><th>항목</th><th>TT + DDPO</th><th>One-shot RL</th></tr></thead><tbody>
+  <tr><td>초기 모델</td><td>학습된 TT diffusion prior</td><td>작은 MLP, 균등 생성분포</td></tr><tr><td>생성 과정</td><td>100-step DDIM</td><td>정책 forward 1회</td></tr><tr><td>action</td><td>99개 denoising transition</td><td>완성된 morphology parameter 1개</td></tr><tr><td>형상 평가</td><td>nearest bank 형상</td><td class="yes">출력한 형상 그대로</td></tr><tr><td>유효성</td><td>bank match 실패 가능</td><td class="yes">유효 공간에서만 sampling</td></tr><tr><td>credit</td><td>동일 advantage를 99 step에 반복</td><td class="yes">한 action에 한 advantage</td></tr><tr><td>기본 batch/epoch</td><td>32 / 4</td><td>16 / 1</td></tr><tr><td>checkpoint</td><td>ψ 전체 약 137 MB</td><td>작은 πφ + Adam 상태</td></tr>
+</tbody></table></div></section>
+
+<section><h2>설정값과 산출물</h2><div class="scroll"><table><thead><tr><th>인자</th><th>기본</th><th>뜻</th></tr></thead><tbody>
+  <tr><td>--updates</td><td>100</td><td>one-shot policy update 수; 첫 smoke 권장값은 20</td></tr><tr><td>--batch</td><td>16</td><td>한 update의 morphology 수와 advantage 표준화 범위</td></tr><tr><td>--slots</td><td>1</td><td>한 structure group에서 동시에 평가할 형상 수</td></tr><tr><td>--latent-size</td><td>32</td><td>random design code z의 차원</td></tr><tr><td>--hidden-size</td><td>128</td><td>두 MLP hidden layer의 너비</td></tr><tr><td>--ppo-epochs</td><td>1</td><td>같은 morphology batch 재사용 횟수</td></tr><tr><td>--lr</td><td>3e-4</td><td>πφ Adam learning rate</td></tr><tr><td>--clip-range</td><td>0.2</td><td>PPO importance-ratio clip</td></tr><tr><td>--entropy-coef</td><td>0.01</td><td>topology·continuous distribution collapse 억제</td></tr><tr><td>--save-every</td><td>10</td><td>phi_*.pt 저장 주기</td></tr>
+</tbody></table></div><div class="scroll"><table><thead><tr><th>run 파일</th><th>내용</th></tr></thead><tbody>
+  <tr><td>config.json</td><td>CLI 인자, frozen πθ checkpoint, topology 수와 morphology 표현</td></tr><tr><td>history.jsonl</td><td>update 시간, return 평균·최고, unique topology 수, choices·uniforms·return, loss·entropy·KL·clip·gradient norm</td></tr><tr><td>phi_XXXX.pt</td><td>πφ weight, Adam 상태, 유효 topology 배열과 실행 인자</td></tr>
+</tbody></table></div></section>
+
+<section><h2>검사와 현재 한계</h2><ol>
+  <li><b>학습 결과는 아직 없습니다.</b> 문법 검사와 <code>--self-check</code>만 실행했습니다. self-check는 policy sample shape·범위·log-probability와 seed 방식/direct-uniform 방식의 geometry 동일성을 확인합니다.</li>
+  <li><b>목표는 frozen πθ에 특화됩니다.</b> return 개선은 보편적으로 가장 좋은 로봇이 아니라 현재 controller가 가장 잘 제어하는 로봇을 찾았다는 뜻입니다.</li>
+  <li><b>arm/rail 제거 후 무효 parameter가 남을 수 있습니다.</b> canonical 13 uniforms 중 실제 보행 geometry를 바꾸지 않는 차원은 학습 후 sensitivity 분석으로 식별해야 합니다.</li>
+  <li><b>형상당 평가 seed는 update당 하나입니다.</b> batch 안에서는 같은 seed를 써 비교 noise를 줄이지만, 최종 성능 판단은 별도 seed 반복 평가가 필요합니다.</li>
+  <li><b>동일 simulation budget의 random baseline이 필요합니다.</b> 첫 smoke 20×16=320개 평가와 uniform random 320개를 비교해야 policy learning 효과와 단순 best-of-N 효과를 분리할 수 있습니다.</li>
+</ol></section>
+</div></body></html>

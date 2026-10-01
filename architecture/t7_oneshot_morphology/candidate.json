@@ -1,0 +1,47 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "T7 One-shot Morphology RL",
+    "animation": "none",
+    "quality_profile": "showcase",
+    "output": "architecture/t7_oneshot_morphology/one_shot_morphology.html"
+  },
+  "lanes": [
+    {"id": "generation", "label": "Morphology generation"},
+    {"id": "evaluation", "label": "Frozen locomotion evaluation"},
+    {"id": "learning", "label": "Horizon-1 policy update"}
+  ],
+  "phases": [
+    {"id": "sample", "label": "Sample", "fromCol": 0, "toCol": 2},
+    {"id": "simulate", "label": "Build + simulate", "fromCol": 3, "toCol": 4, "variant": "emphasis"},
+    {"id": "optimize", "label": "Reward + update", "fromCol": 5, "toCol": 5, "variant": "dashed"}
+  ],
+  "mainPath": ["latent", "policy", "parameters", "robot", "controller", "task_return"],
+  "nodes": [
+    {"id": "latent", "lane": "generation", "col": 0, "type": "external", "label": "Latent noise z", "sublabel": "Normal sample", "width": 132},
+    {"id": "policy", "lane": "generation", "col": 1, "type": "backend", "label": "One-shot policy πφ", "sublabel": "Categorical + Beta heads", "width": 158},
+    {"id": "parameters", "lane": "generation", "col": 2, "type": "messagebus", "label": "Direct parameters", "sublabel": "128 topology + 13 uniforms", "width": 172},
+    {"id": "robot", "lane": "evaluation", "col": 3, "type": "backend", "label": "Canonical generator", "sublabel": "Valid quadruped MJX model", "width": 172},
+    {"id": "controller", "lane": "evaluation", "col": 4, "type": "security", "label": "Frozen πθ rollout", "sublabel": "Seven fixed commands", "tag": "weights frozen", "width": 158},
+    {"id": "task_return", "lane": "evaluation", "col": 5, "type": "database", "label": "Task return", "sublabel": "Mean locomotion score", "width": 148},
+    {"id": "advantage", "lane": "learning", "col": 5, "type": "backend", "label": "Normalize advantage", "sublabel": "Across morphology batch", "width": 164},
+    {"id": "ppo", "lane": "learning", "col": 4, "type": "backend", "label": "Horizon-1 PPO", "sublabel": "One epoch by default", "width": 150},
+    {"id": "checkpoint", "lane": "learning", "col": 3, "type": "database", "label": "φ checkpoint", "sublabel": "History + policy weights", "width": 150}
+  ],
+  "edges": [
+    {"id": "encode", "from": "latent", "to": "policy", "variant": "default"},
+    {"id": "sample-action", "from": "policy", "to": "parameters", "label": "one action", "variant": "emphasis"},
+    {"id": "build", "from": "parameters", "to": "robot", "label": "no bank projection", "variant": "emphasis"},
+    {"id": "rollout", "from": "robot", "to": "controller", "variant": "default"},
+    {"id": "score", "from": "controller", "to": "task_return", "label": "MJX return", "variant": "emphasis"},
+    {"id": "credit", "from": "task_return", "to": "advantage", "variant": "default"},
+    {"id": "optimize-policy", "from": "advantage", "to": "ppo", "label": "terminal credit", "variant": "emphasis"},
+    {"id": "save", "from": "ppo", "to": "checkpoint", "variant": "dashed"},
+    {"id": "update", "from": "ppo", "to": "policy", "label": "update φ only", "variant": "emphasis", "role": "return"}
+  ],
+  "cards": [
+    {"dot": "cyan", "title": "Search contract", "items": ["Topology comes from the canonical 128-choice generator", "Each continuous parameter stays inside [0, 1]"]},
+    {"dot": "amber", "title": "Conservative outer loop", "items": ["Batch 16 and one PPO epoch by default", "No denoising trajectory or TT checkpoint is loaded"]}
+  ]
+}

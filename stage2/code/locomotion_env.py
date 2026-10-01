@@ -106,8 +106,8 @@ def wrap_to_pi(angle):
 class LocomotionEnv(MjxEnv):
     action_size = NUM_LEG_ACTUATORS
 
-    def __init__(self, choices, seed, command_ranges=COMMAND_RANGES, add_noise=True,
-                 hold_command=False, domain_rand=True):
+    def __init__(self, choices, seed=None, command_ranges=COMMAND_RANGES, add_noise=True,
+                 hold_command=False, domain_rand=True, uniforms=None):
         super().__init__(ctrl_dt=CTRL_DT, sim_dt=SIM_DT)
         if len(choices) != 8 or any(c not in (0, 1) for c in choices):
             raise ValueError("Expected an eight-bit TT quadruped choice")
@@ -119,7 +119,17 @@ class LocomotionEnv(MjxEnv):
         # pushes and (in DesignGroupEnv) friction randomisation.
         self.domain_rand = domain_rand
         self.add_noise = add_noise and domain_rand
-        uniforms = np.random.RandomState(seed).uniform(size=13)
+        if uniforms is None:
+            if seed is None:
+                raise ValueError("Expected seed or 13 direct morphology uniforms")
+            uniforms = np.random.RandomState(seed).uniform(size=13)
+        else:
+            uniforms = np.asarray(uniforms, dtype=float)
+            if seed is not None:
+                raise ValueError("Pass either seed or uniforms, not both")
+            if (uniforms.shape != (13,) or not np.isfinite(uniforms).all()
+                    or np.any((uniforms < 0.) | (uniforms > 1.))):
+                raise ValueError("Expected 13 finite morphology uniforms in [0, 1]")
         robot = umi_on_legs_plus_plus_from_params(
             choices=copy.copy(choices), uniforms=uniforms.tolist())
         scene = set_up_default_scene(robot, add_plane=True, plane_z_pos=0.0)

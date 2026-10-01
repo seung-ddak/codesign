@@ -18,14 +18,14 @@ TT 의 "noise → denoising → 형상" 틀은 유지하되, reference motion + 
 | 단계 | 무엇을 하나 | 핵심 질문 | 상태 |
 |------|-------------|-----------|------|
 | **1 단계 · RL guidance 성립** | 고정 TT prior + UMI tracking 조건에서 DSG 자리에 RL guidance 적용 | RL guidance 로 형상이 생성되고 tracking 이 유지되는가 | **완료** |
-| **2 단계 · task-result hardware generation** | locomotion `π_θ`를 먼저 학습·고정하고 TT denoiser `ψ`만 DDPO로 학습 | reference motion 없이 실제 locomotion 결과로 좋은 형상을 생성하는가 | **현재 우선순위** |
-| **3 단계 · hardware-policy co-design** | 2 단계 통과 후 TT `ψ`와 locomotion `π_θ`를 분리된 timescale로 번갈아 최적화 | 형상과 정책을 함께 개선할 수 있는가 | 후속·미진입 |
+| **2 단계 · task-result RL guidance** | TT denoiser `ψ`와 locomotion `π_θ`를 고정하고 DSG 자리에 residual `π_φ` 적용 | 실제 locomotion return으로 denoising guidance를 학습할 수 있는가 | **현재 우선순위** |
+| **3 단계 · hardware-policy co-design** | TT `ψ`는 고정하고 morphology guidance `π_φ`와 locomotion `π_θ`를 번갈아 최적화 | 형상과 정책을 함께 개선할 수 있는가 | 후속·미진입 |
 | **확장** | multi-task → broad topology design space | 하나의 hardware + 하나의 multi-task policy 로 확장 가능한가 | 후속 |
 
 **현재 우선순위: 2 단계 단순 실험부터 진행한다 (2026-09-25 개정).** 과거 D12·D26의 공진화 경로는 폐기하지 않고 3 단계로 보류한다.
 형상은 TT `umi_on_legs_plus_plus` design space 와 MJX 경로를 유지하고, A1 URDF 로 교체하지 않는다.
 
-**현재 2 단계의 한 round:** ① trainable TT denoiser `ψ`로 stochastic DDIM morphology 생성·transition 기록 → ② 동결된 morphology-conditioned `π_θ`로 평지 locomotion rollout → ③ legged_robot 원본 reward의 episode return 계산 → ④ return을 batch advantage로 정규화 → ⑤ clipped DDPO-IS로 `ψ` 갱신 → ⑥ 다음 round.
+**현재 2 단계의 한 round:** ① 동결 TT `ψ`의 100-step reverse process에서 `π_φ(x_k,k)` residual action·transition 기록 → ② 완성된 morphology만 동결 `π_θ`로 locomotion rollout → ③ episode return 계산 → ④ terminal advantage로 critic과 `π_φ` 갱신 → ⑤ 다음 round.
 pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphology 로 충분히 학습한 뒤 고정한다.
 
 ---
@@ -44,8 +44,8 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 | D8 | 1 단계는 **TT design space·prior 그대로**. 이산 128 조합은 expert 128 개로 전부 평가 가능 (§5.10) |
 | D9 | task 는 모션 추종이 아니라 **결과 기반** (넘어지지 않고 목표 도달 = 성공) |
 | D10 | ① 무조건부 생성 ② 성공 = **제한 시간 내 목표 도달 AND 무낙상** ③ **팔 고정**, 다리·몸통만 탐색 |
-| D11 | RL action = **residual guidance**. denoiser 고정, `x_{k-1} = denoise(x_k) + π_φ(s_k)` |
-| D12 | **공진화.** `π_θ(o,E)` 가 곧 최종 정책, π_φ 와 같은 reward 로 번갈아 성장. **2 단의 구성요소** (2026-09-21 승격) |
+| D11 | RL action = **residual guidance**. denoiser 고정, `ε̂_k = ε_{ψ_fixed}(x_k,k) + c_k π_φ(x_k,k)` 후 기존 scheduler가 `x_{k-1}` 계산 |
+| D12 | **공진화.** `π_θ(o,E)`가 곧 최종 정책이며 `π_φ`와 같은 task reward로 번갈아 성장한다. **Stage 3 구성요소** |
 | D13 | 시뮬레이터 = **MJX/MJWarp**. legged_gym 은 walk_N 전용 동결 |
 | D14 | **실물 제작·Sim2Real 제외.** 논문용 baseline·novelty 정리는 후순위 |
 | D15 | task set = ① 보행 ② 계단 상승 ③ 계단 하강 ④ 불균형 지형 ⑤ 점프 |
@@ -57,7 +57,7 @@ pi_theta 는 2 단계 시작 전에 TT design space 의 다양한 유효 morphol
 | D21 | **"TT 그대로" = `evaluate_hardware_opt_rl.py` + `rl_policies.zip`** (TT prior + DSG + choice 별 expert) |
 | D22 | **2 단 reward 확정 (2026-09-21)**: 낙상 = TT 의 `penalty_bad_contact_pairs` 링크 접촉 **또는** up_vec·z < 0.1 → 즉시 종료 / 점수 = 종료 전 전진 진척도 (목표 **1.0 m** 정규화) / 성공 = 종료 없이 도달. π_φ·π_θ 가 같은 이 reward 로 학습 |
 | D23 | **"형상에 맞는 최적 정책" 은 저절로 생기지 않는다.** π_θ 를 D22 reward 로 같이 학습시킬 때만 생긴다 → D12 가 필수 |
-| D24 | **π_θ 고정으로 잰 형상 점수는 하한선이다** (`J(E,θ_고정) ≤ max_θ J`). **1 단에만 해당** — 2 단은 D12 로 이 한계를 푼다 |
+| D24 | **π_θ 고정으로 잰 형상 점수는 하한선이다** (`J(E,θ_고정) ≤ max_θ J`). Stage 2는 효과 분리용이고 Stage 3에서 D12로 이 한계를 푼다 |
 | D25 | **π_θ 는 형상 조건부 + 2-timescale.** 가중치·관측 정규화는 형상과 round 사이에 이어 간다. 새 보행 관측이 TT expert 와 달라 이번 경로는 fresh 초기화 (D26). |
 | D26 | **2026-09-22 공진화 우선.** reward = 낙상 전 월드 +x 변위 증가 / 1.0 m, 후진은 음수; 지정 링크 접촉 또는 up_z < 0.1 에서 종료. π_θ 는 step reward, π_φ 는 같은 reward 의 rollout 합 사용. |
 | D27 | **2026-09-22 공진화 실행 환경.** `/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv` · Python 3.12.14 · RTX 4070 SUPER 12 GB · CUDA 12.6 · JAX 0.10.2 · MuJoCo 3.10.0 · Brax 0.14.2. 기존 V100 고정 규약은 이번 로컬 실행에 적용하지 않는다. |
@@ -122,18 +122,17 @@ RL 은 취향이 아니라 미분 불가능한 종단 보상에 credit 을 배�
 
 **3.2 Transform2Act — 빌려오는 것은 credit assignment**
 T2A 는 [설계 step = reward 0] + [그 몸으로 수행 = 여기서만 reward] 로 설계 가치를 결과로 자동 정의한다.
-대응: 설계 step ↔ denoising 마지막 10 step, 실행 ↔ π_θ rollout, 보상 ↔ 도달 AND 무낙상.
+대응: 설계 step ↔ 100-step denoising action trajectory, 실행 ↔ `π_θ` rollout, 보상 ↔ 최종 task episode return.
 **단 한 MDP 로 잇지 않는다** — γ=0.99 로 1050 step 이으면 신호가 3e-5 로 소멸하므로 rollout 은 채점기로만.
 
 **3.3 T2A 대비 우리 강점**
 T2A 는 관절을 직접 add/remove 해 물리적으로 말이 안 되는 형상이 대량 나오고 공간이 조합 폭발한다.
-우리는 denoiser 고정 + residual 이라 **생성 형상이 항상 prior manifold 위**에 있다 (D11).
-이것이 D8(기존 design space 유지)의 실질적 값어치다.
+고정 denoiser는 pretrained quadruped prior를 생성의 기준점으로 보존한다. 단, 강한 residual은 prior 밖으로 이동할 수 있으므로 action scale·KL·validity 검사가 필요하다.
+이 prior anchor가 관절을 직접 add/remove하는 T2A보다 탐색 공간을 안정시키는 장점이다.
 
 **3.4 DiffuseBot / π_φ 학습 가능성**
-DiffuseBot 의 embedding optimization·online data augmentation (상위 k% 로 denoiser fine-tune) = L2 로 채택.
-π_φ 학습 조건 3 가지: ① 마지막 몇 step 에만 guidance (credit path 단축) ② 1 차는 contextual bandit
-③ **DDIM eta = 1.0 필수** (eta=0 은 결정적이라 log-prob·exploration 없음).
+현재 `π_φ`는 모든 100 denoising step에서 stochastic residual action을 내고, 최종 task return을 전체 trajectory의 terminal reward로 사용한다.
+`DDIM eta = 1.0`으로 policy exploration과 log-prob를 확보하며, 긴 horizon credit assignment는 ablation과 timestep critic으로 진단한다.
 
 **3.5 task set 세부 (D15)**
 T1 보행(plane) / T2 상승(box) / T3 하강(box) / T4 불균형(hfield) / T5 점프(box), 전부 sphere-지형 충돌 ✅.
@@ -432,6 +431,9 @@ smoke(256 env)에서 KL 0.099 — 원본 목표 0.01 대비 과대. 시범 결�
 | 2026-09-29 | **D57** `stage3_coevolution/`을 `stage3/`로 변경. co-design 구현은 `stage3/code/`, run과 checkpoint는 `stage3/runs/`, 과거 결과는 `stage3/results/`, 실행 문서는 `stage3/README.md`에 둔다. |
 | 2026-09-29 | **D58** T7을 고정 TT + residual `π_φ`에서 **TT denoiser `ψ` 자체의 DDPO-IS fine-tuning**으로 변경. 구현은 `stage2/code/ddpo_hardware.py`이며, 동결 `π_θ`의 7-command 실제 rollout 평균을 terminal reward로 사용한다. 기존 residual 구현은 `archive/legacy_residual_guidance.py`에 보존한다. |
 | 2026-09-29 | **D59** Stage 3는 별도 추가 실험이 아니라 **Stage 2 성공 후 시작하는 hardware–policy co-design**으로 정의한다. `stage3/` 코드는 보류 상태이며, Stage 2 T7의 learner 재사용은 Stage 3 진입으로 간주하지 않는다. |
+| 2026-10-01 | **D60** T7 후속 1차 실험은 TT·bank projection 없는 **one-shot morphology RL**로 전환한다. `π_φ(z)`가 canonical generator의 128 valid topology와 13 uniforms를 한 번에 sampling하고, 동결 `π_θ`의 7-command return으로 horizon-1 PPO를 수행한다. 학습은 사용자가 실행한다. |
+| 2026-10-01 | **D61** T7 후속 2차 실험은 **동결 TT denoiser + RL residual guidance**로 정정한다. TT reverse process는 그대로 사용하고 모든 100 denoising step에서 DSG의 reward gradient 대신 `π_φ(x_t,k)` action을 넣는다. 최종 locomotion return으로 critic과 `π_φ`만 학습하며 TT·`π_θ`는 동결하고 학습은 사용자가 실행한다. |
+| 2026-10-01 | **D62** 최종 연구 구조 확정: TT morphology prior `ψ`는 고정하고 DSG의 `∇R` 자리만 `π_φ` residual로 치환한다. Stage 2는 최종 morphology의 task return으로 `π_φ`만 검증하고, Stage 3는 같은 reward로 `π_φ`와 morphology-conditioned `π_θ`를 교대 최적화한다. |
 
 ---
 
@@ -476,22 +478,34 @@ Stage 2 시작 전에 pi_theta weight 와 normalization 을 고정하고 동일 
 seed 간 분산보다 morphology 간 return 차이가 식별 가능한지 확인한 뒤 hardware search 로 넘어간다.
 **결정 (2026-09-27):** ④ 점수 = legged_gym episode return (D39 유지). ⑤ 채점 명령 = 대칭 고정 7 개 (D51), 모든 형상 동일. ⑥~⑧ D52 (DR 끔, 순위 상관 ≥ 0.8, 미학습 seed 로 T5 기준).
 
-### T7. DDPO 기반 task-driven hardware diffusion — 구현 완료, 전체 smoke 대기
+### T7. DDPO로 TT denoiser를 직접 학습한 사전 실험 — try6 실패
 
 **과거 residual T7_smoke/T7_try1:** D58 이전 방식이므로 DDPO 성능 근거에서 제외한다.
-**DDPO GPU sampler smoke (09-29): 통과.** batch 2·DDIM 100 step에서 형상 2개와 stochastic transition 99개를 기록했고, DDPO 1 epoch에서 `psi_parameter_delta=0.00280`을 확인했다. 실제 MJX 채점까지 포함한 전체 update smoke는 아직 실행 전이다.
+**DDPO GPU sampler smoke (09-29): 통과.** batch 2·DDIM 100 step에서 형상 2개와 stochastic transition 99개를 기록했고, DDPO 1 epoch에서 `psi_parameter_delta=0.00280`을 확인했다.
 
 pretrained TT checkpoint를 초기 policy로 사용하고 100-step stochastic DDIM trajectory를 기록한다. 동결 `π_θ`의 실제 return으로 clipped DDPO-IS를 수행해 TT `ψ` 자체를 갱신한다.
 중간 denoising 에서는 physics 를 돌리지 않고 최종 E 만 동결 pi_theta 로 MJX rollout 한다.
 
 **T7_try6 (09-30, 50 업데이트, smoke2 설정): 실패.** update 26~49 유효 형상 0/32 → return 없음, 갱신 skip 으로 ψ 정지 (psi_0030=0040=0050).
 update 3·25 에서 approx_kl 3e-2 (평소 5e-5) 로 크게 이동, bit 1~5 전부 1 로 고정 후 bank 변환 불가. 붕괴 전 평균 return 59.5→60.7 추세 없음.
-invalid reward = 배치 최저 valid return 이라 벌점 없음. update 3 이동의 직접 원인은 미확인. 다음 조치는 사용자 결정 대기 (`stage2/runs/T7/try6/report.html`).
+invalid에 배치 최저 valid return만 주고 reference-prior KL 없이 99 transition×4 epoch를 반복해 drift를 막지 못했다. try6은 task-result morphology RL의 사전 검증으로만 보존한다.
+
+### T7B. One-shot morphology RL — 구조 구현 완료, 학습 대기
+
+TT decoder와 RoboToken bank projection을 제거하고, `π_φ(z)`가 canonical generator의 128 valid topology와 13 uniforms를 직접 sampling한다. 동결 `π_θ`의 동일 7-command 평균 return으로 horizon-1 PPO를 수행한다. 기본값은 batch 16, PPO epoch 1이며 실제 학습은 사용자가 실행한다.
+
+### T7C. TT denoiser + RL residual guidance — 구조 구현 완료, 학습 대기
+
+`stage2/code/train_rl_denoiser_guidance.py`는 pretrained TT의 100-step reverse process를 그대로 사용한다. 모든 100 step의 `guidance_fn`에서 DSG가 계산하던 `∇R` 대신 stochastic residual action `π_φ(x_t,k)`를 넣고 각 transition의 state·action을 기록한다.
+
+최종 hardware만 RoboToken bank adapter를 거쳐 동결 `π_θ`로 평가한다. 7-command 평균 return을 모든 guided transition의 critic target으로 사용하고, 한 번의 actor step에서 100 transition 평균을 최대화한다. TT denoiser와 `π_θ`는 optimizer에 포함되지 않는다.
+각 step은 `a_k ~ π_φ(a|x_k,k)`, `ε̂_k = ε_{ψ_fixed}(x_k,k) + c_k a_k`, `x_{k-1} = Scheduler(x_k,ε̂_k,k)` 순서다. 중간 step에서는 simulator를 돌리지 않고 최종 `E`만 한 번 task rollout한다.
+Stage 2 목적은 `max_φ E[J(E,θ_fixed)]`, Stage 3 목적은 `max_{φ,θ} E[J(E,θ)]`이며 최종 Stage 3에서는 bank projection 대신 생성 RoboToken의 직접 MJX 평가가 필요하다.
 
 ### T8. Stage 3 진입 — Hardware–Policy Co-design
 
-T7에서 pretrained TT 대비 return 개선과 invalid·mode collapse 기준 통과가 확인된 뒤에만 `ψ`와 `π_θ`를 번갈아 갱신한다.
-`DDPO ψ → E → π_θ update → physics return → ψ update`를 반복하며 두 정책의 checkpoint를 round 단위로 보존한다.
+T7에서 pretrained TT 대비 return 개선과 invalid·mode collapse 기준 통과가 확인된 뒤, TT `ψ`는 계속 고정하고 `π_φ`와 `π_θ`를 분리된 timescale로 번갈아 갱신한다.
+`frozen TT ψ + π_φ → E → π_θ update → physics return → π_φ update`를 반복하며 두 학습 정책의 checkpoint를 round 단위로 보존한다.
 
 ### T9. Stage 3 효과 검증
 
@@ -512,24 +526,24 @@ broad topology, surrogate, Sim2Real 은 그 이후 확장으로 유지한다.
 
 ## 현재 우선순위
 
-**현재 T7 DDPO 전체 smoke → pretrained TT 대조 평가 → T8.** T2~T6는 완료했다.
-현재 핵심 목표는 **검증된 고정 locomotion policy 아래에서 실제 locomotion return만으로 DDPO-finetuned TT가 더 좋은 morphology를 생성하는지 확인하는 것**이다.
+**현재 T7C TT+RL-guidance smoke → unguided TT·DSG 대조 평가 → T8.** T2~T6는 완료했다.
+현재 핵심 목표는 **동일한 pretrained TT reverse process에서 DSG gradient만 RL residual action으로 교체했을 때 locomotion return이 개선되는지 확인하는 것**이다.
 
 ### 현재 실험 흐름
 
-`TT design space morphology sampling`
-→ `morphology-conditioned pi_theta locomotion 학습`
-→ `pi_theta freeze`
-→ `Noise + trainable TT ψ`
-→ `Final morphology E`
-→ `MJX locomotion rollout`
-→ `legged_robot episode return`
-→ `DDPO ψ update`
+`Gaussian noise x_T`
+→ `Frozen TT denoiser: 100-step reverse process`
+→ `All 100 steps: πφ residual replaces DSG gradient`
+→ `Final RoboToken hardware E`
+→ `Nearest-bank evaluator adapter`
+→ `Frozen πθ MJX rollout`
+→ `7-command mean episode return`
+→ `Critic regression + one πφ actor update`
 
 ### 이후 흐름
 
 `Stage 2 성공`
-→ `TT ψ + locomotion πθ co-design (Stage 3)`
+→ `Frozen TT ψ + morphology guidance πφ + locomotion πθ co-design (Stage 3)`
 → `multi-task`
 → `broad topology design space`
 → `One Hardware + One Multi-task Policy`

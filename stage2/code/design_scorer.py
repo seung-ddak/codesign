@@ -82,8 +82,10 @@ class DesignScorer:
         """Replace the first fixed-shape template slots with generated designs."""
         leaves, treedef = jax.tree.flatten(base)
         arrays = [np.array(x) for x in leaves]
-        for slot, (choices, seed) in enumerate(designs):
-            env = LocomotionEnv(list(choices), seed, hold_command=True, domain_rand=False)
+        for slot, (choices, parameters) in enumerate(designs):
+            kwargs = ({"seed": int(parameters)} if np.isscalar(parameters)
+                      else {"uniforms": parameters})
+            env = LocomotionEnv(list(choices), hold_command=True, domain_rand=False, **kwargs)
             values = jax.tree.leaves({name: getattr(env, name) for name in PER_DESIGN})
             for array, value in zip(arrays, values):
                 array[slot] = np.asarray(value)

@@ -44,6 +44,8 @@ T7 의 `--pi-theta` 는 **16 구조 키를 모두 학습한 run** 이어야 한�
 | `design_scorer.py` | T7 채점기 — 동결 π_θ 로 임의 TT 형상 return, 1 회 컴파일 |
 | `ddpo_hardware.py` | stochastic DDIM transition 기록과 clipped DDPO-IS |
 | `train_hardware_guidance.py` | T7 DDPO 실행 (trainable TT ψ + frozen πθ evaluator) |
+| `train_oneshot_morphology.py` | T7 one-shot RL — valid topology + 13 uniforms 직접 생성, frozen πθ 채점 |
+| `train_rl_denoiser_guidance.py` | T7 RL guidance — 동결 TT denoiser의 DSG gradient 자리를 `πφ` residual action으로 교체 |
 | `make_stage_report.py` | T6·T7 보고서 |
 | `chain_after_train.sh` · `chain_t6_t7.sh` · `run_t7.sh` | 자동 체인. 대기는 `tmux has-session -t =이름` (정확 일치) |
 | `diag_fall_modes.py` | 무입력 vs 무작위 행동 낙상 진단 |
