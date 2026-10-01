@@ -127,7 +127,8 @@ def t7(run, title):
     share = [(r["update"], sum(PLAIN_LEGS(d["choices"]) for d in r["designs"] if "invalid" not in d)
               / max(1, r["valid"])) for r in rows]
     first, last = rows[:10], rows[-10:]
-    avg = lambda rs, k: sum(r[k] for r in rs if r[k] is not None) / max(1, sum(r[k] is not None for r in rs))
+    # 유효 형상이 0 인 업데이트는 return 이 None 이다. 전부 None 이면 0.0 이 아니라 "—" 로 찍는다.
+    avg = lambda rs, k: (lambda v: f"{sum(v) / len(v):.1f}" if v else "—")([r[k] for r in rs if r[k] is not None])
     bits = lambda rs, b: sum(d["choices"][b] for r in rs for d in r["designs"] if "invalid" not in d) / max(
         1, sum(1 for r in rs for d in r["designs"] if "invalid" not in d))
     top = sorted(valid, key=lambda d: -(d["return"] or -1e9))[:10]
@@ -136,7 +137,7 @@ def t7(run, title):
             f"업데이트당 형상 {cfg.get('global_batch', cfg.get('batch'))}개.")
     sec = [("요약", tiles([
         ("업데이트", str(len(rows)), f"목표 {cfg['updates']}"),
-        ("평균 return", f"{avg(first, 'return_mean'):.1f} → {avg(last, 'return_mean'):.1f}", "처음 10 → 마지막 10 업데이트"),
+        ("평균 return", f"{avg(first, 'return_mean')} → {avg(last, 'return_mean')}", "처음 10 → 마지막 10 업데이트"),
         ("기본 다리 형상 비율", f"{pct(sum(s for _, s in share[:10]) / max(1, len(share[:10])))} → "
                             f"{pct(sum(s for _, s in share[-10:]) / max(1, len(share[-10:])))}", "bit 1~4 모두 0"),
         ("유효 형상 비율", pct(sum(r["valid"] for r in rows) / max(1, sum(len(r["designs"]) for r in rows))),

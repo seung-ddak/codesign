@@ -484,6 +484,10 @@ seed 간 분산보다 morphology 간 return 차이가 식별 가능한지 확인
 pretrained TT checkpoint를 초기 policy로 사용하고 100-step stochastic DDIM trajectory를 기록한다. 동결 `π_θ`의 실제 return으로 clipped DDPO-IS를 수행해 TT `ψ` 자체를 갱신한다.
 중간 denoising 에서는 physics 를 돌리지 않고 최종 E 만 동결 pi_theta 로 MJX rollout 한다.
 
+**T7_try6 (09-30, 50 업데이트, smoke2 설정): 실패.** update 26~49 유효 형상 0/32 → return 없음, 갱신 skip 으로 ψ 정지 (psi_0030=0040=0050).
+update 3·25 에서 approx_kl 3e-2 (평소 5e-5) 로 크게 이동, bit 1~5 전부 1 로 고정 후 bank 변환 불가. 붕괴 전 평균 return 59.5→60.7 추세 없음.
+invalid reward = 배치 최저 valid return 이라 벌점 없음. update 3 이동의 직접 원인은 미확인. 다음 조치는 사용자 결정 대기 (`stage2/runs/T7/try6/report.html`).
+
 ### T8. Stage 3 진입 — Hardware–Policy Co-design
 
 T7에서 pretrained TT 대비 return 개선과 invalid·mode collapse 기준 통과가 확인된 뒤에만 `ψ`와 `π_θ`를 번갈아 갱신한다.

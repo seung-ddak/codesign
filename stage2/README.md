@@ -65,5 +65,6 @@ T7 의 `--pi-theta` 는 **16 구조 키를 모두 학습한 run** 이어야 한�
 | `T7_smoke` | 구 residual 방식의 과거 연결 검사; DDPO 근거 아님 | `report.html` | [보고서](https://claude.ai/artifact/JGnqcAA2NJkyyJn2WVTpvv) |
 | `T7_try1` | 구 residual 방식·파일럿 π_θ 구조 키 부족 → ValueError | `report.html` | [보고서](https://claude.ai/artifact/4gFyWk2r7EqmMu3NXL3TqT) |
 | `T7_smoke2` | DDPO 3 업데이트 완주, return 62.4→54.6→59.8 추세 없음, 업데이트당 ~55 분 | `report.html` · `videos/` | [보고서](https://claude.ai/artifact/5Mpj1Rzfjr1jT4UDQR3mu7) |
+| `T7_try6` | DDPO 50 업데이트 실패. update 26 부터 유효 형상 0/32 (bank 변환 불가), ψ 갱신 정지. 붕괴 전 return 59.5→60.7 추세 없음 | `report.html` · `videos/` | [보고서](https://claude.ai/artifact/27KrVahfUiphGdysvepKEL) |
 
 그 외 `t5_screen_200it` · `t5_smoke_*` · `t5_a1_1000it` · `t5_lin5_200it` 는 T4/T5 조정 과정 기록 (remind D43~D47).
