@@ -1,4 +1,4 @@
-"""report.html for T6 (evaluator check) and T7 (TT DDPO training) runs, same styling as T5.
+"""report.html for T6 (evaluator check), T7 (TT DDPO training) and T8 (TaskEnv π_θ) runs, same styling as T5.
 
   python stage2/code/make_stage_report.py t6 --run stage2/runs/T6/try1 --title "T6 try1"
   python stage2/code/make_stage_report.py t7 --run stage2/runs/T7/try1 --title "T7 try1"
@@ -157,14 +157,64 @@ def t7(run, title):
     return page(title, "codesign · Stage 2 · T7 RL guidance 형상 생성", lede, sec)
 
 
+def t8(run, title):
+    """T8 TaskEnv π_θ: conditions, training curves, scenario eval (eval_task_policy.py), videos.
+    Optional <run>/notes.json = {"lede": str, "notes": [str]} (결과 먼저, 3 줄 이내)."""
+    cfg = json.loads((run / "config.json").read_text())
+    rows = [json.loads(x) for x in (run / "progress.jsonl").open()]
+    ev = json.loads(sorted(run.glob("eval_task_*.json"))[-1].read_text())
+    notes = json.loads((run / "notes.json").read_text()) if (run / "notes.json").exists() else {}
+    vids = json.loads((run / "videos/task_videos.json").read_text()) if (run / "videos/task_videos.json").exists() else []
+    a, ppo = cfg["args"], cfg["ppo"]
+    ep = [r for r in rows if "episode/length" in r]
+    curve = lambda k: [(r["step"], r.get(k)) for r in ep]
+    sc = ev["scenarios"]
+    lede = notes.get("lede", f"TaskEnv (지형·높이 측정·점프) 에서 π_θ 를 {rows[-1]['step']:,} step 학습했습니다.")
+    sec = [("요약", tiles([
+        ("학습 step", f"{rows[-1]['step']:,}", f"목표 {int(a['timesteps']):,} · env {ppo['num_envs']}"),
+        ("소요", f"{rows[-1]['wall_s'] / 60:.0f} 분", f"첫 기록까지 {rows[0]['wall_s'] / 60:.0f} 분 (컴파일 포함)"),
+        ("처리량", f"{sum(r.get('episode/sps', 0) for r in ep[-10:]) / max(1, len(ep[-10:])):,.0f} step/s", "마지막 10 기록 평균"),
+        ("에피소드 길이", f"{ep[0]['episode/length']:.0f} → {ep[-1]['episode/length']:.0f}", f"최대 {1000} step (20 s)")]
+        + [(f"생존 · {k}", pct(v["survived"]), f"평균 {v['steps']:.0f} step") for k, v in sc.items()])),
+        ("조건", table(["항목", "값"], [
+            ["env", "TaskEnv — legged_gym rough terrain (Q16 a) + 높이 측정 187 점 + 점프 (Q17 b), obs 257"],
+            ["형상", f"{cfg['designs']} 개 ({cfg['groups']} 구조 그룹), choice 당 seed {a['seeds_per_choice']}"],
+            ["PPO", f"env {ppo['num_envs']} · unroll {ppo['unroll_length']} · lr {ppo['learning_rate']} · desired_kl {ppo.get('desired_kl')}"],
+            ["학습 DR", "관측 노이즈 · push · 마찰 (legged_gym 원본)"],
+            ["평가", f"DR 끔 · 명령 고정 20 s · 계단 난이도 {ev['level']} (단 {0.05 + 0.018 * ev['level']:.3f} m) · seed {ev['seed']}"],
+            ["checkpoint", html.escape(Path(ev["checkpoint"]).name)]])),
+        ("학습 곡선", '<div class="charts">'
+         + line_svg([("에피소드 길이", "--s1", curve("episode/length"))], "에피소드 길이 (step)")
+         + line_svg([("합계 보상", "--s2", curve("episode/sum_reward"))], "에피소드 합계 보상")
+         + line_svg([("jump_air", "--s1", curve("episode/jump_air")), ("jump_height", "--s3", curve("episode/jump_height"))],
+                    "점프 보상 항 (에피소드 합)")
+         + line_svg([("tracking_lin_vel", "--s2", curve("episode/tracking_lin_vel"))], "선속도 추종 보상 (에피소드 합)")
+         + "</div>"),
+        ("시나리오 평가 (형상 평균)", table(
+            ["시나리오", "생존", "평균 step", "명령 방향 이동", "회전", "지면 높이 변화", "점프 최고 상승", "네 발 공중 비율"],
+            [[k, pct(v["survived"]), f"{v['steps']:.0f}",
+              f"{v['progress_m']:+.2f} / {v['asked_m']:.0f} m" if v["asked_m"] else "—",
+              f"{v['turn_rad']:+.2f} / {v['asked_turn_rad']:.0f} rad" if v["asked_turn_rad"] else "—",
+              f"{v['climb_m']:+.3f} m", f"{v['jump_rise_m']:.3f} m", pct(v["air_frac"])] for k, v in sc.items()]))]
+    if vids:
+        sec.append(("영상 (시나리오별 중앙값 형상)", '<div class="charts">' + "".join(
+            f'<figure><figcaption>{html.escape(v["scenario"])} <span>· {v["choices"]} s{v["seed"]} · '
+            f'{v["steps"]:.0f} step · 이동 {v["progress_m"]:+.2f} m</span></figcaption>'
+            f'<video controls muted loop playsinline width="100%" src="videos/{html.escape(v["file"])}"></video></figure>'
+            for v in vids) + "</div>"))
+    if notes.get("notes"):
+        sec.append(("해석", "<ul>" + "".join(f"<li>{n}</li>" for n in notes["notes"]) + "</ul>"))
+    return page(title, "codesign · Stage 2 · T8 통합 π_θ", lede, sec)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("stage", choices=("t6", "t7"))
+    p.add_argument("stage", choices=("t6", "t7", "t8"))
     p.add_argument("--run", type=Path, required=True)
     p.add_argument("--title", required=True)
     args = p.parse_args()
     run = args.run.resolve()
-    (run / "report.html").write_text((t6 if args.stage == "t6" else t7)(run, args.title))
+    (run / "report.html").write_text({"t6": t6, "t7": t7, "t8": t8}[args.stage](run, args.title))
     print(f"wrote {run / 'report.html'}")
 
 

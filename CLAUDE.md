@@ -1,6 +1,6 @@
 # codesign 작업 규칙 (Claude 용)
 
-다른 PC 에서 이어받을 때 이 파일 → `remind.md` (§0 · §1 D 표 · TODO T5~T7) → `stage2/README.md` 순서로 읽는다.
+다른 PC 에서 이어받을 때 이 파일 → `remind.md` (§0 단계표 · §2 열린 안건 · TODO T8) → `stage2/README.md` 순서로 읽는다.
 
 ## 기록
 - 정본은 `remind.md`. 결정 = §1 D 번호, 결과 = 해당 TODO 항목. **항목마다 결과를 먼저, 3 줄 이내**, 긴 산문 금지.

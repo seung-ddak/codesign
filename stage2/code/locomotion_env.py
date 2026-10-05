@@ -105,6 +105,13 @@ def wrap_to_pi(angle):
 
 class LocomotionEnv(MjxEnv):
     action_size = NUM_LEG_ACTUATORS
+    add_plane = True  # TaskEnv replaces the plane by the terrain heightfield
+
+    def add_terrain(self, scene):
+        pass
+
+    def finish_model(self, m):
+        pass
 
     def __init__(self, choices, seed=None, command_ranges=COMMAND_RANGES, add_noise=True,
                  hold_command=False, domain_rand=True, uniforms=None):
@@ -132,13 +139,14 @@ class LocomotionEnv(MjxEnv):
                 raise ValueError("Expected 13 finite morphology uniforms in [0, 1]")
         robot = umi_on_legs_plus_plus_from_params(
             choices=copy.copy(choices), uniforms=uniforms.tolist())
-        scene = set_up_default_scene(robot, add_plane=True, plane_z_pos=0.0)
+        scene = set_up_default_scene(robot, add_plane=self.add_plane, plane_z_pos=0.0)
+        self.add_terrain(scene)
         self.mj_model = m = compile_scene(scene)
         # TT MjxTrackEnv.preprocess_mj_model: only spheres (feet) and the floor collide.
         m.opt.timestep, m.opt.impratio = SIM_DT, IMPRATIO
         m.opt.iterations, m.opt.ls_iterations = ITERATIONS, LS_ITERATIONS
-        collide = ((m.geom_type == mujoco.mjtGeom.mjGEOM_SPHERE) |
-                   (m.geom_type == mujoco.mjtGeom.mjGEOM_PLANE))
+        ground = np.isin(m.geom_type, (mujoco.mjtGeom.mjGEOM_PLANE, mujoco.mjtGeom.mjGEOM_HFIELD))
+        collide = (m.geom_type == mujoco.mjtGeom.mjGEOM_SPHERE) | ground
         m.geom_contype[:] = m.geom_conaffinity[:] = collide
         bodies = [m.body(i).name for i in range(m.nbody)]
         find = lambda names: np.array([i for i, b in enumerate(bodies)
@@ -153,7 +161,7 @@ class LocomotionEnv(MjxEnv):
         # the floor only, leaving TT's sphere contacts unchanged.
         contact_only = np.isin(m.geom_bodyid, np.r_[self.terminate, self.penalised])
         m.geom_contype[contact_only], m.geom_conaffinity[contact_only] = 2, 0
-        m.geom_conaffinity[m.geom_type == mujoco.mjtGeom.mjGEOM_PLANE] = 3
+        m.geom_conaffinity[ground] = 3
         free = np.flatnonzero(m.jnt_type == mujoco.mjtJoint.mjJNT_FREE)
         if len(free) != 1:
             raise ValueError("Expected one floating base")
@@ -185,6 +193,7 @@ class LocomotionEnv(MjxEnv):
             jp.zeros(n), jp.zeros(self.morphology.size)])
         self.contact_bodies = jp.array(np.r_[self.feet, self.penalised, self.terminate])
         self.geom_body = jp.array(m.geom_bodyid)
+        self.finish_model(m)
         self.mjx_model = mjx.put_model(m, impl="jax")
 
     def sample_command(self, rng):

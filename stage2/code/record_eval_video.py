@@ -86,6 +86,9 @@ def add_command_arrow(scene, data, command):
 
 def record(env, qpos, command, n, path, width=640, height=480):
     m = marked_model(env.mj_model)
+    # Near/far clipping and fog scale with the model extent; the TaskEnv heightfield (130 x 210 m)
+    # would clip the robot at the 2.2 m tracking distance.
+    m.stat.extent = min(m.stat.extent, 3.)
     data = mujoco.MjData(m)
     opt = mujoco.MjvOption()
     opt.geomgroup[3] = 1  # TT body and leg capsules are in group 3.

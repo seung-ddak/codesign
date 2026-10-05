@@ -7,7 +7,7 @@
 - `stage2/code/train_oneshot_morphology.py`: topology categorical + 13개 Beta distribution, horizon-1 PPO, 기록과 checkpoint 저장
 - `stage2/code/locomotion_env.py`: 기존 `(choices, seed)`와 직접 `(choices, uniforms)` 입력을 모두 지원
 - `stage2/code/design_scorer.py`: direct uniforms로 만든 바로 그 형상을 동결 `πθ`와 7개 고정 명령으로 평가
-- `architecture/t7_oneshot_morphology/one_shot_morphology.html`: 전체 workflow 다이어그램
+- `one_shot_morphology.html`: 전체 workflow 다이어그램
 
 TT decoder, 100-step denoising, RoboToken nearest-bank projection은 사용하지 않는다. Canonical generator가 열거한 `8-bit + 13-uniform` 형상 128개 topology만 허용하므로 형상은 항상 기존 4족 보행 범위 안에서 생성된다.
 

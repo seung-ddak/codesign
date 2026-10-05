@@ -15,7 +15,7 @@ import numpy as np
 from mujoco import mjx
 
 from t2.mjx_env.base_env import make_data
-from locomotion_env import (EPISODE_STEPS, PUSH_STEPS, RESAMPLE_STEPS, LocomotionEnv,
+from locomotion_env import (EPISODE_STEPS, ONLY_POSITIVE_REWARDS, PUSH_STEPS, RESAMPLE_STEPS, LocomotionEnv,
                             quat_rotate)
 
 
@@ -49,7 +49,7 @@ def main():
             assert int(state.info["episode_step"]) == 760
             assert np.isfinite(np.asarray(state.obs)).all() and np.isfinite(height).all()
             assert (commands[RESAMPLE_STEPS - 2, [0, 1, 3]] != commands[RESAMPLE_STEPS - 1, [0, 1, 3]]).any()
-            assert np.isfinite(reward).all() and (reward >= 0).all()  # only_positive_rewards
+            assert np.isfinite(reward).all() and (not ONLY_POSITIVE_REWARDS or (reward >= 0).all())
             # Calf contact is a collision penalty (-1 * dt per body), not a termination.
             assert (collision < 0).sum() > 100 and not done.any(), ((collision < 0).sum(), done.any())
             assert height.min() > 0.1, "trunk sank"

@@ -34,8 +34,7 @@ wget -qO- https://real.stanford.edu/transformer-transformer/rl_policies.zip | bs
 ## 3. 보행 궤적 (우리가 합성한 것)
 
 `data/flat_walk_long.pkl` — 팔 끝점 목표를 +x 로 등속 이동시키는 합성 궤적 3 개
-(traj 0/1/2 = 1 m / 2 m / 3 m 이동). **이 저장소에 없으면** `code/` 의 생성 절차를 참고해
-다시 만들거나, 기존 머신에서 복사한다 (384 KB).
+(traj 0/1/2 = 1 m / 2 m / 3 m 이동). Stage 1 전용이며 사본은 `archive/stage1/assets/flat_walk_long.pkl` (384 KB).
 
 ## 4. 우리 코드 얹기
 
@@ -60,34 +59,16 @@ cd "$CODESIGN" && source env.sh          # CODESIGN_ROOT / CODESIGN_TT 설정
 기본값은 "이 저장소가 `<어디든>/codesign`, TT 레포가 그 옆 `<어디든>/transformer-transformer`"
 다. 다르게 두려면 `export CODESIGN_TT=/실제/경로` 를 먼저 하면 된다.
 
-## 5. 동작 확인
+## 5. Stage 1 (완료, 보관) 재현
+
+Stage 1 코드·결과는 `archive/stage1/` 에 있다. 폴더 깊이가 바뀌었으므로 **반드시 `source env.sh` 후** 실행한다 (`CODESIGN_ROOT` 로 경로를 잡는다).
 
 ```sh
 cd "$CODESIGN" && source env.sh && cd "$CODESIGN_TT"
-# ① TT 행 재현 — Pos Err 2.6~3.0 cm / Survival 99.4 % 근처면 배선 정상 (약 55 분)
-bash "$CODESIGN/code/repro_table4_TT.sh" 16
-
-# ② 2 단 reward 채점기 — 설계 2 개를 굴려 score 를 낸다 (약 40 초)
-.venv/bin/python "$CODESIGN/archive/eval_design_d22.py"
+bash "$CODESIGN/archive/stage1/code/repro_table4_TT.sh" 16      # TT 행 재현, Pos Err 2.6~3.0 cm / Survival 99.4 % (약 55 분)
 ```
 
-## 6. 끊긴 π_θ fine-tune 이어하기 (2026-09-21)
-
-`runs/pi_theta_RL4/checkpoint_40697856/` 가 **40 M step 까지 돈 결과물**이다 (2 MB, orbax).
-`runs/pi_theta_RL4/README.md` 에 epoch 별 수치가 있다. 이어 돌리려면:
-
-```sh
-source env.sh
-MUJOCO_GL=egl bash "$CODESIGN/archive/finetune_pi_theta.sh" \
-  "$CODESIGN/assets/design_RL_best.zarr" \
-  "$CODESIGN_ROOT/runs/pi_theta_RL4/checkpoint_40697856" 40000000
-```
-
-처음부터(출고 expert) 다시 할 거면 두 번째 인자를
-`$CODESIGN_TT/umi_on_legs_plus_plus_rl_policies_11nov2025/run-20251110_145212-z08g0hc7/files/checkpoints/4006084608`
-로 준다. **단 40 M 결과가 baseline 보다 나빴다** — remind.md §5.25 를 먼저 읽을 것.
-
-## 7. Stage 2 이어하기 (2026-09-28)
+## 6. Stage 2 이어하기 (2026-09-28)
 
 폴더 배치 — 스크립트가 서로를 상대경로로 찾으므로 **세 개를 같은 부모 아래** 둔다.
 
@@ -98,7 +79,7 @@ MUJOCO_GL=egl bash "$CODESIGN/archive/finetune_pi_theta.sh" \
 ```
 
 - 텔레그램 알림을 쓰려면 `~/.config/telegram_bot.env` 에 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 를 넣는다 (git 에 없음). 없으면 `TMUX_RUN_NOTIFY=0`.
-- 동결 π_θ 체크포인트(T5_try1, t5_norail_x3_1000it 마지막 step)는 git 에 들어 있다. 다른 step 은 없다.
+- 동결 π_θ 체크포인트는 `stage2/runs/T5/try1/checkpoints/000024576000` 하나만 git 에 있다.
 - 동작 확인 (codesign/ 에서):
 
 ```sh
@@ -115,22 +96,11 @@ MUJOCO_GL=egl $P stage2/code/test_multi_design_env.py                # 구조 �
 ## 실행 규칙
 
 모든 학습·평가는 **tmux** 에서 돌린다 (nohup 금지). 기존 머신에서는
-`bash ../scripts/tmux_run.sh <세션> "<명령>"` (§7 배치).
+`bash ../scripts/tmux_run.sh <세션> "<명령>"` (§6 배치).
 
-## 주요 스크립트
+## 폴더 위치
 
-`env.sh` 를 source 한 뒤에는 `code/` 의 스크립트를 어느 디렉터리에서 호출해도 된다.
-
-| 파일 | 하는 일 |
-|---|---|
-| `repro_table4_TT.sh` / `repro_table4_RL.sh` | 논문 Table 4 의 TT 행 / RL 행 |
-| `train_pi_phi_critic.py` | π_φ 학습 (critic, `∇_a Q`) |
-| `guidance_effect.py` | guidance 효과 크기 쌍대 측정 |
-| `walk_reward.py` | **2 단 reward** (접촉 종료 + 전진 진척도) |
-| `eval_design_d22.py` | 설계 하나를 expert 로 굴려 채점 |
-| `extract_best_designs.py` → `enumerate_design_store.py` → `finetune_pi_theta.sh` | 생성 설계 → 단일 설계 store → π_θ fine-tune |
-| `compare_tt_rl_sim.py` | TT/RL 형상을 한 화면에서 비교 (색 구분·깊이 합성) |
-| `contact_audit.py` · `posture_audit.py` | 접촉·자세 진단 |
+현재 코드는 `stage2/code/` 뿐이다. 종료된 경로는 `archive/` 에 있다 — `stage1/` (TT vs RL tracking guidance), `stage3_coevolution/` (구 공진화), `t7/` (RL 형상 생성). 실행하려면 `source env.sh` 가 필요하다.
 
 ## 함정 (겪은 것들)
 

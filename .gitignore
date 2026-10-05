@@ -9,14 +9,15 @@ umi_on_legs_plus_plus_robotokens/
 umi_on_legs_plus_plus_rl_policies*/
 *.zip
 
-# 학습 실행 중 생성되는 체크포인트와 로그 (Stage 1 루트 runs/ 만. stage2/runs/ 는 추적)
-/runs/
-# Stage 3 공진화 결과도 checkpoint를 포함하므로 폴더 표지만 추적한다.
-/stage3/runs/*
-!/stage3/runs/.gitkeep
 # Telegram 전용 사본 (videos/ 를 inline 한 중복본)
 report_tg.html
 
-# T7: DDPO 임시 trajectory 와 ψ 체크포인트(137 MB, GitHub 100 MB 한도 초과)는 추적하지 않는다
+# 대용량 학습 산출물 (GitHub 100 MB 한도)
 stage2/runs/**/buffer/
 stage2/runs/**/psi_*.pt
+# pytest
+.pytest_cache/
+stage2/runs/T8/**/batch_*.npz
+stage2/runs/**/rollout_*.npz
+# Archify visual-check 부산물
+*.visual-check.*

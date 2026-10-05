@@ -33,7 +33,7 @@ from brax.training import logger as metric_logger
 from brax.training.agents.ppo import networks
 
 from locomotion_env import (ACTION_SCALE, COMMAND_RANGES, EPISODE_STEPS, ONLY_POSITIVE_REWARDS,
-                            REWARD_SCALES, TERMINATE_AFTER_CONTACTS_ON)
+                            REWARD_SCALES, TERMINATE_AFTER_CONTACTS_ON, LocomotionEnv)
 from multi_design_env import MultiDesignEnv, structure_key
 from t2.mjx_env import train as ppo
 
@@ -75,6 +75,8 @@ def main():
     p.add_argument("--checkpoints", type=int, default=30)
     p.add_argument("--max-groups", type=int, help="smoke tests only")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--env", choices=("flat", "task"), default="flat",
+                   help="flat = T5 LocomotionEnv, task = T8 TaskEnv (terrain + height scan + jump)")
     args = p.parse_args()
     out = (LAUNCH_DIR / args.out).resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -92,7 +94,10 @@ def main():
     (out / "designs.json").write_text(json.dumps(groups))
 
     t = time.time()
-    env = MultiDesignEnv(groups, EPISODE_STEPS)
+    env_cls = LocomotionEnv
+    if args.env == "task":
+        from task_env import TaskEnv as env_cls
+    env = MultiDesignEnv(groups, EPISODE_STEPS, env_cls=env_cls)
     print(f"built {config['designs']} designs in {len(groups)} groups: {time.time() - t:.0f}s", flush=True)
 
     log = (out / "progress.jsonl").open("a")

@@ -36,11 +36,18 @@ def structure_key(choices):
 class DesignGroupEnv:
     """Batched env over K designs of one structure group (reset/step take a batch)."""
 
-    def __init__(self, designs, **env_kwargs):
+    def __init__(self, designs, env_cls=LocomotionEnv, **env_kwargs):
         # T6 진단: 형상별 모델 생성, body/contact 불일치, 그룹 검증 오류는 정책 rollout 전에
         # 이 생성자에서 발생한다.
-        self.envs = [LocomotionEnv(list(c), s, **env_kwargs) for c, s in designs]
+        self.envs = [env_cls(list(c), s, **env_kwargs) for c, s in designs]
         base = self.env = self.envs[0]
+        self.n_designs = len(self.envs)
+        # TaskEnv: every design shares one terrain heightfield. Stack a placeholder and put the single
+        # copy back per call, otherwise stacking and the per-env gather copy it per design / env.
+        self.hfield = getattr(base, "hfield", None)
+        if self.hfield is not None:
+            for e in self.envs:
+                e.mjx_model = e.mjx_model.replace(hfield_data=jp.zeros(1))
         for e in self.envs[1:]:
             for name in ("home", "ctrl", "contact_bodies", "geom_body", "dof_pos_limits"):
                 if not np.array_equal(np.asarray(getattr(e, name)), np.asarray(getattr(base, name))):
@@ -54,10 +61,13 @@ class DesignGroupEnv:
             jax.tree.structure(getattr(base, name)),
             [jp.stack(x) for x in zip(*[jax.tree.leaves(getattr(e, name)) for e in self.envs])])
             for name in PER_DESIGN}
+        if self.hfield is not None:
+            self.envs = self.envs[:1]  # each MjModel holds its own CPU heightfield copy
+            self.env.mjx_model = self.env.mjx_model.replace(hfield_data=self.hfield)
         self.action_size, self.observation_size = base.action_size, base.observation_size
 
     def _vmapped(self, fn, n, *args):
-        index = jp.arange(n) % len(self.envs)
+        index = jp.arange(n) % self.n_designs
         designs = jax.tree.map(lambda x: x[index], self.designs)
         # domain_rand.randomize_friction: one coefficient per env slot, fixed for the run.
         # MuJoCo takes the max of the two geoms, so every geom (floor included) gets it.
@@ -66,9 +76,13 @@ class DesignGroupEnv:
         def call(design, mu, *a):
             saved = {name: getattr(self.env, name) for name in PER_DESIGN}
             model = design["mjx_model"]
+            if self.hfield is not None:
+                model = model.replace(hfield_data=self.hfield)
             if self.env.domain_rand:
                 design = {**design, "mjx_model": model.replace(
                     geom_friction=model.geom_friction.at[:, 0].set(mu))}
+            else:
+                design = {**design, "mjx_model": model}
             try:
                 for name, value in design.items():
                     setattr(self.env, name, value)
