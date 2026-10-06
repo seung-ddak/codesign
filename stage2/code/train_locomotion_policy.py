@@ -1,10 +1,13 @@
-"""T5: pre-train the morphology-conditioned locomotion policy pi_theta(o, E, command).
+"""Train the T8 morphology- and task-conditioned policy pi_theta(o, E, command).
 
 PPO settings follow legged_gym LeggedRobotCfgPPO where brax PPO has an equivalent:
 actor/critic [512, 256, 128] elu, Gaussian with init std 1.0, 24 steps/env per update,
 4 minibatches x 5 epochs, lr 1e-3, entropy 0.01, gamma 0.99, lambda 0.95, clip 0.2,
 grad norm 1.0, 4096 envs, 1500 iterations, adaptive-KL learning rate (desired_kl 0.01, added
 to TT t2/mjx_env/train.py 2026-09-27). Not reproduced: clipped value loss.
+
+Environment, observation, reward and terrain settings live in task_env.py. This file owns only
+design sampling and PPO/network/training settings.
 
 Designs: every one of the 128 bank choices x --seeds-per-choice bank seeds (Q10).
 """
@@ -32,9 +35,9 @@ import numpy as np
 from brax.training import logger as metric_logger
 from brax.training.agents.ppo import networks
 
-from locomotion_env import (ACTION_SCALE, COMMAND_RANGES, EPISODE_STEPS, ONLY_POSITIVE_REWARDS,
-                            REWARD_SCALES, TERMINATE_AFTER_CONTACTS_ON, LocomotionEnv)
-from multi_design_env import MultiDesignEnv, structure_key
+from task_env import (ACTION_SCALE, COMMAND_RANGES, EPISODE_STEPS, ONLY_POSITIVE_REWARDS,
+                      TASK_REWARD_SCALES, TERMINATE_AFTER_CONTACTS_ON, make_training_env,
+                      structure_key)
 from t2.mjx_env import train as ppo
 
 # TT train.py calls update_episode_metrics without the train_metrics argument that the
@@ -75,8 +78,7 @@ def main():
     p.add_argument("--checkpoints", type=int, default=30)
     p.add_argument("--max-groups", type=int, help="smoke tests only")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--env", choices=("flat", "task"), default="flat",
-                   help="flat = T5 LocomotionEnv, task = T8 TaskEnv (terrain + height scan + jump)")
+    p.add_argument("--env", choices=("task",), default="task", help=argparse.SUPPRESS)
     args = p.parse_args()
     out = (LAUNCH_DIR / args.out).resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -86,7 +88,7 @@ def main():
     config = {"args": {k: str(v) for k, v in vars(args).items()}, "ppo": ppo_kw,
               "network": {**NETWORK, "activation": "elu"}, "episode_steps": EPISODE_STEPS,
               "action_scale": ACTION_SCALE, "only_positive_rewards": ONLY_POSITIVE_REWARDS,
-              "reward_scales_x_dt": REWARD_SCALES, "command_ranges": COMMAND_RANGES,
+              "reward_scales_x_dt": TASK_REWARD_SCALES, "command_ranges": COMMAND_RANGES,
               "terminate_after_contacts_on": TERMINATE_AFTER_CONTACTS_ON,
               "groups": len(groups), "designs": sum(map(len, groups)),
               "jax_devices": [str(d) for d in jax.devices()]}
@@ -94,10 +96,7 @@ def main():
     (out / "designs.json").write_text(json.dumps(groups))
 
     t = time.time()
-    env_cls = LocomotionEnv
-    if args.env == "task":
-        from task_env import TaskEnv as env_cls
-    env = MultiDesignEnv(groups, EPISODE_STEPS, env_cls=env_cls)
+    env = make_training_env(groups)
     print(f"built {config['designs']} designs in {len(groups)} groups: {time.time() - t:.0f}s", flush=True)
 
     log = (out / "progress.jsonl").open("a")

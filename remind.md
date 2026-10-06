@@ -1,117 +1,195 @@
-# TT 확장 연구 — 결정·실험 기록 (remind)
+# Morphology–Behavior Co-design 연구 정본
 
-> **정본.** §1 에는 **지금 유효한 결정만** 둔다 (번호는 원래 D 번호 유지). 대체·폐기된 결정과 이전 결과 원문은 `archive/remind_history.md`.
-> **서술 규칙 (2026-09-21 사용자 지시): 모든 항목은 결과부터 쓰고 3 줄 이내.** 긴 산문 금지.
->
-> 현재 위치 `codesign/remind.md` · 이전 기록 `RL/Transformer_Transformer_연구계획_파이프라인_변천사.md`
-> · 원 논문 코드 https://github.com/seung-ddak/transformer-transformer · 기존 BO co-design `quad/daily.md`
+> 2026-10-06 기준 현재 방향만 기록한다. 폐기된 결정과 과거 실험 원문은 `archive/remind_history.md`에 둔다.
+> 신규 작업은 T번호나 stage 폴더를 만들지 않고 `code/`에서 진행한다.
 
----
+## 1. 연구 질문
 
+여러 4족 로봇 형상에서 수집한 범용 dynamics 경험을 학습한 Transformer-Transformer(TT)가, 학습 중 명시적으로 보지 않은 복합 task reward만으로 **형상과 action trajectory를 공동 생성**할 수 있는가?
 
-## 0. 목적 (2026-10-05 개정, D63)
+- 최종 생성물: morphology `E*`, action trajectory `A*`, 예측 state trajectory `S*`
+- 최종 검증: 같은 `(E*, s0, A*)`를 실제 MJX에서 실행해 예측 reward와 실제 reward 비교
+- 범위: 시뮬레이션만 사용하며 실물 제작·Sim2Real은 제외
+- 생성 형상 전용 PPO fine-tuning은 우선 진행하지 않음
+- 생성된 것은 폐루프 정책 `π*`가 아니라 유한 길이 morphology-specific action trajectory임
 
-**연구 질문:** 형상·task command·state·action을 함께 학습한 TT로, 새 task reward의 gradient를 형상 토큰에 적용해 **sim 없이** 그 task에 맞는 형상을 생성할 수 있는가.
-TT 원본 DSG 구조로 돌아가되, 데이터는 UMI 시연이 아니라 **형상 조건부 보행 정책 π_θ의 rollout**, 조건은 **task command**다. 최종 형상은 반드시 MJX + π_θ로 재채점한다.
+## 2. 전체 파이프라인
 
-| 단계 | 할 일 | 통과 기준 | 상태 |
-|------|-------|-----------|------|
-| **R1 데이터 수집** | 동결 T5 π_θ로 128 family (Q12) × family 당 continuous 형상 N 개 × 7 command rollout. (형상·command·시작 state·H-step state/action chunk·return) 저장 | 형상 간 return 차이가 seed 분산보다 큼 | **다음 작업** |
-| **R2 TT 학습** | command 조건, 형상 + chunk 동시 denoise. 시작 state inpainting 고정 | **held-out 형상 예측 reward ↔ 실제 MJX return 순위상관 ≥ 0.8** | 대기 |
-| **R3 기존 reward guidance** | 형상 토큰에만 gradient, 결과 MJX 재채점 | 실제 return > unguided | 대기 |
-| **R4 새 reward guidance** | 학습에 안 쓴 reward(command 공간 안)로 sim 0 회 생성 → 재채점 | baseline 비교 우세 (§4) | 대기 |
-| **R5 반복 round (co-design)** | guided 형상 주변 π_θ fine-tune → rollout 추가 → TT 재학습 | round 마다 실제 return ↑, 예측-실제 차이 ↓ | 대기 (= Stage 3) |
-| **R6 확장** | topology | — | 후속 |
+| 순서 | 작업 | 핵심 산출물 | 통과 기준 |
+|---:|---|---|---|
+| 1 | 동작별 expert policy 구성 | locomotion·jump·stairs expert | 각 expert의 primitive gate 통과 |
+| 2 | expert 전환 rollout 수집 | primitive 및 transition trajectory | 성공·실패·회복 전환이 모두 포함됨 |
+| 3 | 여러 morphology·terrain의 rollout 통합 | morphology–state–action–next-state 데이터셋 | 형상·상태·행동·접촉 분포가 충분히 다양함 |
+| 4 | TT joint dynamics 학습 | `p(E, S, A | s0, terrain)` 생성 모델 | held-out one-step·H-step 예측 gate 통과 |
+| 5 | 보지 못한 복합 task reward guidance | guided `(E*, A*, S*)` | predicted reward가 unguided보다 높음 |
+| 6 | 실제 MJX 재실행 | 실제 trajectory와 task reward | 실제 reward가 baseline보다 높고 예측-실제 gap 허용 범위 |
 
-**gate 를 못 넘으면 다음 단계로 가지 않는다.** R2 실패 시 H·N·시작 state 고정부터 바꾸고, return 직접 예측 surrogate 와 비교한다.
+gate를 통과하지 못하면 다음 순서로 넘어가지 않는다. TT 예측이 실패하면 guidance보다 데이터 coverage와 horizon부터 수정한다.
 
----
+## 3. Dynamics 수집용 expert policy
 
-## 1. 현재 유효한 결정
+하나의 범용 정책을 계속 확장하지 않는다. 동작별 expert를 독립적으로 학습하고, 이를 전환하며 dynamics 데이터를 수집한다. expert는 최종 산출물이 아니라 다양한 물리 상태를 만드는 behavior policy다.
 
-| # | 결정 |
-|---|------|
-| D63 | **2026-10-05 연구 방향 (사용자 결정).** 형상 + command + state·action 을 학습한 TT 의 reward gradient 로 형상 생성 (§0 R1~R6). T7 RL 형상 생성(DDPO·one-shot·residual)은 종료 |
-| D1·D2 | reference motion 없이 **task 결과가 reward**. noise → denoising → 형상 생성 틀 유지 |
-| D7·D13·D14 | 최종 산출물 = **시뮬 상의 (E\*, π\*)**. 시뮬레이터 = **MJX**. 실물 제작·Sim2Real 제외 |
-| D35·D49 | 형상 공간 = TT `umi_on_legs_plus_plus` 다리 형상, **팔·레일 제거** (bit 5·팔 위치 uniform 무효). A1 URDF 미사용, legged_gym 은 reward·obs·PPO 구조만 참고 (D37) |
-| D36·D44·D45·D47·D50 | 보행 reward = legged_gym 원본 + A1 override + only_positive False + tracking_lin_vel ×3 · tracking_ang_vel ×3 (1.5) |
-| D38·D54 | π_θ = 형상 조건부 보행 정책, **T5_try1 checkpoint 동결** (정량 게이트 미달은 한계로 유지) |
-| D51·D52 | 평가·채점 = **대칭 고정 명령 7 개**, 각 20 s, DR 끔. 학습 command 는 원본 무작위 range (Q9). 원칙: 원본 따르기 + 가장 단순·빠른 검증 |
-| D56 | 채점 단위 = 구체 morphology (choice + continuous). T6 기준: 반복 순위상관 ≥ 0.8, 반복 평균 ≥ T5 seen × 0.9 |
-| D55 | 새 작업은 Ponytail full, 착수 시 Archify 다이어그램 + README 를 `artifacts/<작업명>/` 에 둔다 |
-| D24 | 동결 π_θ 로 잰 형상 점수는 하한선 (`J(E,θ_고정) ≤ max_θ J`) → R5 에서 완화 |
-| 운영 | 학습은 `MUJOCO_GL=egl` 필수 |
+| Expert | 초기화·학습 범위 | 성공 기준 |
+|---|---|---|
+| Locomotion | T5를 257차원 관측으로 이식한 step-0 checkpoint를 동결 | 기존 7개 command의 생존·이동·회전 성능 유지 |
+| Jump | T5에서 별도 분기하여 점프·착지 중심으로 학습 | 몸통 상승, 네 발 공중, 안정적 착지 후 생존 |
+| Stairs | 별도 분기하고 낮은 계단부터 curriculum 적용 | 계단 진입·오르기·내리기 및 몸통 비접촉 생존 |
 
----
+공통 원칙은 다음과 같다.
 
-## 2. 열린 안건
+- expert 사이에 action space, robot state, morphology 표현을 동일하게 유지한다.
+- Jump Expert는 정지 상태뿐 아니라 이동 중 점프와 착지를 포함한다.
+- Stair Expert는 계단 위 동작뿐 아니라 평지에서의 진입과 평지 복귀를 포함한다.
+- 정책이 전환되어도 MJX state를 reset하지 않고 연속으로 전달한다.
+- 작은 action perturbation과 실패·충돌·회복 상태도 수집한다.
+- 계단은 task ID만으로 처리하지 않고 terrain height observation을 사용한다.
 
-| Q | 안건 | 상태 |
-|---|------|------|
-| **Q18** | R2 TT: 구조·학습 코드만 재사용해 새로 학습 (A, 권장) vs 사전학습 TT `xrh4wk4l/040.pt` 미세조정 (B, RoboToken·bank 변환 문제 재발) | 미정 — R2 진입 시 결정 |
-| **Q19** | RTX 4070 SUPER (12 GB, Ubuntu 22.04, 드라이버 575) 에서 R1~R4 진행 가능 여부 | 조건부 가능 — 시스템 Python 3.8·torch 2.1 대신 uv `.venv` (py3.12) 사용, **RAM ≥ 32 GB** 필요 (컴파일 최대 25~28 GB 실측). RAM 확인 대기, 1024 env 학습 GPU 최대 사용량은 T8_pi_try1 에서 측정 |
-| Q6 · Q8 | multi-task reward 합성식 · topology 확장 범위 | R6 이후 |
+### T5 가중치 이식 규칙
 
-**결정됨 (10-05):** Q12 R1 family = **128 개 전부** · Q13 R1 = **5 시간 안** (`--hours 4.5`, 형상 수 N 은 처리량으로 결정, seed 1, 에피소드 전체 저장 → H 는 R2 에서 선택) · Q14 task = **① 최고 속도 달리기 ② 최고 높이 점프 ③ 계단 극복** (②③ 은 현재 π_θ 데이터에 없음 → Q15).
-**결정됨 (10-05, 2 차):** Q15 = **B** — 통합 π_θ (보행·회전 + 점프 + 계단) 를 먼저 학습한 뒤 R1 을 한 번에 수집. Q16 = **a** — 계단 = legged_gym 원본 rough terrain (5 종 비율·커리큘럼·높이 측정 187 점) 그대로. Q17 = **b** — 점프 = 플래그 command (확률 0.2) + 네 발 공중 보상 + 몸통 상승 보상, 점프 중 lin_vel_z 페널티 끔 (legged_gym 에 없어 D36 예외).
-**결정됨 (10-05, 3 차):** π_θ 본 학습 = **A** — T5_try1 규모로 처음부터 (T5 가중치 재사용 안 함). 보행·회전·점프·계단을 정책 하나로 학습 (TaskEnv 가 command·지형을 섞음).
+Jump·Stair Expert의 관측이 T5보다 확장될 때 기존 69차원 입력에 해당하는 가중치는 복사한다. 새 jump trigger·terrain height 입력의 첫 layer 가중치는 0으로 두고, observation normalization은 mean 0·variance 1로 초기화한다. 따라서 추가 학습 전에는 새 입력이 actor 출력에 영향을 주지 않고 T5와 같은 입력에 거의 같은 action을 출력해야 한다.
 
----
+### Primitive transition 수집
 
-## 3. 근거 메모 (D63)
+expert scheduler가 아래와 같은 전환을 실행한다.
 
-**3.1 왜 다시 gradient 인가.** 과거 RL 을 고른 이유(실제 rollout reward 미분 불가)는 학습된 모델을 거치면 사라진다. T7 DDPO 의 불안정(try6 붕괴)도 피한다.
-**3.2 T7 문제와의 관계.** ① 유효 형상 0 → family 고정 + continuous 만 guidance + canonical 표현(choice + uniform 13, bank 미사용) + uniform 범위 clamp 로 원인 제거.
-② 같은 advantage → step 별 예측 reward gradient 라 해당 없음 (x̂_0 예측 후 reward, step 별 로그). ③ 분포 밖 최적 → family 안은 R1 uniform 수집으로 해결, family 밖은 R6.
-**3.3 새 위험.** ① TT 예측 정확도 (R2 gate) ② π_θ 하한선 J(E,θ_고정) ≤ max_θ J (D24, R5 로 완화) ③ 모델 오차를 파고드는 gradient (전부 MJX 재채점).
-**3.4 왜 4족 모션 데이터셋이 아닌가.** TT 원본의 UMI 는 task 명세이고 로봇 움직임은 RL expert 가 만들었다. 우리 대응은 command + T5 π_θ. mocap 은 reference motion 이라 D1 위배.
+```text
+locomotion -> jump -> landing -> locomotion
+locomotion -> stairs -> locomotion
+turn -> stairs
+stairs down -> acceleration
+```
 
----
+`skill_id`와 command는 데이터 출처와 구간을 구분하는 metadata로 저장한다. TT가 실제 dynamics 대신 expert 이름에 의존하지 않도록 state·action·terrain·morphology를 핵심 물리 입력으로 사용한다.
 
-## 4. 실험 규약 (D63)
+## 4. 보지 못한 task의 의미
 
-| 항목 | 값 |
-|------|-----|
-| 환경 | D27 로컬 GPU · `transformer-transformer/.venv` · MJX 3.10 (이전 V100 규약은 이력) |
-| 형상 | `umi_on_legs_plus_plus` 다리 형상, 팔·레일 제거 (D49). **canonical 표현** (choice + uniform 13), RoboToken bank 미사용 |
-| 정책 | T5_try1 π_θ 동결 (obs 69, action 12) |
-| 명령 | 대칭 고정 7 개, 20 s, DR 끔 (D51·D52) |
-| reward | legged_gym 원본 + D44·D45·D47·D50 수정 (T4), task reward 는 Q14 (달리기·점프·계단) |
-| run | `stage2/runs/T8/try{N}`, tmux `T8_try{N}` |
-| baseline (R3·R4) | family 내 random · unguided TT · **CMA-ES 직접 MJX (같은 sim 예산)** |
+새 task는 학습 데이터의 물리적 support 안에 있지만, 그 목적 함수나 전체 조합은 학습하지 않은 task다.
 
+| 데이터에 포함된 primitive·전환 | guidance에서 가능한 새 task 예시 |
+|---|---|
+| 전진·좌회전·우회전 | 지그재그·S자 경로 |
+| 달리기·jump trigger·착지 | 특정 위치까지 달린 뒤 점프 |
+| 평지↔계단·회전 | 지그재그 후 계단 오르기 |
+| 계단 내려가기·평지 보행 | 계단을 내려간 직후 가속 |
 
----
+데이터에 공중 상태나 계단 접촉이 전혀 없으면 reward gradient만으로 점프·계단 dynamics를 신뢰성 있게 만들 수 없다. 정확한 최종 task label은 필요 없지만 필요한 물리 primitive와 전환은 반드시 데이터에 있어야 한다.
 
-## 5. 결정 로그 (D63 이후)
+## 5. rollout 데이터셋
 
-| 날짜 | 내용 |
-|------|------|
-| 2026-10-05 | **D63** TT reward-gradient guidance 로 방향 전환. remind 압축, 폐기 결정·이력 → `archive/remind_history.md` |
-| 2026-10-05 | Q12 = 128 family, Q14 = 달리기·점프·계단. 폴더 정리: Stage 1 · 구 Stage 3 · T7 → `archive/{stage1,stage3_coevolution,t7}/`, 미사용 체크포인트 삭제, 동결 π_θ git 추적 |
-| 2026-10-05 | Q15 B · Q16 a · Q17 b → `terrain.py`·`task_env.py` (TaskEnv) 구현, T8_pi_smoke (배선 통과, 미보행). π_θ 본 학습 A → T8_pi_try1 시작. Q18 (R2 TT 초기화)·Q19 (4070 SUPER) 신설 |
+각 sample/chunk에 다음 항목을 저장한다.
 
----
+```text
+morphology: choice 8 + continuous uniform 13
+terrain: heightfield 식별자 또는 로컬 height observation
+initial_state: s0
+state: s_t
+command / skill_id
+action: a_t
+next_state: s_{t+1}
+contact
+done / alive
+```
 
-## TODO
+- 128 morphology family를 모두 포함하고 family마다 여러 continuous seed를 사용한다.
+- scheduler는 episode 중 expert를 전환하되 MJX state를 연속으로 유지한다.
+- expert별 sample 수와 transition별 sample 수를 기록해 한 expert가 데이터셋을 지배하지 않게 한다.
+- 성공 trajectory만 저장하지 않고 실패·충돌·회복도 포함한다.
+- batch 결과는 즉시 저장하며 중단 후 이어서 수집할 수 있어야 한다.
+- 데이터 수집 정책 reward는 primitive 습득용일 뿐 TT의 최종 task reward가 아니다.
 
-### 완료 요약 (상세 원문 `archive/remind_history.md`)
+## 6. TT 학습과 guidance
 
-| # | 결과 |
-|---|------|
-| T1 Stage 1 | TT 행 재현 (Pos Err 3.0 cm · Survival 99.4 %), RL guidance 치환 동작 확인 |
-| T3 env | `stage2/code/locomotion_env.py` obs 69 (48 + 형상 21) · action 12. 발만 충돌해 넘어지면 몸통이 바닥 통과 |
-| T4 reward | 종료 = 몸통 접촉만, thigh·calf 는 collision 페널티. 수정 이력은 §1 D36 행 |
-| T5 π_θ | T5_try1 128 choice 생존 84 % · 이동 69 % · 회전 56 %, 영상 확인 후 동결 (`stage2/runs/T5/try1`) |
-| T6 채점기 | 반복 순위상관 0.913, 이동 0.686 · 회전 0.585 · 생존 0.841 → 통과. choice 순위상관 0.374 (진단값) |
-| T7 RL 형상 생성 | DDPO try6 update 26 부터 유효 형상 0/32 → 갱신 정지, return 추세 없음. 종료 (D63), 코드 `archive/t7/` |
+TT는 morphology·state·action trajectory의 joint distribution을 denoising으로 학습한다.
 
-### T8. TT reward-gradient guidance (D63) — 통합 π_θ 준비 중
+```text
+condition/inpainting: terrain, initial state
+denoise/generate: continuous morphology, state sequence, action sequence
+family condition: discrete choice 8
+```
 
-**env 구현 (10-05):** `terrain.py` (legged_gym 지형 재구현) · `task_env.py` (TaskEnv: heightfield·높이 측정·커리큘럼·점프, obs 257) · `train_locomotion_policy.py --env task`. `test_task_env.py` 통과.
-MJX 가 cylinder–heightfield 충돌 미지원 → thigh·calf 접촉 감지 cylinder 를 같은 크기 capsule 로 교체. 점프 보상 scale (air 1.0 · height 5.0) 은 임시값.
-**T8_pi_smoke (10-05): 배선 통과, 아직 못 걸음.** 512 env · 122.9 만 step (T5 의 1/20, T5 도 300 만 step 에선 못 걸음), 평지 전진 생존 2 %, 점프는 앉아 버팀. 컴파일 학습 41 분·평가 37 분. [보고서](https://claude.ai/artifact/TveNFVzzGnbycrcEf3SDrB)
-**T8_pi_try1 (10-05 17:01 시작, 사용자 결정 A):** T5_try1 과 같은 규모 처음부터 — 1024 env · choice 당 seed 8 (1024 형상) · 2,457.6 만 step · checkpoint 10, `--env task` (보행·회전·점프·계단 정책 하나). tmux `T8_pi_try1`.
-다음: 결과 확인 → `collect_rollouts.py` 를 TaskEnv 용으로 수정 → R1. `test_locomotion_env.py` 의 collision 단언은 D44 이후 갱신 안 된 기존 실패.
-단계·gate 는 §0 표를 따른다.
+- TT training loss는 denoising loss만 사용한다.
+- 최종 task reward는 inference guidance에서만 사용한다.
+- reward gradient는 morphology와 action trajectory에 적용한다.
+- action limit, morphology 범위, state/contact consistency를 유지한다.
+- predicted state를 실제 dynamics로 간주하지 않고 항상 MJX에서 동일 action을 재실행한다.
+
+```text
+TT(E*, s0, A*)  → predicted S*, predicted reward
+MJX(E*, s0, A*) → actual S, actual reward
+```
+
+## 7. 평가 gate
+
+### Expert policy
+
+- Locomotion: 기존 T5의 7개 고정 command 기준선 유지
+- Jump: 몸통 상승 + 네 발 공중 + 착지 후 생존을 모두 만족
+- Stairs: 진입·높이 획득·완주 + 몸통 비접촉 생존
+- Transition: policy 전환 전후 state가 끊기지 않고 착지·진입·복귀 구간이 실제로 포함됨
+
+### TT dynamics
+
+- held-out morphology의 one-step state 오차
+- H-step state·contact·done 예측 오차
+- predicted task reward와 실제 MJX reward의 순위상관
+- action perturbation에 따른 next-state 변화 방향 일치
+
+### Co-design
+
+- guided > unguided TT
+- guided > family 내 random search
+- 같은 MJX 예산의 CMA-ES와 비교
+- 여러 initial state에서 성능과 실패율 보고
+
+## 8. 현재 근거와 폐기된 접근
+
+### 유지할 기준선
+
+- T5 try1: 128 choice, 2,457.6만 step, 평지 command 추종 학습 성공
+- 고정 평가: 생존 84%, 이동 69%, 회전 56%
+- 반복 평가 순위상관 0.913
+- 원본 T5 checkpoint: `stage2/runs/T5/try1/checkpoints/000024576000`
+- Locomotion Expert: `runs/expert/locomotion/checkpoints/000000000000`
+
+### 단일 통합 정책 실패
+
+- 기존 통합 정책은 T5와 같은 학습량으로 보행·점프·거친 지형을 처음부터 동시에 학습했다.
+- 마지막 평균 episode 길이: T5 약 684 step, 통합 정책 약 215 step
+- 대표 평지 전진 rollout: 약 10초 동안 0.19 m 이동(요구 약 4.95 m)
+- T5 이식 후 짧은 jump 학습에서도 locomotion 성능이 하락했고 실제 점프는 학습되지 않았다.
+- 측정 결과 jump reward가 기존 tracking reward를 압도한 것은 아니었다. 문제는 단일 정책에서의 최적화 간섭과 망각에 가깝다.
+- 결론: T5는 Locomotion Expert로 동결하고 Jump·Stair Expert를 독립적으로 학습한다.
+
+### 사용하지 않는 접근
+
+- task-specific 정책 하나를 동결해 모든 형상을 채점하는 방식
+- 생성 형상마다 PPO를 다시 fine-tuning하는 방식
+- DDPO로 morphology를 직접 업데이트하는 방식
+- UMI reference pose를 추종하는 reward
+- 학습 데이터 support 밖의 동작을 reward guidance만으로 생성한다고 가정하는 방식
+
+## 9. 코드 경계
+
+- 신규 구현은 `codesign/code/`에 둔다.
+- 원본 `transformer-transformer/`는 참고용으로 유지하고 직접 덮어쓰지 않는다.
+- 기존 `stage2/`는 T5 checkpoint와 과거 실험 재현용으로만 유지한다.
+- TT의 train·DiT·modality·denoising·guidance core는 우선 유지한다.
+- 새로 필요한 구현은 expert별 학습 환경, expert scheduler가 포함된 rollout 수집기, dataset adapter, task reward guidance, MJX evaluator다.
+
+## 10. 자원 운영
+
+- GPU: RTX 4070 SUPER 12GB, RAM 30GB
+- `MUJOCO_GL=egl`, `XLA_PYTHON_CLIENT_PREALLOCATE=false`, `MALLOC_ARENA_MAX=2`
+- heavy run은 cgroup `MemoryHigh`·`MemoryMax`·`MemorySwapMax`를 설정한다.
+- batch 결과는 즉시 저장하고 resume을 지원한다.
+- available RAM < 8GiB 또는 swap > 512MiB이면 중단하고 batch/structure 단위를 줄인다.
+- TT 학습은 batch 16~32에서 시작하고 필요하면 gradient accumulation을 사용한다.
+
+## 11. 다음 작업
+
+1. 완료: T5 checkpoint를 Locomotion Expert 기준선으로 확정
+2. 진행 중: 매 episode jump trigger, trigger 중 tracking 보상 제거, 공중 후 착지 보상을 적용해 Jump Expert 독립 학습
+3. Jump Expert gate 통과 후 Stair Expert의 낮은 계단 curriculum 설계
+4. expert들이 각각 gate를 통과한 뒤 primitive transition scheduler 구현
+5. dynamics rollout schema와 streaming 저장 형식 확정

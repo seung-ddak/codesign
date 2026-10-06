@@ -42,6 +42,7 @@ class DesignGroupEnv:
         self.envs = [env_cls(list(c), s, **env_kwargs) for c, s in designs]
         base = self.env = self.envs[0]
         self.n_designs = len(self.envs)
+        self.stand_heights = np.asarray([getattr(e, "stand_height", 0.) for e in self.envs])
         # TaskEnv: every design shares one terrain heightfield. Stack a placeholder and put the single
         # copy back per call, otherwise stacking and the per-env gather copy it per design / env.
         self.hfield = getattr(base, "hfield", None)

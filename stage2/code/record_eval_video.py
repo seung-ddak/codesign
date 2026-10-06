@@ -65,6 +65,8 @@ def add_command_arrow(scene, data, command):
     (length ~ speed) and a curved arrow around the base for the yaw rate (counter-clockwise seen
     from above = positive = turn left; arc length ~ |yaw rate|)."""
     top = data.qpos[:3] + np.array([0., 0., ARROW_HEIGHT])
+    if len(command) > 4 and command[4] > .5:
+        add_connector(scene, mujoco.mjtGeom.mjGEOM_ARROW, top, top + np.array([0., 0., .35]))
     speed = float(np.linalg.norm(command[:2]))
     if speed > 1e-3:
         world = np.zeros(3)

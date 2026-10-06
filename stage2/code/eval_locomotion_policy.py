@@ -40,6 +40,18 @@ from locomotion_env import CTRL_DT, EPISODE_STEPS, LocomotionEnv, REWARD_SCALES,
 from multi_design_env import MultiDesignEnv
 
 
+class PaddedLocomotionEnv(LocomotionEnv):
+    """Flat T5 evaluation with the universal policy's appended inputs disabled."""
+
+    def observation(self, data, command, action, rng):
+        return jp.pad(super().observation(data, command, action, rng), (0, 188))
+
+
+def checkpoint_observation_size(ckpt_dir):
+    value = json.loads((ckpt_dir / "ppo_network_config.json").read_text())["observation_size"]
+    return value if isinstance(value, int) else value["shape"][0]
+
+
 def load_policy(ckpt_dir):
     # T6 진단: checkpoint·정규화·shape 오류는 여기서 발생한다. 저장된 running statistics는
     # T5에서 사용한 것과 정확히 같은 NETWORK로 불러와야 한다.
@@ -49,7 +61,7 @@ def load_policy(ckpt_dir):
     from brax.training.agents.ppo import networks
     from train_locomotion_policy import NETWORK
     cfg = json.loads((ckpt_dir / "ppo_network_config.json").read_text())
-    net = networks.make_ppo_networks(cfg["observation_size"]["shape"][0], cfg["action_size"],
+    net = networks.make_ppo_networks(checkpoint_observation_size(ckpt_dir), cfg["action_size"],
                                      preprocess_observations_fn=running_statistics.normalize,
                                      **NETWORK)
     return networks.make_inference_fn(net)(checkpoint.load(str(ckpt_dir)), deterministic=True)
@@ -73,7 +85,9 @@ def evaluate(run, ckpt, seed):
     t = time.time()
     # T6 진단: "built ... designs" 전 실패는 MultiDesignEnv의 형상 생성·그룹화 문제다.
     # 그 이후 실패는 대개 정책 로딩, JAX 컴파일 또는 rollout 문제다.
-    env = MultiDesignEnv(groups, EPISODE_STEPS, hold_command=True, domain_rand=False)
+    env_cls = PaddedLocomotionEnv if checkpoint_observation_size(ckpt) == 257 else LocomotionEnv
+    env = MultiDesignEnv(groups, EPISODE_STEPS, hold_command=True, domain_rand=False,
+                         env_cls=env_cls)
     print(f"built {len(designs)} designs: {time.time() - t:.0f}s", flush=True)
     policy = load_policy(ckpt)
 

@@ -27,9 +27,61 @@ import mujoco
 import numpy as np
 from mujoco import mjx
 
+import locomotion_env as L
+import multi_design_env as M
 import terrain as T
-from locomotion_env import (ANG_VEL, CTRL_DT, DOF_POS, DOF_VEL, EPISODE_STEPS, LIN_VEL, NOISE,
-                            NUM_LEG_ACTUATORS, REWARD_SCALES, LocomotionEnv, State, make_data)
+from locomotion_env import LocomotionEnv, State, make_data
+from multi_design_env import MultiDesignEnv, structure_key
+
+# T8 ENVIRONMENT CONFIGURATION — edit this block for robot control, observations, rewards and terrain.
+CTRL_DT, SIM_DT = 0.02, 0.005
+EPISODE_SECONDS, COMMAND_RESAMPLE_SECONDS, PUSH_INTERVAL_SECONDS = 20., 10., 15.
+EPISODE_STEPS = int(np.ceil(EPISODE_SECONDS / CTRL_DT))
+RESAMPLE_STEPS = int(COMMAND_RESAMPLE_SECONDS / CTRL_DT)
+PUSH_STEPS = int(np.ceil(PUSH_INTERVAL_SECONDS / CTRL_DT))
+NUM_LEG_ACTUATORS, ACTION_SCALE = 12, 0.25
+CLIP_ACTIONS, CLIP_OBSERVATIONS, SOFT_DOF_POS_LIMIT = 100., 100., 0.9
+MAX_PUSH_VEL_XY = 1.
+COMMAND_RANGES = {"lin_vel_x": (-1., 1.), "lin_vel_y": (-1., 1.), "heading": (-3.14, 3.14)}
+LIN_VEL, ANG_VEL, DOF_POS, DOF_VEL = 2.0, 0.25, 1.0, 0.05
+NOISE = {"lin_vel": 0.1, "ang_vel": 0.2, "gravity": 0.05,
+         "dof_pos": 0.01, "dof_vel": 1.5}
+REWARD_SCALES = {k: v * CTRL_DT for k, v in {
+    "tracking_lin_vel": 3.0, "tracking_ang_vel": 1.5, "lin_vel_z": -2.0,
+    "ang_vel_xy": -0.05, "torques": -0.0002, "dof_acc": -2.5e-7,
+    "feet_air_time": 1.0, "collision": -1., "action_rate": -0.01,
+    "dof_pos_limits": -10.}.items()}
+ONLY_POSITIVE_REWARDS = False
+TRACKING_SIGMA = 0.25
+FOOT_NAME = "foot"
+PENALIZE_CONTACTS_ON = ("thigh", "calf")
+TERMINATE_AFTER_CONTACTS_ON = ("quadruped_body",)
+REMOVE_PARTS = ("/arx5/", "/rail/")
+
+TERRAIN_ROWS, TERRAIN_COLS = 10, 20
+TERRAIN_LENGTH = TERRAIN_WIDTH = 8.
+HORIZONTAL_SCALE, VERTICAL_SCALE, BORDER_SIZE = 0.1, 0.005, 25.
+TERRAIN_PROPORTIONS = (0.1, 0.1, 0.35, 0.25, 0.2)
+MAX_INIT_TERRAIN_LEVEL = 5
+MEASURED_POINTS_X = np.round(np.arange(-0.8, 0.81, 0.1), 2)
+MEASURED_POINTS_Y = np.round(np.arange(-0.5, 0.51, 0.1), 2)
+
+# LocomotionEnv and terrain.py are compatibility engines. Their runtime globals point at the
+# configuration above so T8 tuning has one environment file.
+for _name in ("CTRL_DT", "SIM_DT", "EPISODE_STEPS", "RESAMPLE_STEPS", "PUSH_STEPS",
+              "NUM_LEG_ACTUATORS", "ACTION_SCALE", "CLIP_ACTIONS", "CLIP_OBSERVATIONS",
+              "SOFT_DOF_POS_LIMIT", "MAX_PUSH_VEL_XY", "COMMAND_RANGES", "LIN_VEL",
+              "ANG_VEL", "DOF_POS", "DOF_VEL", "NOISE", "REWARD_SCALES",
+              "ONLY_POSITIVE_REWARDS", "TRACKING_SIGMA", "FOOT_NAME", "PENALIZE_CONTACTS_ON",
+              "TERMINATE_AFTER_CONTACTS_ON", "REMOVE_PARTS"):
+    setattr(L, _name, globals()[_name])
+M.REMOVE_PARTS = REMOVE_PARTS
+T.NUM_ROWS, T.NUM_COLS = TERRAIN_ROWS, TERRAIN_COLS
+T.TERRAIN_LENGTH, T.TERRAIN_WIDTH = TERRAIN_LENGTH, TERRAIN_WIDTH
+T.HORIZONTAL_SCALE, T.VERTICAL_SCALE, T.BORDER_SIZE = HORIZONTAL_SCALE, VERTICAL_SCALE, BORDER_SIZE
+T.TERRAIN_PROPORTIONS = TERRAIN_PROPORTIONS
+T.MAX_INIT_TERRAIN_LEVEL = MAX_INIT_TERRAIN_LEVEL
+T.MEASURED_POINTS_X, T.MEASURED_POINTS_Y = MEASURED_POINTS_X, MEASURED_POINTS_Y
 
 HEIGHT_MEASUREMENTS, HEIGHT_NOISE, HEIGHT_OFFSET = 5.0, 0.1, 0.5  # obs_scales, noise_scales, legged_robot.py
 JUMP_PROB = 0.2
@@ -50,6 +102,7 @@ class TaskEnv(LocomotionEnv):
     add_plane = False
 
     def __init__(self, choices, seed=None, **kwargs):
+        kwargs.setdefault("command_ranges", COMMAND_RANGES)
         self.hf, self.hf_lo, self.hf_hi, self.hfield, self.heights, self.origins = shared_terrain()
         super().__init__(choices, seed, **kwargs)
         self.mj_model.hfield_data[:] = np.asarray(self.hfield)  # CPU copy for rendering only
@@ -174,3 +227,7 @@ class TaskEnv(LocomotionEnv):
         keep = {**keep, "level": jp.where(end, level, keep["level"])}
         return state.replace(info={**state.info, PRESERVE: keep})
 
+
+def make_training_env(groups):
+    """The only T8 training-environment constructor used by train_locomotion_policy.py."""
+    return MultiDesignEnv(groups, EPISODE_STEPS, env_cls=TaskEnv)

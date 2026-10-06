@@ -207,14 +207,92 @@ def t8(run, title):
     return page(title, "codesign · Stage 2 · T8 통합 π_θ", lede, sec)
 
 
+def policy(run, title):
+    """Universal-policy run: optimizer health, locomotion regression and morphology spread."""
+    cfg = json.loads((run / "config.json").read_text())
+    rows = [json.loads(x) for x in (run / "progress.jsonl").open() if x.strip()]
+    evals = [json.loads(p.read_text()) for p in sorted(run.glob("eval_*.json"))]
+    if not rows or not evals:
+        raise ValueError("policy report needs progress.jsonl and at least one eval_*.json")
+    ev, summary = evals[-1], evals[-1]["summary"]
+    metric = lambda r, k: r.get(f"training/{k}", r.get(f"episode/{k}"))
+    series = lambda k: [(r["step"], metric(r, k)) for r in rows if metric(r, k) is not None]
+    gates = {
+        "생존": (summary["survived"], .75),
+        "이동 추종": (summary["cmd_progress_ratio"], .80 * .95),
+        "회전 추종": (summary["cmd_turn_ratio"], .63 * .95),
+    }
+    passed = all(value >= minimum for value, minimum in gates.values())
+    lede = (f"T5에서 이식한 범용 정책을 <b>{html.escape(cfg['args']['phase'])}</b> 단계로 "
+            f"{rows[-1]['step']:,} step 학습했습니다. 기존 보행 gate는 "
+            f"<b>{'통과' if passed else '실패'}</b>입니다.")
+    sec = [
+        ("판정", tiles([
+            (name, pct(value), f"{'통과' if value >= minimum else '미달'} · 기준 {pct(minimum)}")
+            for name, (value, minimum) in gates.items()
+        ] + [
+            ("최종 KL", f"{metric(rows[-1], 'kl_mean'):.3f}", "목표 0.010 · 0.020 초과 시 업데이트 과대"),
+            ("jump 평가", "미측정", "몸통 상승·네 발 공중·착지 지표가 있어야 판정 가능"),
+        ])),
+        ("실험 설정", table(["항목", "값"], [
+            ["phase", cfg["args"]["phase"]],
+            ["source checkpoint", html.escape(cfg["source_checkpoint"])],
+            ["학습량", f"{rows[-1]['step']:,} / {int(cfg['args']['timesteps']):,} step"],
+            ["형상", f"{cfg['designs']}개 · 구조 group {cfg['groups']}개"],
+            ["PPO", f"env {cfg['ppo']['num_envs']} · lr {cfg['ppo']['learning_rate']} · desired KL {cfg['ppo'].get('desired_kl', '—')}"],
+            ["checkpoint", html.escape(Path(ev["checkpoint"]).name)],
+        ])),
+        ("학습 과정", '<div class="charts">'
+         + line_svg([("KL", "--s1", series("kl_mean"))], "policy KL", ref=.01)
+         + line_svg([("total loss", "--s2", series("total_loss"))], "PPO total loss")
+         + line_svg([("action std", "--s3", series("policy_dist_mean_std"))], "policy distribution mean std")
+         + line_svg([("처리량", "--s1", series("sps"))], "학습 처리량 (step/s)") + "</div>"),
+        ("command별 실제 MJX 평가", table(
+            ["command", "생존", "평균 step", "이동 추종", "회전 추종", "collision"],
+            [[name, pct(v["survived"]), f"{v['length']:.0f}", pct(v["cmd_progress_ratio"]),
+              pct(v.get("cmd_turn_ratio")), f"{v['collision']:.2f}"]
+             for name, v in ev["per_command"].items()])),
+        ("형상별 결과", table(
+            ["choice", "seed", "return", "생존", "이동 추종", "회전 추종"],
+            [["".join(map(str, d["choices"])), d["seed"], f"{d['return']:.2f}", pct(d["survived"]),
+              pct(d["cmd_progress_ratio"]), pct(d.get("cmd_turn_ratio"))]
+             for d in sorted(ev["designs"], key=lambda x: x["return"], reverse=True)])),
+    ]
+    diagnostic_names = {
+        "tracking_lin_vel_reward_per_step": "tracking lin vel",
+        "tracking_ang_vel_reward_per_step": "tracking yaw",
+        "scaled_jump_height_reward_per_step": "jump height (scaled)",
+        "scaled_jump_air_reward_per_step": "jump air (scaled)",
+    }
+    if any(f"episode/{name}" in r for r in rows for name in diagnostic_names):
+        recent = rows[-10:]
+        mean = lambda name: sum(r[f"episode/{name}"] for r in recent
+                                if f"episode/{name}" in r) / max(
+                                    1, sum(f"episode/{name}" in r for r in recent))
+        sec.insert(3, ("jump reward 진단", table(["metric", "최근 평균 contribution"], [
+            [label, f"{mean(name):.6f}"] for name, label in diagnostic_names.items()
+        ] + [
+            ["jump trigger fraction", pct(mean("jump_trigger_fraction_per_step"))],
+            ["jump episode fraction", pct(mean("jump_episode_fraction"))],
+            ["jump height (raw)", f"{mean('raw_jump_height_reward_per_step'):.6f}"],
+            ["jump air (raw)", f"{mean('raw_jump_air_reward_per_step'):.6f}"],
+        ]) + '<div class="charts">' + line_svg([
+            (label, color, [(r["step"], r.get(f"episode/{name}")) for r in rows])
+            for (name, label), color in zip(diagnostic_names.items(),
+                                            ("--s1", "--s2", "--s3", "--ink2"))
+        ], "평균 step reward contribution") + "</div>"))
+    return page(title, "codesign · 범용 정책 실험", lede, sec)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("stage", choices=("t6", "t7", "t8"))
+    p.add_argument("stage", choices=("t6", "t7", "t8", "policy"))
     p.add_argument("--run", type=Path, required=True)
     p.add_argument("--title", required=True)
     args = p.parse_args()
     run = args.run.resolve()
-    (run / "report.html").write_text({"t6": t6, "t7": t7, "t8": t8}[args.stage](run, args.title))
+    (run / "report.html").write_text(
+        {"t6": t6, "t7": t7, "t8": t8, "policy": policy}[args.stage](run, args.title))
     print(f"wrote {run / 'report.html'}")
 
 
