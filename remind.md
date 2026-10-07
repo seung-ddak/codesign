@@ -14,29 +14,37 @@
 - 생성된 것은 폐루프 정책 `π*`가 아니라 유한 길이 morphology-specific action trajectory임
 
 ## 2. 전체 파이프라인
+    1. 동작별 expert policy 구성/ locomotion·jump·stairs expert/ 각 expert의 primitive gate 통과
+    2. expert 전환 rollout 수집/  primitive 및 transition trajectory/ 성공·실패·회복 전환이 모두 포함됨
+    3. 여러 morphology·terrain의 rollout 통합/ morphology–state–action–next-state 데이터셋 형상·상태·행동·접촉
+                                              분포가 충분히 다양함
+    4. TT joint dynamics 학습/  `p(E, S, A | s0, terrain)` 생성 모델/ held-out one-step·H-step 예측 gate 통과 
+    5. 보지 못한 복합 task reward guidance/ guided `(E*, A*, S*)` / predicted reward가 unguided보다 높음 
+    6. 실제 MJX 재실행/ 실제 trajectory와 task reward/ 실제 reward가 baseline보다 높고 예측-실제 gap 허용 범위
 
-| 순서 | 작업 | 핵심 산출물 | 통과 기준 |
-|---:|---|---|---|
-| 1 | 동작별 expert policy 구성 | locomotion·jump·stairs expert | 각 expert의 primitive gate 통과 |
-| 2 | expert 전환 rollout 수집 | primitive 및 transition trajectory | 성공·실패·회복 전환이 모두 포함됨 |
-| 3 | 여러 morphology·terrain의 rollout 통합 | morphology–state–action–next-state 데이터셋 | 형상·상태·행동·접촉 분포가 충분히 다양함 |
-| 4 | TT joint dynamics 학습 | `p(E, S, A | s0, terrain)` 생성 모델 | held-out one-step·H-step 예측 gate 통과 |
-| 5 | 보지 못한 복합 task reward guidance | guided `(E*, A*, S*)` | predicted reward가 unguided보다 높음 |
-| 6 | 실제 MJX 재실행 | 실제 trajectory와 task reward | 실제 reward가 baseline보다 높고 예측-실제 gap 허용 범위 |
-
-gate를 통과하지 못하면 다음 순서로 넘어가지 않는다. TT 예측이 실패하면 guidance보다 데이터 coverage와 horizon부터 수정한다.
 
 ## 3. Dynamics 수집용 expert policy
 
 하나의 범용 정책을 계속 확장하지 않는다. 동작별 expert를 독립적으로 학습하고, 이를 전환하며 dynamics 데이터를 수집한다. expert는 최종 산출물이 아니라 다양한 물리 상태를 만드는 behavior policy다.
 
 | Expert | 초기화·학습 범위 | 성공 기준 |
-|---|---|---|
-| Locomotion | T5를 257차원 관측으로 이식한 step-0 checkpoint를 동결 | 기존 7개 command의 생존·이동·회전 성능 유지 |
-| Jump | T5에서 별도 분기하여 점프·착지 중심으로 학습 | 몸통 상승, 네 발 공중, 안정적 착지 후 생존 |
-| Stairs | 별도 분기하고 낮은 계단부터 curriculum 적용 | 계단 진입·오르기·내리기 및 몸통 비접촉 생존 |
+### Locomotion | T5를 257차원 관측으로 이식한 step-0 checkpoint를 동결 | 기존 7개 command의 성능 유지 
+### Jump  T5에서 별도 분기하여 제자리 점프·착지 중심으로 학습 | 몸통 z 0.6m 이상 + 네 발 지면 0.1m 이상 → 착지 후 생존
+- 초기 45steps 안정화 대기 -> 80steps jump cycle -> 10steps 안정화 대기 -> 반복, 속도 명령 0
+- jump 명령 = 관측의 flag 0/1 (목표 높이는 보상에만). flag 정규화 통계는 스케줄 분포(mean 0.856, std 0.351)로 시작
+- 점프 인정: 몸통 z ≥ 0.6m(절대좌표) + 네 발 모두 지면에서 0.1m 이상 + 체공 중
+- 체공 = 발·허벅지·종아리 모두 바닥 비접촉 (무릎 짚고 몸 세우기 제외)
+- 착지 시 roll+pitch의 안정성 유지: 점프 인정 → 발 착지 → 네 발 접지 + 15° 이내 10steps 연속 → 착지 성공 +20
+- 착지 순간(첫 접지) roll+pitch 기울기에 1회 보상: exp(-|중력 xy|²/0.1), 15°에서 약 0.5
+- 착지 후 같은 윈도우에서 다시 연속 6steps 이상 체공하면 step당 벌점 (재점프 억제)
+- 도약 전 웅크림에 보상: 접지 중 몸통 z를 0.19m 근처로 (Atanassov 2024)
+- jump하는 동안 위쪽 속도에 보상: 윈도우 최고 vz를 1회만 (기록 갱신분)
+- 체공·높이 보상은 체공 연속 6steps 이상일 때만, 높이는 0.6m 중심 Gaussian (noise 들썩임 제외). 공중 스폰 윈도우는 높이 보상 없음
+- 학습 시 윈도우 30%를 공중 스폰 (몸통 +0~0.3m, 위쪽 0~3m/s) → 체공·착지를 먼저 경험 (Atanassov 2024)
+- 몸통 바닥 접촉 시 에피소드 종료
+### Stairs  별도 분기하고 낮은 계단부터 curriculum 적용 | 계단 진입·오르기·내리기 및 몸통 비접촉 생존 
 
-공통 원칙은 다음과 같다.
+### 공통 원칙
 
 - expert 사이에 action space, robot state, morphology 표현을 동일하게 유지한다.
 - Jump Expert는 정지 상태뿐 아니라 이동 중 점프와 착지를 포함한다.
