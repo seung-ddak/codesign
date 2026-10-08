@@ -59,6 +59,12 @@ JUMP_SQUAT_SIGMA = 0.001  # exp(-(z - SQUAT_Z)^2 / sigma)
 JUMP_SQUAT_SCALE = 3.0 * _base.CTRL_DT  # Go1: base_height_stance 5 x 0.6
 JUMP_FLIGHT_SIGMA = 0.1  # 체공 높이 보상 exp(-(z - TARGET_Z)^2 / sigma)
 JUMP_FLIGHT_SCALE = 80. * _base.CTRL_DT  # Go1: base_height_flight 80
+# Extreme Parkour (Cheng et al., ICRA 2024, CC BY-NC 4.0)에는 별도 jump reward가 없고
+# 장애물/waypoint와 아래 regularizer로 안정적인 도약·착지가 나온다. 평지 trigger 실험에서는
+# 기존 jump reward를 유지하고 해당 scale만 jump window에 적용한다.
+PARKOUR_ORIENTATION_SCALE = 1.0 * _base.CTRL_DT
+PARKOUR_COLLISION_MULTIPLIER = 10.0
+PARKOUR_ACTION_RATE_SCALE = 0.1 * _base.CTRL_DT
 JUMP_LAUNCH_PROB = 0.3  # 학습 시(domain_rand) 윈도우 시작에 몸통을 위로 띄워 착지를 미리 경험시킬 확률 (Go1 0.7, smoke1 후 0.3)
 JUMP_LAUNCH_DZ = (0., 0.3)  # m, 몸통 높이 추가 (Go1 0~0.7)
 JUMP_LAUNCH_VZ = (0., 3.)  # m/s, 위쪽 속도 (Go1 0~3)
@@ -107,6 +113,8 @@ class FlatJumpEnv(_base.LocomotionEnv):
         zero = jp.zeros(())
         metrics = {**state.metrics, "jump_air": zero, "jump_height": zero,
                    "jump_up_vel": zero, "jump_squat": zero, "jump_landing": zero, "jump_touchdown": zero, "jump_rejump": zero,
+                   "parkour_orientation": zero, "parkour_collision": zero,
+                   "parkour_action_rate": zero,
                    **{name: zero for name in JUMP_DIAGNOSTICS}}
         no = jp.array(False)
         return state.replace(metrics=metrics, info={
@@ -151,6 +159,7 @@ class FlatJumpEnv(_base.LocomotionEnv):
         takeoff, landed, success = (info[n] & ~start for n in ("takeoff", "landed", "success"))
 
         # 2. 기본 보상 (last_contacts·done 갱신). 점프 중엔 수직속도 페널티 제외
+        action_delta = jp.linalg.norm(info["last_actions"] - action)
         reward, done, terms, info = super().reward(data, action, command, info)
         jump = command[4]
         reward -= terms["lin_vel_z"] * jump
@@ -194,6 +203,10 @@ class FlatJumpEnv(_base.LocomotionEnv):
             "jump_touchdown": touchdown * jp.exp(-jp.square(tilt) / JUMP_TOUCHDOWN_SIGMA) * JUMP_TOUCHDOWN_REWARD,
             "jump_landing": new_success * JUMP_LANDING_REWARD,
             "jump_rejump": -(jump * flight * landed) * JUMP_REJUMP_PENALTY,
+            "parkour_orientation": -jump * jp.square(tilt) * PARKOUR_ORIENTATION_SCALE,
+            # 기본 collision 1배는 이미 reward에 포함되어 있으므로 추가 9배만 더한다.
+            "parkour_collision": jump * terms["collision"] * (PARKOUR_COLLISION_MULTIPLIER - 1.),
+            "parkour_action_rate": -jump * action_delta * PARKOUR_ACTION_RATE_SCALE,
         }
         task_reward = sum(extra.values())
 

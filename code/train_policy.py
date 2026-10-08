@@ -152,10 +152,15 @@ def set_flag_statistics(params, p):
 
 
 def sample_designs(seeds_per_choice, seed, max_groups=None):
-    """256 개 choice 마다 형상 seed 를 뽑아 구조 그룹별로 묶는다."""
+    """128 개 choice 마다 형상 seed 를 뽑아 구조 그룹별로 묶는다."""
     if not 1 <= seeds_per_choice <= 10000:
         raise ValueError("--seeds-per-choice must be in [1, 10000]")
-    choices = sorted(json.loads((TT / "choice_to_ckpt_path.json").read_text()))
+    choice_path = TT / "choice_to_ckpt_path.json"
+    if choice_path.is_file():
+        choices = sorted(json.loads(choice_path.read_text()))
+    else:
+        saved = json.loads((ROOT / "codesign/stage2/runs/T5/try1/designs.json").read_text())
+        choices = sorted("".join(map(str, design[0])) for group in saved for design in group)
     rng, groups = np.random.RandomState(seed), {}
     for choice in ([int(x) for x in key] for key in choices):
         for morphology_seed in rng.choice(10000, seeds_per_choice, replace=False):

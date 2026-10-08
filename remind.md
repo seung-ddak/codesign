@@ -1,74 +1,20 @@
-# Morphology–Behavior Co-design 연구 정본
-
-> 2026-10-06 기준 현재 방향만 기록한다. 폐기된 결정과 과거 실험 원문은 `archive/remind_history.md`에 둔다.
-> 신규 작업은 T번호나 stage 폴더를 만들지 않고 `code/`에서 진행한다.
+# cp-design 연구
 
 ## 1. 연구 질문
-
-여러 4족 로봇 형상에서 수집한 범용 dynamics 경험을 학습한 Transformer-Transformer(TT)가, 학습 중 명시적으로 보지 않은 복합 task reward만으로 **형상과 action trajectory를 공동 생성**할 수 있는가?
-
-- 최종 생성물: morphology `E*`, action trajectory `A*`, 예측 state trajectory `S*`
-- 최종 검증: 같은 `(E*, s0, A*)`를 실제 MJX에서 실행해 예측 reward와 실제 reward 비교
-- 범위: 시뮬레이션만 사용하며 실물 제작·Sim2Real은 제외
-- 생성 형상 전용 PPO fine-tuning은 우선 진행하지 않음
-- 생성된 것은 폐루프 정책 `π*`가 아니라 유한 길이 morphology-specific action trajectory임
+- 4족 보행 로봇의 기본 동작 만을 이용하여 보지 못한 복합 task를 수행할 수 있는 최적의 형상과 정책을 만들 수 있을까?
 
 ## 2. 전체 파이프라인
-    1. 동작별 expert policy 구성/ locomotion·jump·stairs expert/ 각 expert의 primitive gate 통과
-    2. expert 전환 rollout 수집/  primitive 및 transition trajectory/ 성공·실패·회복 전환이 모두 포함됨
-    3. 여러 morphology·terrain의 rollout 통합/ morphology–state–action–next-state 데이터셋 형상·상태·행동·접촉
-                                              분포가 충분히 다양함
-    4. TT joint dynamics 학습/  `p(E, S, A | s0, terrain)` 생성 모델/ held-out one-step·H-step 예측 gate 통과 
-    5. 보지 못한 복합 task reward guidance/ guided `(E*, A*, S*)` / predicted reward가 unguided보다 높음 
-    6. 실제 MJX 재실행/ 실제 trajectory와 task reward/ 실제 reward가 baseline보다 높고 예측-실제 gap 허용 범위
+    1. primitive motion datasets의 데이터를 랜더마이즈 하여 retargeting한다.
+    2. retrageting하여 primivie motions tracking ppo expert
+    3. primitive motions's transition도 ppo expert
+    4. primitive motions motion tracking expert, transition expert로 여러 morphology에서 tracking rollout data 획득
+    3. 여러 morphology rollout 통합 -> morphology–state–action–next-state dataset 생성
+    4. TT joint dynamics 학습 -> p(E, S, A | s0, terrain) 생성 모델, held-out one-step·H-step 예측
+    5. 보지 못한 복합 task reward guidance
 
 
-## 3. Dynamics 수집용 expert policy
+## 3. Dynamics 수집용 expert
 
-하나의 범용 정책을 계속 확장하지 않는다. 동작별 expert를 독립적으로 학습하고, 이를 전환하며 dynamics 데이터를 수집한다. expert는 최종 산출물이 아니라 다양한 물리 상태를 만드는 behavior policy다.
-
-| Expert | 초기화·학습 범위 | 성공 기준 |
-### Locomotion | T5를 257차원 관측으로 이식한 step-0 checkpoint를 동결 | 기존 7개 command의 성능 유지 
-### Jump  T5에서 별도 분기하여 제자리 점프·착지 중심으로 학습 | 몸통 z 0.6m 이상 + 네 발 지면 0.1m 이상 → 착지 후 생존
-- 초기 45steps 안정화 대기 -> 80steps jump cycle -> 10steps 안정화 대기 -> 반복, 속도 명령 0
-- jump 명령 = 관측의 flag 0/1 (목표 높이는 보상에만). flag 정규화 통계는 스케줄 분포(mean 0.856, std 0.351)로 시작
-- 점프 인정: 몸통 z ≥ 0.6m(절대좌표) + 네 발 모두 지면에서 0.1m 이상 + 체공 중
-- 체공 = 발·허벅지·종아리 모두 바닥 비접촉 (무릎 짚고 몸 세우기 제외)
-- 착지 시 roll+pitch의 안정성 유지: 점프 인정 → 발 착지 → 네 발 접지 + 15° 이내 10steps 연속 → 착지 성공 +20
-- 착지 순간(첫 접지) roll+pitch 기울기에 1회 보상: exp(-|중력 xy|²/0.1), 15°에서 약 0.5
-- 착지 후 같은 윈도우에서 다시 연속 6steps 이상 체공하면 step당 벌점 (재점프 억제)
-- 도약 전 웅크림에 보상: 접지 중 몸통 z를 0.19m 근처로 (Atanassov 2024)
-- jump하는 동안 위쪽 속도에 보상: 윈도우 최고 vz를 1회만 (기록 갱신분)
-- 체공·높이 보상은 체공 연속 6steps 이상일 때만, 높이는 0.6m 중심 Gaussian (noise 들썩임 제외). 공중 스폰 윈도우는 높이 보상 없음
-- 학습 시 윈도우 30%를 공중 스폰 (몸통 +0~0.3m, 위쪽 0~3m/s) → 체공·착지를 먼저 경험 (Atanassov 2024)
-- 몸통 바닥 접촉 시 에피소드 종료
-### Stairs  별도 분기하고 낮은 계단부터 curriculum 적용 | 계단 진입·오르기·내리기 및 몸통 비접촉 생존 
-
-### 공통 원칙
-
-- expert 사이에 action space, robot state, morphology 표현을 동일하게 유지한다.
-- Jump Expert는 정지 상태뿐 아니라 이동 중 점프와 착지를 포함한다.
-- Stair Expert는 계단 위 동작뿐 아니라 평지에서의 진입과 평지 복귀를 포함한다.
-- 정책이 전환되어도 MJX state를 reset하지 않고 연속으로 전달한다.
-- 작은 action perturbation과 실패·충돌·회복 상태도 수집한다.
-- 계단은 task ID만으로 처리하지 않고 terrain height observation을 사용한다.
-
-### T5 가중치 이식 규칙
-
-Jump·Stair Expert의 관측이 T5보다 확장될 때 기존 69차원 입력에 해당하는 가중치는 복사한다. 새 jump trigger·terrain height 입력의 첫 layer 가중치는 0으로 두고, observation normalization은 mean 0·variance 1로 초기화한다. 따라서 추가 학습 전에는 새 입력이 actor 출력에 영향을 주지 않고 T5와 같은 입력에 거의 같은 action을 출력해야 한다.
-
-### Primitive transition 수집
-
-expert scheduler가 아래와 같은 전환을 실행한다.
-
-```text
-locomotion -> jump -> landing -> locomotion
-locomotion -> stairs -> locomotion
-turn -> stairs
-stairs down -> acceleration
-```
-
-`skill_id`와 command는 데이터 출처와 구간을 구분하는 metadata로 저장한다. TT가 실제 dynamics 대신 expert 이름에 의존하지 않도록 state·action·terrain·morphology를 핵심 물리 입력으로 사용한다.
 
 ## 4. 보지 못한 task의 의미
 
