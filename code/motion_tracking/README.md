@@ -5,22 +5,16 @@ PPO 학습 진입점을 현재 연구에서 수정할 수 있도록 가져온 �
 
 ## 구성
 
-- `track_env.py`: reference pose tracking MJX 환경과 보상
-- `train_rl_procedural.py`: morphology domain randomization PPO 학습
-- `config/`: 학습·환경·평가 Hydra 설정
+- `pd_replay.py`: raw CSV → reference (`artifacts/pd_replay/<clip>.npz`, fix_*), A1 모델 `build_model`
+- `track_env.py`: full-body reference tracking MJX 환경 (Peng 2020 보상)
+- `train_rl_procedural.py`: PPO 학습 (현재 A1 1 개 형상)
+- `check_track_env.py`: 환경 자가 점검 (RSI 오차 0, reference 관절각 재생 시 항별 보상)
+- `config/`: 학습·환경·평가 Hydra 설정 (`env/a1_track*.yaml`)
 
-공통 MJX, PPO, RoboGen 코드는 중복하지 않고 형제 디렉터리
-`../../../transformer-transformer/t2`를 사용한다. 따라서 원본 TT 저장소와 그 `.venv`,
-motion pickle, morphology option Zarr가 필요하다.
+공통 MJX, PPO 코드는 형제 디렉터리 `../../../transformer-transformer/t2`와 그 `.venv`를 쓴다.
 
 ```bash
-cd /home/cgr-ugrad-2026/quad_ws
-MUJOCO_GL=egl WANDB_MODE=offline transformer-transformer/.venv/bin/python \
-  codesign/code/motion_tracking/train_rl_procedural.py \
-  mj_model_data_path=transformer-transformer/umi_on_legs_plus_plus_options/00000000.zarr \
-  env.trajectory_file=/path/to/train_motion.pkl \
-  eval_env.trajectory_file=/path/to/test_motion.pkl
+cd codesign
+MUJOCO_GL=egl WANDB_MODE=offline ../transformer-transformer/.venv/bin/python \
+  code/motion_tracking/train_rl_procedural.py
 ```
-
-현재 환경은 UMI end-effector pose를 추적한다. 사족보행 full-body walk/jump tracking에는
-`track_env.py`의 reference 표현과 reward를 base, joint, foot, contact 기준으로 확장해야 한다.

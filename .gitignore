@@ -21,3 +21,17 @@ stage2/runs/T8/**/batch_*.npz
 stage2/runs/**/rollout_*.npz
 # Archify visual-check 부산물
 *.visual-check.*
+
+# motion tracking 실행 부산물 (2026-10-12)
+jax_cache/
+outputs/
+MUJOCO_LOG.TXT
+.tags
+# 외부 repo (MetalHead, legged_gym, rsl_rl) — gen_jump.py / gen_stairs.py docstring 참조
+third_party/
+# wandb run 사본의 임시·중복 파일 (train.log, config.pkl, motion_eval 은 추적)
+runs/**/tmp/
+runs/**/logs/
+runs/**/*.wandb
+runs/**/latest-run
+runs/**/files/media/

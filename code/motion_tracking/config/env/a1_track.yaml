@@ -1,0 +1,66 @@
+_target_: track_env.TrackMjxEnv
+# pd_replay.py --retarget 출력. 학습 스크립트가 <reference_dir>/<choice>/<motion>.npz 로 쓴다. backFlip/howAreYou/rollBack 미사용
+reference_dir: ${hydra:runtime.cwd}/artifacts/retarget_tt
+# tiltYaw 제외 (같은 방향 무릎 형상에서 학습 불안정, 사용자 결정), jumpInPlace·stairsUpDown 추가 (A1 RL 로 생성)
+# 전환 3 종 추가 (pd_replay.py --transitions, 2026-10-12 사용자 결정)
+clips: [sitDown, squat, standUp, tiltPitch, tiltRoll, jumpInPlace, stairsUpDown,
+  walkToJump, jumpToWalk, walkToStand,
+  trotBackwardFast, trotBackwardSlow, trotCCWSlow, trotCWSlow, trotForwardFast, trotForwardSlow,
+  trotLeftFast, trotLeftSlow, trotRightFast, trotRightSlow,
+  walkBackwardFast, walkBackwardSlow, walkCCWSlow, walkCWSlow, walkForwardFast, walkForwardSlow,
+  walkLeftFast, walkLeftSlow, walkRightFast, walkRightSlow]
+max_episode_length: 1000
+n_ctrl: 12  # 다리 12 관절만 정책 제어 (TT 팔 6 은 home 자세 고정, 사용자 결정)
+ctrl_dt: 0.02  # = reference dt (50Hz)
+sim_dt: 0.005
+impratio: 1
+solver_iterations: 5
+solver_ls_iterations: 7
+impl: jax
+action_scale: 0.25
+obs_time_indices: [0, 2, 4, 6, 8]
+clip_actions: [-10.0, 10.0]
+
+# Peng et al. 2020 식 (4)~(9). weight 는 원문 비율 유지 ×10 (사용자 결정: tracking 보상 우위, try1 early termination exploit)
+w_pose: 5.0
+w_vel: 0.5
+w_ee: 2.0
+w_root_pose: 1.5
+w_root_vel: 1.0
+k_pose: 5.0
+k_vel: 0.1
+k_ee: 40.0
+k_root_pos: 20.0
+k_root_orn: 10.0
+k_root_linvel: 2.0
+k_root_angvel: 0.2
+
+# TT 원본 penalty
+penalty_action_rate: -0.002
+penalty_torque: -0.00005
+penalty_joint_vel: -0.002
+penalty_joint_acc: -0.0000005  # TT 원본 -5e-5 는 tracking 의 ~18 배 → 1/100 (사용자 결정 B)
+penalty_joint_pos_limit: -1.0
+penalty_termination: -100.0  # tracking weight ×10 과 비율 유지 (try1 의 -10 대비). tiltYaw 근시안 넘어짐 대응, 사용자 결정
+reward_nan_to_num: -10.0
+reward_clip_positive: false
+
+kick_wait_times: [1.0, 3.0]
+kick_durations: [0.05, 0.2]
+velocity_kick: [0.5, 2.0]
+soft_joint_pos_limit_factor: 0.95
+reset_qvel: 0.5
+reset_qpos: 0.01
+min_start_margin: 10  # 클립 끝 10 프레임 이내에서는 시작하지 않음
+
+termination_fellover_threshold: 0.5  # body z 축의 world z 성분 (pd_replay FALL_UP)
+termination_pos_err_threshold: 0.5  # m, base 위치 오차
+termination_orn_err_threshold: 1.0  # rad, base 자세 오차
+termination_pose_consecutive_steps: 25  # 0.5s 연속 초과 시 종료
+
+obs_noise:
+  qpos: 0.001
+  qvel: 0.01
+  lin_vel: 0.02
+  ang_vel: 0.005
+  gravity: 0.005

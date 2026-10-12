@@ -12,7 +12,8 @@
     3. primitive motions's transition도 ppo expert
         - jump, stair은 a1의 오픈소스 설계 사항으로 RL로 학습하여 모션 확보
         - expert간 transition도 학습
-    4. primitive motions motion tracking expert, transition expert로 여러 morphology에서 tracking rollout data 획득
+    4. primitive motions motion tracking expert, transition expert로 여러 morphology에서 tracking 
+       rollout data 획득
         - expert를 MJX에서 실행하여 실제 dynamics 데이터 수집
         - rollout 데이터 수집    
     4. 여러 morphology rollout 통합 -> morphology–state–action–next-state dataset 생성

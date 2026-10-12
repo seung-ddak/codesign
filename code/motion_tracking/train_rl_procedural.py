@@ -1,4 +1,3 @@
-import copy
 import functools
 import os
 import pickle
@@ -16,11 +15,6 @@ import jax.numpy as jnp
 from absl import logging
 from mujoco import mjx
 
-from t2.env.mj_utils import (
-    TARGET_SITE_GROUP,
-    add_mocap_body_with_site,
-    set_up_default_scene,
-)
 from t2.mjx_env.base_env import MjxEnv, State
 
 # Ignore the info logs from brax
@@ -40,8 +34,6 @@ jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 
 import hydra
 import jax
-import zarr
-from dm_control import mjcf
 from flax.training import orbax_utils
 from omegaconf import OmegaConf
 from orbax import checkpoint as ocp
@@ -53,8 +45,14 @@ import wandb
     config_path="config", config_name="run_rl_procedural", version_base="1.2"
 )
 def main(cfg):
-    # Initialize Weights & Biases if required
+    # hydra 가 00000010 을 정수 10 으로 읽는 경우를 막는다. reference 는 형상별 폴더
+    # choice=A1 이면 A1 몸 + 리타겟 없는 원본 reference (artifacts/pd_replay) — 좌표 변환 대조용
+    choice = "A1" if str(cfg.choice) == "A1" else str(cfg.choice).zfill(8)
+    cfg.choice = choice
     OmegaConf.resolve(cfg)
+    for e in (cfg.env, cfg.eval_env):
+        e.reference_dir = (os.path.join(os.path.dirname(e.reference_dir), "pd_replay") if choice == "A1"
+                           else os.path.join(e.reference_dir, choice))
     config_dict = OmegaConf.to_container(cfg, resolve=True)
     wandb.init(
         project="transformer-transformer",
@@ -63,55 +61,17 @@ def main(cfg):
     )
     pickle.dump(cfg, open(f"{wandb.run.dir}/config.pkl", "wb"))
 
-    root = zarr.open(cfg.mj_model_data_path, mode="r")
-    hardware_dict = {}
-    num_hardware = -1
-    for k in root.keys():
-        hardware_dict[k] = jnp.array(root[k][:])
-        num_hardware = root[k].shape[0]
-    assert num_hardware != -1
-    # hardware discrete choices
-    choices = root.attrs["choices"]
-    robogen_fn = hydra.utils.instantiate(root.attrs["robogen_fn"])
-    num_uniforms = int(root.attrs["num_uniforms"])
-
     # Set up checkpoint directory
     ckpt_path = wandb.run.dir + "/checkpoints"
     os.makedirs(ckpt_path, exist_ok=True)
     print(f"Checkpoint path: {ckpt_path}")
 
-    def mj_model_fn(
-        num_uniforms: int = num_uniforms,
-        choices: list[int] = choices,  # pyright: ignore[reportArgumentType]
-    ):
-        mjcf_model = robogen_fn(
-            choices=copy.deepcopy(choices), uniforms=[0.5] * num_uniforms
-        )
-        mjcf_model = add_mocap_body_with_site(
-            set_up_default_scene(mjcf_model, add_plane=True, plane_z_pos=0.0),
-            name="target",
-            site_group=TARGET_SITE_GROUP,
-        )
-        mj_model = mjcf.Physics.from_mjcf_model(mjcf_model).model.ptr
-        return mj_model
+    # TT design space 형상 1 개씩 학습 (연속 치수 중간값 고정). reference 는 artifacts/retarget_tt/<choice>/
+    from pd_replay import build_model
 
-    def randomization_fn(
-        model: mjx.Model,
-        rng: jax.Array,
-        _hardware_dict: dict[str, jax.Array] = hardware_dict,
-        _num_hardware: int = num_hardware,
-    ):
-        @jax.vmap
-        def rand(rng):
-            rng, key = jax.random.split(rng)
-            hardware_idx = jax.random.randint(key, (), 0, _num_hardware)
-            return {k: _hardware_dict[k][hardware_idx] for k in _hardware_dict.keys()}
+    mj_model_fn = functools.partial(build_model, choice=None if choice == "A1" else choice, kp=cfg.kp)
 
-        hardware_data = rand(rng)
-        in_axes = jax.tree_util.tree_map(lambda x: None, model)
-        in_axes = in_axes.tree_replace({k: 0 for k in _hardware_dict.keys()})
-        model = model.tree_replace(hardware_data)  # type: ignore
-        return model, in_axes
+    randomization_fn = None
 
     env: MjxEnv = hydra.utils.instantiate(cfg.env, mj_model_fn=mj_model_fn)
     # Load evaluation environment
