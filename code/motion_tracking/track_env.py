@@ -83,6 +83,9 @@ class TrackMjxEnv(MjxEnv):
         switch_min_remain: int = 50,
         switch_exclude: tuple[str, ...] = (),
         switch_forbid: tuple[tuple[str, str], ...] = (),
+        switch_entry: Literal["match", "start"] = "match",
+        switch_at: Literal["time", "end"] = "time",
+        switch_ramp: bool = True,
     ):
         super().__init__(ctrl_dt, sim_dt)
         self.max_episode_length = max_episode_length
@@ -132,6 +135,12 @@ class TrackMjxEnv(MjxEnv):
         # switch_prob = 바꾸기가 있는 episode 비율 (0 = 기존과 동일). 바꾼 뒤 switch_window step 은 tracking 보상을 0→1 로 올리고
         # 위치·자세 오차 종료를 끈다. 계단 등 지형이 고정된 모션은 switch_exclude (바꾸기의 출발·도착 모두 금지)
         self.switch_prob, self.switch_wait, self.switch_window = switch_prob, tuple(switch_wait), switch_window
+        # B 진입 프레임: match = A 현재 자세와 가장 비슷한 프레임, start = B 의 처음 (사용자 결정 2026-10-12: start).
+        # start 는 바꾼 뒤 switch_window 동안 B 를 첫 프레임에 멈춰 두고 (그 자세로 옮겨 가는 구간), 이후 재생한다
+        self.switch_entry = switch_entry
+        # 바꾸는 시점: time = switch_wait 뒤 아무 접지 프레임, end = A 의 마지막 프레임 (DeepMimic skill selector 처럼 동작 경계에서,
+        # 끝나는 대신 B 로 이어 간다). switch_ramp = 바꾼 뒤 tracking 보상을 0→1 로 올림 (DeepMimic 은 없음)
+        self.switch_at, self.switch_ramp = switch_at, switch_ramp
         self._build_switch_tables(list(clips), switch_min_remain, set(switch_exclude), {tuple(x) for x in switch_forbid})
 
     def _build_switch_tables(self, clips, min_remain, exclude, forbid):
@@ -175,7 +184,7 @@ class TrackMjxEnv(MjxEnv):
 
     def _switch(self, data: mjx.Data, info: dict, due: jax.Array, clip_b: jax.Array) -> dict:
         """due 이면 목표를 clip_b 로 바꾼다: 들어갈 프레임 = match, B 를 로봇 현재 xy·yaw 에 맞춘다."""
-        nf = self.match[info["frame"], clip_b]
+        nf = self.match[info["frame"], clip_b] if self.switch_entry == "match" else self.clip_start[clip_b]
         dyaw = self._yaw(data.qpos[3:7]) - self._yaw(self.ref_qpos[nf, 3:7])
         c, s = jnp.cos(dyaw), jnp.sin(dyaw)
         dxy = data.qpos[:2] - jnp.array([[c, -s], [s, c]]) @ self.ref_qpos[nf, :2]
@@ -195,7 +204,8 @@ class TrackMjxEnv(MjxEnv):
         info["rng"], k = jax.random.split(info["rng"])
         p = jnp.where(self.pair_ok[info["clip"]], self.clip_p, 0.0)
         clip_b = jax.random.choice(k, len(self.clip_start), p=p / jnp.maximum(p.sum(), 1e-9))
-        due = ((info["steps"] >= info["sw_step"]) & self.src_ok[info["frame"]] & (p.sum() > 0) & (info["sw_left"] == 0)
+        when = (info["frame"] >= info["clip_end"] - 1) & (info["sw_step"] < 10**6) if self.switch_at == "end" else (info["steps"] >= info["sw_step"])
+        due = (when & self.src_ok[info["frame"]] & (p.sum() > 0) & (info["sw_left"] == 0)
                & (data.qpos[1] < 20.0))  # 계단 장면 (y 27~33 m) 근처에서는 바꾸지 않는다
         return self._switch(data, info, due, clip_b)
 
@@ -369,7 +379,8 @@ class TrackMjxEnv(MjxEnv):
         info = state.info
         info["state_is_nan"] = data_is_nan.astype(jnp.float32)
         info["steps"] += 1
-        info["frame"] = jnp.minimum(info["frame"] + 1, info["clip_end"] - 1)
+        hold = (info["sw_left"] > 0) & (self.switch_entry == "start")  # start: 전환 구간에는 B 첫 프레임 유지
+        info["frame"] = jnp.where(hold, info["frame"], jnp.minimum(info["frame"] + 1, info["clip_end"] - 1))
         info["sw_left"] = jnp.maximum(info["sw_left"] - 1, 0)
         info = self._maybe_switch(data, info)
         info, terms = self.tracking_terms(data, info)
@@ -396,7 +407,7 @@ class TrackMjxEnv(MjxEnv):
         return reward
 
     def compute_reward(self, data: mjx.Data, action: jax.Array, info: dict, terms: dict) -> dict[str, jax.Array]:
-        ramp = 1.0 - info["sw_left"] / self.switch_window  # 목표를 바꾼 직후 tracking 보상 0 → 1
+        ramp = 1.0 - info["sw_left"] / self.switch_window if self.switch_ramp else 1.0  # 목표를 바꾼 직후 tracking 보상 0 → 1
         rewards = {
             # Peng 2020 식 (4)~(9)
             "track_pose": self.w["pose"] * jnp.exp(-self.k_pose * terms["pose"]),

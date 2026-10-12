@@ -49,6 +49,8 @@ ckpt = sorted(glob.glob(str(run / "files/checkpoints/*")), key=lambda p: int(os.
 cfg, policy = load_run(ckpt)
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
+ecfg["switch_entry"] = os.environ.get("SWITCH_ENTRY", "start")  # B 진입: start = B 처음부터 (사용자 결정)
+AT_END = os.environ.get("SWITCH_AT", "end") == "end"  # end = A 를 끝까지 따라간 뒤 B (DeepMimic 동작 경계)
 choice = cfg.get("choice")
 env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale")), **ecfg)
 reset_with_traj, step, switch_now, policy = jax.jit(env.reset_with_traj), jax.jit(env.step), jax.jit(env.switch_now), jax.jit(policy)
@@ -64,20 +66,21 @@ cam = mujoco.MjvCamera()
 cam.type, cam.distance, cam.azimuth, cam.elevation = mujoco.mjtCamera.mjCAMERA_FREE, 1.6, 120.0, -15.0
 
 feet = np.array(env._foot_ids)
-out = run / "switch_eval"
+out = run / f"switch_eval_{ecfg['switch_entry']}_{'end' if AT_END else 'time'}"
 (out / "videos").mkdir(parents=True, exist_ok=True)
 src_ok = np.asarray(env.src_ok)
 rows = []
 for a, b, kind in PAIRS:
     ca, cb = clips.index(a), clips.index(b)
     start, end = int(env.clip_start[ca]), int(env.clip_end[ca])
-    f_sw = min(start + round(SWITCH_S / env.dt), end - 10)
+    f_sw = end - 1 if AT_END else min(start + round(SWITCH_S / env.dt), end - 10)
+    step_dir = -1 if AT_END else 1  # 두 발 이상 접지 프레임으로 (end 는 앞쪽으로 찾는다)
     while not src_ok[f_sw]:
-        f_sw += 1
+        f_sw += step_dir
     rng = jax.random.PRNGKey(0)
     s = reset_with_traj(rng, jnp.int32(ca), jnp.int32(start))
     frames, errs, fell, k_sw = [], [], False, None
-    for t in range(round((SWITCH_S + AFTER_S) / env.dt) + 20):
+    for t in range(end - start + round(AFTER_S / env.dt) + 20):
         if k_sw is None and int(s.info["frame"]) >= f_sw:
             s = switch_now(s, jnp.int32(cb))
             k_sw = t

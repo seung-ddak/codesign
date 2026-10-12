@@ -14,7 +14,10 @@ clip_boost: null  # {모션: 배수} 샘플링 가중치, 나머지 1 (null = �
 switch_prob: 0.0
 switch_wait: [1.0, 3.0]  # s, episode 시작·직전 바꾸기 후 다음 바꾸기까지
 switch_window: 25  # step (0.5 s). tracking 보상 0→1, 위치·자세 오차 종료 끔
-switch_min_remain: 50  # B 에 최소 1 s 남는 프레임으로만 들어간다
+switch_min_remain: 50  # B 에 최소 1 s 남는 프레임으로만 들어간다 (match)
+switch_entry: match  # B 진입 프레임: match = 가장 비슷한 자세, start = B 처음 (전환 구간 동안 첫 프레임 유지)
+switch_at: time  # time = switch_wait 뒤, end = A 마지막 프레임에서 B 로 이어 감 (DeepMimic skill selector 방식)
+switch_ramp: true  # 바꾼 뒤 tracking 보상 0→1 (DeepMimic 은 없음)
 switch_exclude: [stairsUpDown]  # 계단은 장면 위치가 고정이라 바꾸기 출발·도착 금지 (계단 전환은 모션 안에 이미 있음)
 # held-out (조합 3 중 '회전 보행 중 점프') 은 학습에서 뺀다
 switch_forbid: [[walkCWSlow, jumpInPlace], [walkCCWSlow, jumpInPlace], [trotCWSlow, jumpInPlace], [trotCCWSlow, jumpInPlace],
