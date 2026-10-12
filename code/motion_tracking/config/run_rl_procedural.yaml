@@ -5,6 +5,8 @@ defaults:
   - override hydra/job_logging: custom
 
 kp: null  # TT 형상 PD 비례 이득 덮어쓰기 (null = 원본 30)
+restore_ckpt: null  # 이전 run checkpoint 경로 (files/checkpoints/<step>). 이어 학습
+tau_scale: null  # TT 형상 토크 한계 배율 (null = 원본 hip·thigh ±23.7 / calf ±45.4 N·m)
 choice: "00000010"  # TT design space choice 8 자리 (끝 2 자리 = 앞·뒤 무릎 반전). CLI 에서는 choice="'00000010'" 처럼 따옴표
 
 wandb:

@@ -43,7 +43,7 @@ TT_LEG = {"FR": "right_leg", "FL": "left_leg", "RR": "right_leg_1", "RL": "left_
 N_LEG = 12  # 다리 관절 수 (qpos·actuator 앞쪽 12)
 
 
-def build_model(choice=None, kp=None):
+def build_model(choice=None, kp=None, tau_scale=None):
     """choice 가 없으면 A1 (menagerie MJCF, kp 100, ±33.5 N·m), 있으면 TT design space 형상 (kp 30, ±23.7 N·m, 팔 제거).
     두 경우 모두 발 geom 이름을 "<LEG>_foot", 렌더링 카메라 body_cam 을 몸통에 둔다."""
     if choice is None:
@@ -100,6 +100,8 @@ def build_model(choice=None, kp=None):
         if kp is not None:  # position actuator 비례 이득만 교체 (kd 는 원본 0.5 유지). 사용자 실험 2026-10-11
             m.actuator_gainprm[:, 0] = kp
             m.actuator_biasprm[:, 1] = -kp
+        if tau_scale is not None:  # 토크 한계 배율. jumpInPlace 토크 부족 확인용 (사용자 실험 2026-10-12)
+            m.actuator_forcerange *= tau_scale
         return m
     # track_env 렌더링용 (TT a1_umi_on_legs.xml 의 body_cam 과 동일)
     cam = spec.body(base).add_camera(name="body_cam", mode=mujoco.mjtCamLight.mjCAMLIGHT_TRACKCOM, pos=[1.2, 1.2, 0.5])

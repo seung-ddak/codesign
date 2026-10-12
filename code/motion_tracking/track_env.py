@@ -76,6 +76,7 @@ class TrackMjxEnv(MjxEnv):
         termination_pose_consecutive_steps: int,
         obs_noise: dict[str, float],
         clip_actions: tuple[float, float] = (-10, 10),
+        clip_boost: Optional[dict[str, float]] = None,
     ):
         super().__init__(ctrl_dt, sim_dt)
         self.max_episode_length = max_episode_length
@@ -116,6 +117,11 @@ class TrackMjxEnv(MjxEnv):
         self.preprocess_mj_model(self.mj_model)
         self.mjx_model = mjx.put_model(self.mj_model, impl=impl)
         self.load_references([os.path.join(reference_dir, f"{c}.npz") for c in clips])
+        # 클립 샘플링 가중치 (이름 → 배수, 나머지 1). jumpInPlace 등 비율 상향 실험 (사용자 결정 2026-10-12)
+        boost = clip_boost or {}
+        assert set(boost) <= set(clips), set(boost) - set(clips)
+        w = np.array([float(boost.get(c, 1.0)) for c in clips])
+        self.clip_p = jnp.array(w / w.sum())
 
     def preprocess_mj_model(self, mj_model: mujoco.MjModel):
         mj_model.opt.impratio = self.impratio
@@ -182,7 +188,7 @@ class TrackMjxEnv(MjxEnv):
     def reset(self, rng: jax.Array) -> State:
         # Reference State Initialization: 클립·시작 프레임 무작위, 로봇을 그 프레임 reference 상태로 둔다
         rng, k1, k2 = jax.random.split(rng, 3)
-        clip = jax.random.randint(k1, (), 0, len(self.clip_start))
+        clip = jax.random.choice(k1, len(self.clip_start), p=self.clip_p)
         start, end = self.clip_start[clip], self.clip_end[clip]
         frame = jax.random.randint(k2, (), start, end - self.min_start_margin)
         return self.reset_with_traj(rng, clip, frame)

@@ -69,7 +69,7 @@ def main(cfg):
     # TT design space 형상 1 개씩 학습 (연속 치수 중간값 고정). reference 는 artifacts/retarget_tt/<choice>/
     from pd_replay import build_model
 
-    mj_model_fn = functools.partial(build_model, choice=None if choice == "A1" else choice, kp=cfg.kp)
+    mj_model_fn = functools.partial(build_model, choice=None if choice == "A1" else choice, kp=cfg.kp, tau_scale=cfg.get("tau_scale"))
 
     randomization_fn = None
 
@@ -170,9 +170,26 @@ def main(cfg):
             print(f"{k}: {v}")
         print("-" * 80)
 
+    # restore_ckpt: 이전 run checkpoint (normalizer·policy·value) 에서 이어 학습 (사용자 결정 2026-10-12)
+    restore = None
+    if cfg.get("restore_ckpt"):
+        import dataclasses
+
+        from brax.training.acme import running_statistics
+
+        p = ocp.PyTreeCheckpointer().restore(os.path.abspath(cfg.restore_ckpt))
+        fields = {f.name for f in dataclasses.fields(running_statistics.RunningStatisticsState)}
+        norm = running_statistics.RunningStatisticsState(**{  # orbax 는 dataclass 를 dict 로 복원 (stair_design.load_run 과 같은 변환)
+            k: jnp.asarray(sum(jnp.asarray(x) for x in v.values()) if isinstance(v, dict) else v)
+            for k, v in p[0].items() if k in fields})
+        norm = norm.replace(count=norm.count.astype(jnp.int32))  # 학습 루프의 count dtype (int32) 와 맞춤. {hi,lo} 합은 uint32
+        restore = (norm, p[1], p[2])
+        print(f"restored {cfg.restore_ckpt}")
+
     # Train or load the model
-    make_inference_fn, params, _ = hydra.utils.instantiate(
+    make_inference_fn, params, _ = hydra.utils.instantiate(  # restore_params 는 hydra merge 불가 (jax 배열) → partial 후 전달
         cfg.train,
+        _partial_=True,
         policy_params_fn=policy_params_fn,
         wrap_env_fn=functools.partial(
             wrap_for_brax_training,
@@ -187,7 +204,7 @@ def main(cfg):
         environment=env,
         progress_fn=progress,
         eval_env=eval_env,
-    )
+    )(restore_params=restore)
 
     render_path = wandb.run.dir + "/final-rollout.mp4"
     render_rollout(make_inference_fn, params, str(render_path))

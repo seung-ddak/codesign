@@ -39,7 +39,7 @@ ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
 choice = cfg.get("choice")  # 없거나 "A1" 이면 A1 몸
 choice = None if choice == "A1" else choice
-env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp")), **ecfg)
+env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale")), **ecfg)
 reset_with_traj, step, policy = jax.jit(env.reset_with_traj), jax.jit(env.step), jax.jit(policy)
 
 m = env.mj_model
