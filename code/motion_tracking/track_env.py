@@ -77,6 +77,12 @@ class TrackMjxEnv(MjxEnv):
         obs_noise: dict[str, float],
         clip_actions: tuple[float, float] = (-10, 10),
         clip_boost: Optional[dict[str, float]] = None,
+        switch_prob: float = 0.0,
+        switch_wait: tuple[float, float] = (1.0, 3.0),
+        switch_window: int = 25,
+        switch_min_remain: int = 50,
+        switch_exclude: tuple[str, ...] = (),
+        switch_forbid: tuple[tuple[str, str], ...] = (),
     ):
         super().__init__(ctrl_dt, sim_dt)
         self.max_episode_length = max_episode_length
@@ -122,6 +128,82 @@ class TrackMjxEnv(MjxEnv):
         assert set(boost) <= set(clips), set(boost) - set(clips)
         w = np.array([float(boost.get(c, 1.0)) for c in clips])
         self.clip_p = jnp.array(w / w.sum())
+        # 목표 바꾸기 (전환 학습, 사용자 결정 2026-10-12): episode 중 목표 모션을 A → B 로 바꾸고 B 를 로봇 현재 xy·yaw 에 맞춘다.
+        # switch_prob = 바꾸기가 있는 episode 비율 (0 = 기존과 동일). 바꾼 뒤 switch_window step 은 tracking 보상을 0→1 로 올리고
+        # 위치·자세 오차 종료를 끈다. 계단 등 지형이 고정된 모션은 switch_exclude (바꾸기의 출발·도착 모두 금지)
+        self.switch_prob, self.switch_wait, self.switch_window = switch_prob, tuple(switch_wait), switch_window
+        self._build_switch_tables(list(clips), switch_min_remain, set(switch_exclude), {tuple(x) for x in switch_forbid})
+
+    def _build_switch_tables(self, clips, min_remain, exclude, forbid):
+        assert exclude <= set(clips) and all(a in clips and b in clips for a, b in forbid), (exclude, forbid)
+        starts, ends = np.asarray(self.clip_start), np.asarray(self.clip_end)
+        n_clip, N = len(clips), int(ends[-1])
+        frame_clip = np.repeat(np.arange(n_clip), ends - starts)
+        excl = np.array([c in exclude for c in clips])
+        grounded = np.asarray(self.ref_contact).sum(1) >= 2  # 공중·한 발 프레임에서는 바꾸지 않는다 (점프 중 등)
+        src_ok = grounded & ~excl[frame_clip]
+        dst_ok = src_ok & (np.arange(N) <= ends[frame_clip] - min_remain)  # B 가 최소 min_remain 프레임 남는 곳으로만
+        q = np.asarray(self.ref_qpos)[:, 7:7 + self.n_ctrl]
+        c = np.asarray(self.ref_contact)
+        match = np.zeros((N, n_clip), np.int32)  # A 의 각 프레임에서 B 로 갈 때 들어갈 프레임 = 관절각·접지가 가장 비슷한 프레임
+        for b in range(n_clip):
+            cand = np.where(dst_ok & (frame_clip == b))[0]
+            if len(cand) == 0:
+                match[:, b] = starts[b]
+                continue
+            dist = ((q[:, None] - q[cand][None]) ** 2).sum(-1) + 0.5 * (c[:, None] != c[cand][None]).sum(-1)
+            match[:, b] = cand[dist.argmin(1)]
+        has_dst = np.array([(dst_ok & (frame_clip == b)).any() for b in range(n_clip)])
+        pair_ok = (~excl[:, None]) & (~excl[None]) & has_dst[None] & ~np.eye(n_clip, dtype=bool)
+        for a, b in forbid:  # held-out 조합은 학습에서 뺀다
+            pair_ok[clips.index(a), clips.index(b)] = False
+        self.src_ok, self.match, self.pair_ok = jnp.array(src_ok), jnp.array(match), jnp.array(pair_ok)
+
+    def _ref(self, i: jax.Array, off: jax.Array) -> tuple[jax.Array, jax.Array]:
+        """프레임 i 의 reference qpos·qvel 을 (dx, dy, dyaw) 만큼 옮긴다. off = 0 이면 원본 그대로."""
+        q, v = self.ref_qpos[i], self.ref_qvel[i]
+        c, s = jnp.cos(off[2]), jnp.sin(off[2])
+        R = jnp.array([[c, -s], [s, c]])
+        q = q.at[:2].set(R @ q[:2] + off[:2]).at[3:7].set(math.quat_mul(jnp.array([jnp.cos(off[2] / 2), 0.0, 0.0, jnp.sin(off[2] / 2)]), q[3:7]))
+        v = v.at[:2].set(R @ v[:2])  # 선속도는 world frame, 각속도는 body frame 이라 그대로
+        return q, v
+
+    @staticmethod
+    def _yaw(quat: jax.Array) -> jax.Array:
+        w, x, y, z = quat
+        return jnp.arctan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+
+    def _switch(self, data: mjx.Data, info: dict, due: jax.Array, clip_b: jax.Array) -> dict:
+        """due 이면 목표를 clip_b 로 바꾼다: 들어갈 프레임 = match, B 를 로봇 현재 xy·yaw 에 맞춘다."""
+        nf = self.match[info["frame"], clip_b]
+        dyaw = self._yaw(data.qpos[3:7]) - self._yaw(self.ref_qpos[nf, 3:7])
+        c, s = jnp.cos(dyaw), jnp.sin(dyaw)
+        dxy = data.qpos[:2] - jnp.array([[c, -s], [s, c]]) @ self.ref_qpos[nf, :2]
+        info["rng"], k = jax.random.split(info["rng"])
+        wait = jnp.round(jax.random.uniform(k, minval=self.switch_wait[0], maxval=self.switch_wait[1]) / self.dt).astype(jnp.int32)
+        info["clip"] = jnp.where(due, clip_b, info["clip"])
+        info["frame"] = jnp.where(due, nf, info["frame"])
+        info["clip_end"] = jnp.where(due, self.clip_end[clip_b], info["clip_end"])
+        info["ref_off"] = jnp.where(due, jnp.array([dxy[0], dxy[1], dyaw]), info["ref_off"])
+        info["sw_left"] = jnp.where(due, self.switch_window, info["sw_left"])
+        info["sw_step"] = jnp.where(due, (info["steps"] + wait).astype(jnp.int32), info["sw_step"])  # steps 는 wrapper 에서 float
+        info["pose_steps_violated"] = jnp.where(due, 0.0, info["pose_steps_violated"])
+        info["switches"] = info["switches"] + due.astype(jnp.int32)
+        return info
+
+    def _maybe_switch(self, data: mjx.Data, info: dict) -> dict:
+        info["rng"], k = jax.random.split(info["rng"])
+        p = jnp.where(self.pair_ok[info["clip"]], self.clip_p, 0.0)
+        clip_b = jax.random.choice(k, len(self.clip_start), p=p / jnp.maximum(p.sum(), 1e-9))
+        due = ((info["steps"] >= info["sw_step"]) & self.src_ok[info["frame"]] & (p.sum() > 0) & (info["sw_left"] == 0)
+               & (data.qpos[1] < 20.0))  # 계단 장면 (y 27~33 m) 근처에서는 바꾸지 않는다
+        return self._switch(data, info, due, clip_b)
+
+    def switch_now(self, state: State, clip_b: jax.Array) -> State:
+        """평가용: 지금 프레임에서 바로 clip_b 로 바꾼다."""
+        info = self._switch(state.data, dict(state.info), jnp.bool_(True), clip_b)
+        info, _ = self.tracking_terms(state.data, info)
+        return state.replace(info=info, obs=self._get_obs(state.data, info))
 
     def preprocess_mj_model(self, mj_model: mujoco.MjModel):
         mj_model.opt.impratio = self.impratio
@@ -204,6 +286,12 @@ class TrackMjxEnv(MjxEnv):
         data = mjx.forward(self.mjx_model, data)
 
         rng, key1, key2, key3 = jax.random.split(rng, 4)
+        rng, ks1, ks2 = jax.random.split(rng, 3)
+        sw_step = jnp.where(
+            jax.random.uniform(ks1) < self.switch_prob,
+            jnp.round(jax.random.uniform(ks2, minval=self.switch_wait[0], maxval=self.switch_wait[1]) / self.dt),
+            10**6,
+        ).astype(jnp.int32)
         steps_until_next_kick = jnp.round(
             jax.random.uniform(key1, minval=self.kick_wait_times[0], maxval=self.kick_wait_times[1]) / self.dt
         ).astype(jnp.int32)
@@ -233,6 +321,10 @@ class TrackMjxEnv(MjxEnv):
             "kick_steps": 0,
             "kick_dir": jnp.zeros(3),
             "kick_mag": kick_mag,
+            "ref_off": jnp.zeros(3),
+            "sw_step": sw_step,
+            "sw_left": jnp.zeros((), jnp.int32),
+            "switches": jnp.zeros((), jnp.int32),
         }
         info, terms = self.tracking_terms(data, info)
         obs = self._get_obs(data, info)
@@ -244,7 +336,7 @@ class TrackMjxEnv(MjxEnv):
     def tracking_terms(self, data: mjx.Data, info: dict) -> tuple[dict, dict]:
         """현재 프레임 reference 와의 오차 (Peng 식 5~9 의 제곱합들)."""
         i = info["frame"]
-        ref_qpos, ref_qvel = self.ref_qpos[i], self.ref_qvel[i]
+        ref_qpos, ref_qvel = self._ref(i, info["ref_off"])
         base_quat = data.qpos[3:7]
         rot = data.xmat[self._base_idx]
         foot_b = (data.geom_xpos[self._foot_ids] - data.xpos[self._base_idx]) @ rot
@@ -278,6 +370,8 @@ class TrackMjxEnv(MjxEnv):
         info["state_is_nan"] = data_is_nan.astype(jnp.float32)
         info["steps"] += 1
         info["frame"] = jnp.minimum(info["frame"] + 1, info["clip_end"] - 1)
+        info["sw_left"] = jnp.maximum(info["sw_left"] - 1, 0)
+        info = self._maybe_switch(data, info)
         info, terms = self.tracking_terms(data, info)
         state = self.get_done(state.replace(data=data, info=info))
         state = state.replace(done=(state.done.astype(jnp.bool_) | data_is_nan).astype(jnp.float32))
@@ -302,6 +396,7 @@ class TrackMjxEnv(MjxEnv):
         return reward
 
     def compute_reward(self, data: mjx.Data, action: jax.Array, info: dict, terms: dict) -> dict[str, jax.Array]:
+        ramp = 1.0 - info["sw_left"] / self.switch_window  # 목표를 바꾼 직후 tracking 보상 0 → 1
         rewards = {
             # Peng 2020 식 (4)~(9)
             "track_pose": self.w["pose"] * jnp.exp(-self.k_pose * terms["pose"]),
@@ -311,6 +406,9 @@ class TrackMjxEnv(MjxEnv):
             * jnp.exp(-self.k_root_pos * terms["root_pos"] - self.k_root_orn * terms["root_orn"]),
             "track_root_vel": self.w["root_vel"]
             * jnp.exp(-self.k_root_linvel * terms["root_linvel"] - self.k_root_angvel * terms["root_angvel"]),
+        }
+        rewards = {k: v * ramp for k, v in rewards.items()}
+        rewards |= {
             "action_rate": jnp.sum((action - info["prev_action"]) ** 2) * self.penalty_action_rate,
             "torque": jnp.sum(data.actuator_force[: self.n_ctrl] ** 2) * self.penalty_torque,
             "joint_vel": jnp.sum(data.qvel[6:6 + self.n_ctrl] ** 2) * self.penalty_joint_vel,
@@ -345,7 +443,7 @@ class TrackMjxEnv(MjxEnv):
         # 미래 reference 프레임 (클립 끝에서 멈춤): 관절각, 현재 base 기준 base 위치·자세, 발 위치, 접지
         for k in self.obs_time_indices:
             i = jnp.minimum(info["frame"] + k, info["clip_end"] - 1)
-            ref = self.ref_qpos[i]
+            ref, _ = self._ref(i, info["ref_off"])
             rel_quat = math.quat_mul(math.quat_inv(base_quat), ref[3:7])
             obs_list += [
                 ref[7:] - self.init_q[7:],
@@ -363,6 +461,7 @@ class TrackMjxEnv(MjxEnv):
             "done/pos_err": info["done/pos_err"],
             "done/orn_err": info["done/orn_err"],
             "done/clip_end": info["done/clip_end"],
+            "switches": info["switches"].astype(jnp.float32),
         }
 
     def get_done(self, state: State) -> State:
@@ -370,8 +469,9 @@ class TrackMjxEnv(MjxEnv):
         end_of_episode = info["steps"] >= self.max_episode_length
         clip_end = info["frame"] >= info["clip_end"] - 1
         fell_over = info["up_vec"][2] < self.termination_fellover_threshold
-        pos_v = info["pos_err"] > self.termination_pos_err_threshold
-        orn_v = info["orn_err"] > self.termination_orn_err_threshold
+        in_window = info["sw_left"] > 0  # 목표를 바꾼 직후에는 위치·자세 오차로 종료하지 않는다
+        pos_v = (info["pos_err"] > self.termination_pos_err_threshold) & ~in_window
+        orn_v = (info["orn_err"] > self.termination_orn_err_threshold) & ~in_window
         info["pose_steps_violated"] = jnp.where(pos_v | orn_v, info["pose_steps_violated"] + 1, jnp.zeros(()))
         held = info["pose_steps_violated"] >= self.termination_pose_consecutive_steps
         info["done/fellover"] = fell_over.astype(jnp.float32)

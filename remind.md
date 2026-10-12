@@ -28,3 +28,10 @@
 
 ### 2-2 retargeting하여 motion tracking ppo expert
 - a1의 모션을 따라하는 다양한 
+- **tracking 현황 (2026-10-12)**: TT 4 형상 × 30 모션 (A1 원본 25 + 점프·계단 2 + 이어붙인 전환 3, tiltYaw 제외), 형상당 정책 1 개. 최신 tt_jumpBoost 통과 112/120 · 넘어짐 0, jumpInPlace 끝 위치만 1/4 통과
+- 방법: A1 레퍼런스 → TT IK 리타겟 → MJX PPO full-body tracking (보상 [2] ×10, RSI·조기 종료 [1], kp 30, 13.3 kg). 100M 후 점프 3 모션 샘플링 6 배로 20M 이어 학습
+- 진행 중: 목표 바꾸기 전환 학습 (episode 50%, 계단·held-out 회전 보행→점프 제외). 기록 runs/TT_tracking/report.html
+
+## 참고 문헌
+1. X. B. Peng, P. Abbeel, S. Levine, M. van de Panne, "DeepMimic: Example-Guided Deep Reinforcement Learning of Physics-Based Character Skills," ACM Trans. Graph. (SIGGRAPH) 37(4), 2018.
+2. X. B. Peng, E. Coumans, T. Zhang, T.-W. Lee, J. Tan, S. Levine, "Learning Agile Robotic Locomotion Skills by Imitating Animals," Robotics: Science and Systems (RSS), 2020.

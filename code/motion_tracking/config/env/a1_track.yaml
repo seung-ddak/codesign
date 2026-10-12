@@ -10,6 +10,15 @@ clips: [sitDown, squat, standUp, tiltPitch, tiltRoll, jumpInPlace, stairsUpDown,
   walkBackwardFast, walkBackwardSlow, walkCCWSlow, walkCWSlow, walkForwardFast, walkForwardSlow,
   walkLeftFast, walkLeftSlow, walkRightFast, walkRightSlow]
 clip_boost: null  # {모션: 배수} 샘플링 가중치, 나머지 1 (null = 균등)
+# 목표 바꾸기 전환 학습 (track_env._maybe_switch). switch_prob 0 = 끔 (기존과 동일)
+switch_prob: 0.0
+switch_wait: [1.0, 3.0]  # s, episode 시작·직전 바꾸기 후 다음 바꾸기까지
+switch_window: 25  # step (0.5 s). tracking 보상 0→1, 위치·자세 오차 종료 끔
+switch_min_remain: 50  # B 에 최소 1 s 남는 프레임으로만 들어간다
+switch_exclude: [stairsUpDown]  # 계단은 장면 위치가 고정이라 바꾸기 출발·도착 금지 (계단 전환은 모션 안에 이미 있음)
+# held-out (조합 3 중 '회전 보행 중 점프') 은 학습에서 뺀다
+switch_forbid: [[walkCWSlow, jumpInPlace], [walkCCWSlow, jumpInPlace], [trotCWSlow, jumpInPlace], [trotCCWSlow, jumpInPlace],
+  [walkCWSlow, walkToJump], [walkCCWSlow, walkToJump], [trotCWSlow, walkToJump], [trotCCWSlow, walkToJump]]
 max_episode_length: 1000
 n_ctrl: 12  # 다리 12 관절만 정책 제어 (TT 팔 6 은 home 자세 고정, 사용자 결정)
 ctrl_dt: 0.02  # = reference dt (50Hz)
