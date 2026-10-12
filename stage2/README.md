@@ -71,6 +71,6 @@ TMUX_RUN_CWD=$PWD bash $S T8_try1 "$P stage2/code/collect_rollouts.py --run stag
 | `runs/A1_tracking` | A1 몸 레퍼런스 tracking (try1·try2·topo1100) 통합 | `report.html` | [보고서](https://claude.ai/artifact/3rmR88rdXEev4q9Tx9Z58W) |
 | `runs/tiltYaw_test` | tiltYaw 넘어짐 시험 (penalty·형상·kp·발 고정) 통합. 결론 = tiltYaw 제외 | `report.html` | [보고서](https://claude.ai/artifact/Uz7BNdsam4gd59D35VXDJK) |
 | `runs/TT_retarget` | A1 → TT 4 형상 IK 리타겟 + 전환 3 종. 데이터 본체 (artifacts/retarget_tt 는 링크) | `report.html` | [보고서](https://claude.ai/artifact/M2VSnGMLch57wSFDLHJxdw) |
-| `runs/TT_tracking` | TT 4 형상 tracking (tt00000010 try1~3, tt_js100M, tt_trans50M, tt_trans100M 진행 중) 통합 | `report.html` | [보고서](https://claude.ai/artifact/EXm61K5fNm9ATibCN5c9fn) |
+| `runs/TT_tracking` | TT 4 형상 tracking (tt00000010 try1~3, tt_js100M, tt_trans50M, tt_trans100M) 통합 | `report.html` | [보고서](https://claude.ai/artifact/EXm61K5fNm9ATibCN5c9fn) |
 
 그 외 `t5_screen_200it` · `t5_smoke_*` · `t5_a1_1000it` · `t5_lin5_200it` 는 T4/T5 조정 과정 기록 (remind D43~D47).
