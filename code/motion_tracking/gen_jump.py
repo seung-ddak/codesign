@@ -57,7 +57,7 @@ def main():
             env.step(policy(obs.detach()).detach())
             rs = env.root_states[0].cpu().numpy()
             log["base_pos"].append(rs[:3])
-            log["base_quat"].append(rs[[6, 3, 4, 5]])  # Isaac (x,y,z,w) → (w,x,y,z)
+            log["base_quat"].append(rs[[6, 3, 4, 5]]) 
             log["q"].append(env.dof_pos[0].cpu().numpy()[order])
             log["contact"].append(env.contact_forces[0, feet, 2].cpu().numpy() > 1.0)
             log["jump_sig"].append(float(env.jump_sig[0, 0]))

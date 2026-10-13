@@ -542,12 +542,13 @@ def stitch(name, A, B, hold):
           f"dq max={fix['fix_dq_max_deg']:.1f}deg, inv bad={inv['inv_bad_frac'] * 100:.1f}% ghost p95={inv['inv_res_force_p95_pct']:.1f}%W -> {out}")
 
 
-def retarget_tt(src, dst, only=None):
+def retarget_tt(src, dst, only=None, height_trace_only=False):
     """A1 reference(fix_*) → TT 형상 (TT_CHOICES). 치수가 달라 IK 로 리타겟한다 (Peng 2020 keypoint IK 방식).
 
     발 목표 (몸통 기준) = TT 엉덩이 + s·(A1 발 − A1 엉덩이), s = 다리 길이 비 (TT/A1). base xy 도 s 배 (보폭과 일치),
     base 자세는 A1 그대로, base z 는 딛은 발이 바닥에 닿게. 이후 foot_lock 으로 딛은 발 고정 + mink IK.
     출력: <dst>/<choice>/<motion>.npz (fix_*, inv_*, dt, a1_qpos), <dst>/summary.csv
+    height_trace_only=True: 중간 높이만 반환하고 IK·역동역학·파일 쓰기를 건너뛴다.
     """
     from scipy.signal import savgol_filter
 
@@ -556,6 +557,7 @@ def retarget_tt(src, dst, only=None):
     footA = [mA.geom(f"{l}_foot").id for l in LEGS]
     thighA = [mA.body(f"{l}_thigh").id for l in LEGS]
     rows = []
+    height_traces = {}
     for choice in TT_CHOICES:
         m = build_model(choice)
         d = mujoco.MjData(m)
@@ -569,7 +571,8 @@ def retarget_tt(src, dst, only=None):
         legT = sum(np.linalg.norm(m.body_pos[m.body(f"quadruped_manipulator/left_leg/{b}").id]) for b in ("calf", "foot"))
         legA = sum(np.linalg.norm(mA.body_pos[mA.body(b).id]) for b in ("FL_calf",)) + np.linalg.norm(mA.geom_pos[footA[1]])
         s = legT / legA
-        os.makedirs(os.path.join(dst, choice), exist_ok=True)
+        if not height_trace_only:
+            os.makedirs(os.path.join(dst, choice), exist_ok=True)
         for f in sorted(glob.glob(os.path.join(src, "*.npz"))):
             name = os.path.basename(f)[:-4]
             if name in UNUSED or (only and name not in only):
@@ -600,10 +603,17 @@ def retarget_tt(src, dst, only=None):
                 if contact[t].any():
                     zb[t] = (ground[t, contact[t]] + RADIUS - rel[t, contact[t], 2]).mean()
             ok = ~np.isnan(zb)
+            contact_z = zb.copy()
             # 딛은 발이 없는 프레임(점프 공중)은 A1 높이의 s 배 + 앞뒤 접지 구간 오프셋 보간 → 포물선 유지
             off = zb - s * z["fix_base_pos"][:, 2]
             zb = s * z["fix_base_pos"][:, 2] + np.interp(np.arange(T), np.where(ok)[0], off[ok])
+            interpolated_z = zb.copy()
             zb = savgol_filter(zb, BASE_SG_WIN, 2)
+            if height_trace_only:
+                height_traces[(choice, name)] = dict(dt=dt, scale=s, a1_z=z["fix_base_pos"][:, 2].copy(),
+                    contact=contact.copy(), interp_ok=ok.copy(), off=off.copy(), contact_z=contact_z,
+                    interpolated_z=interpolated_z, smoothed_z=zb.copy())
+                continue
             sxy = 1.0 if terrain else s  # 계단은 고정 위치라 보폭을 줄이지 않는다
             pos = np.c_[sxy * z["fix_base_pos"][:, :2], zb]
             ref = dict(ref_base_pos=pos, ref_base_quat=quat, ref_foot_pos=pos[:, None] + rel - [0, 0, RADIUS], ref_contact=contact)
@@ -622,6 +632,8 @@ def retarget_tt(src, dst, only=None):
             print(f"{choice} {name:18s} s={s:.3f} foot_err={r['foot_err_mm']:5.1f}mm slip={r['slip']:.3f} "
                   f"q_at_limit={r['q_at_limit']:.2f} inv bad={inv['inv_bad_frac'] * 100:4.1f}% "
                   f"ghost p95={inv['inv_res_force_p95_pct']:5.1f}%W tau p99/max={inv['inv_tau_p99']:5.1f}/{inv['inv_tau_max']:5.1f}", flush=True)
+    if height_trace_only:
+        return height_traces
     summary = os.path.join(dst, "summary.csv" if not only else f"summary_{'_'.join(only)}.csv")
     with open(summary, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=rows[0].keys())
