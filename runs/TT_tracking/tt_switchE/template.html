@@ -1,0 +1,91 @@
+<title>tt_switchE 전환 학습</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 단일 컬럼 실험 보고서: 결과 → 표 → 영상 → 조건 */
+:root {
+  --bg: #f6f7f8; --surface: #ffffff; --fg: #1b2228; --muted: #5d6973; --line: #d9dee3;
+  --accent: #1f6f8b; --ok: #1e7a46; --ok-bg: #e3f3ea; --bad: #b3382c; --bad-bg: #fbe7e4;
+  --c0: #1f6f8b; --c1: #c26a1b; --c2: #6b4fa3; --c3: #3d8a3d;
+  --sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #13171b; --surface: #1b2127; --fg: #e3e8ec; --muted: #9aa6b0; --line: #2e3740;
+  --accent: #5fb3cf; --ok: #6fd39a; --ok-bg: #173325; --bad: #f08a7e; --bad-bg: #3a1d1a;
+  --c0: #5fb3cf; --c1: #e79a52; --c2: #a68ce0; --c3: #7cc87c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #13171b; --surface: #1b2127; --fg: #e3e8ec; --muted: #9aa6b0; --line: #2e3740;
+  --accent: #5fb3cf; --ok: #6fd39a; --ok-bg: #173325; --bad: #f08a7e; --bad-bg: #3a1d1a;
+  --c0: #5fb3cf; --c1: #e79a52; --c2: #a68ce0; --c3: #7cc87c; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); line-height: 1.6; }
+main { max-width: 1080px; margin: 0 auto; padding-inline: 16px; padding-block: 32px 64px; display: grid; gap: 36px; }
+h1 { font-size: 1.7rem; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.15rem; margin: 0 0 12px; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; font-size: .95rem; }
+section { min-width: 0; }
+ul.res { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; max-width: 75ch; }
+.tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; font-size: .88rem; }
+th, td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+thead th { font-size: .75rem; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+tbody th { font-weight: 600; font-family: var(--mono); font-size: .8rem; white-space: nowrap; }
+td.ok { background: var(--ok-bg); } td.bad { background: var(--bad-bg); }
+small { color: var(--muted); }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.charts figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px; min-width: 0; }
+figcaption { font-size: .85rem; color: var(--muted); margin-top: 6px; }
+svg { width: 100%; height: auto; display: block; }
+.grid { stroke: var(--line); } .ax { fill: var(--muted); font: 10px var(--mono); }
+polyline { stroke-width: 2; } .s0 { stroke: var(--c0); } .s1 { stroke: var(--c1); } .s2 { stroke: var(--c2); } .s3 { stroke: var(--c3); }
+.lg { display: inline-flex; align-items: center; gap: 6px; margin-right: 14px; font: .8rem var(--mono); }
+.lg i { width: 14px; height: 3px; display: inline-block; }
+.lg i.s0 { background: var(--c0); } .lg i.s1 { background: var(--c1); } .lg i.s2 { background: var(--c2); } .lg i.s3 { background: var(--c3); }
+details { border: 1px solid var(--line); border-radius: 6px; background: var(--surface); margin-bottom: 10px; }
+summary { padding: 10px 12px; cursor: pointer; font-family: var(--mono); }
+summary:focus-visible { outline: 2px solid var(--accent); }
+.vgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; padding: 0 12px 12px; }
+.vgrid figure { margin: 0; min-width: 0; }
+video { width: 100%; max-width: 100%; border-radius: 4px; background: #000; }
+.pill { font-size: .72rem; padding: 1px 7px; border-radius: 99px; font-weight: 600; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); } .pill.bad { background: var(--bad-bg); color: var(--bad); }
+</style>
+<main>
+<header>
+  <h1>tt_switchE 전환 학습</h1>
+  <p class="sub">TT 4 형상 · tt_jumpBoost 에서 이어 50M step · 모션 A 끝 → B 처음 전환 (DeepMimic skill selector)</p>
+</header>
+
+<section><h2>결과</h2><ul class="res">{{ANALYSIS}}</ul></section>
+
+<section><h2>형상별 요약 (jumpBoost → switchE)</h2><div class="tw"><table>
+<thead><tr><th>형상</th><th>전환 · 학습 포함 6</th><th>전환 · held-out 3</th><th>모션 tracking 30</th><th>평가 보상 (5M → 50M)</th><th>넘어짐 (50M)</th></tr></thead>
+<tbody>{{SUMM}}<tr><th>합계</th><td>{{TB}} → <b>{{TE}}</b></td><td>{{HB}} → <b>{{HE}}</b></td><td>{{MB}} → <b>{{ME}}</b></td><td></td><td></td></tr></tbody>
+</table></div></section>
+
+<section><h2>전환 쌍별 회복 시간 (jumpBoost → switchE)</h2>
+<p class="sub">통과 = 넘어지지 않음 + 전환 후 1.0 s 안에 관절 RMS &lt; 5°, 발 &lt; 3 cm, 자세 &lt; 5° 를 10 프레임 (0.2 s) 연속 유지. 칸 색 = switchE 통과 여부. 관절·자세 = 0.5 s 이후 평균.</p>
+<div class="tw"><table><thead><tr><th>A → B</th><th>00000000</th><th>00000001</th><th>00000010</th><th>00000011</th></tr></thead>
+<tbody>{{PAIRS}}</tbody></table></div></section>
+
+<section><h2>모션별 tracking 변화 (바뀌었거나 실패한 모션만)</h2>
+<div class="tw"><table><thead><tr><th>모션</th><th>00000000</th><th>00000001</th><th>00000010</th><th>00000011</th></tr></thead>
+<tbody>{{MOT}}</tbody></table></div></section>
+
+<section><h2>학습 곡선 (평가 env 100, 전환 없음)</h2>
+<div>{{LEGEND}}</div>
+<div class="charts">
+  <figure>{{REW}}<figcaption>episode 보상 평균 · x = M step</figcaption></figure>
+  <figure>{{FALL}}<figcaption>넘어짐 종료 비율 · x = M step</figcaption></figure>
+</div></section>
+
+<section><h2>전환 영상 (switchE)</h2>{{VIDS}}</section>
+
+<section><h2>실험 조건</h2><div class="tw"><table><tbody>
+<tr><th>시작 정책</th><td>tt_jumpBoost 형상별 최종 checkpoint (20.3M), actor·critic 그대로</td></tr>
+<tr><th>학습량</th><td>50M step · 4096 env · PPO (lr 1e-3, entropy 0.01) · MJX</td></tr>
+<tr><th>전환</th><td>switch_prob 0.5 · switch_at end (A 마지막 프레임) · switch_entry start (B 첫 프레임 0.5 s 유지) · 보상 ramp 끔 · B 를 로봇 xy·yaw 에 맞춤</td></tr>
+<tr><th>제외</th><td>stairsUpDown (출발·도착) · held-out: 회전 보행 (walk/trot CW·CCW) → jumpInPlace · walkToJump</td></tr>
+<tr><th>평가</th><td>eval_switch.py SWITCH_ENTRY=start SWITCH_AT=end (9 쌍, 결정적 정책) · eval_motions.py (30 모션)</td></tr>
+<tr><th>비교 기준</th><td>같은 평가를 tt_jumpBoost (전환 미학습) 에 적용</td></tr>
+</tbody></table></div></section>
+</main>
