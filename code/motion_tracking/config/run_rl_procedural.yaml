@@ -6,8 +6,11 @@ defaults:
 
 kp: null  # TT 형상 PD 비례 이득 덮어쓰기 (null = 원본 30)
 restore_ckpt: null  # 이전 run checkpoint 경로 (files/checkpoints/<step>). 이어 학습
-tau_scale: null  # TT 형상 토크 한계 배율 (null = 원본 hip·thigh ±23.7 / calf ±45.4 N·m)
-choice: "00000010"  # TT design space choice 8 자리 (끝 2 자리 = 앞·뒤 무릎 반전). CLI 에서는 choice="'00000010'" 처럼 따옴표
+tau_scale: null  # 구형 실험용 배율; torque_limit 지정 시 최종 토크 한계는 torque_limit 우선
+torque_limit: 33.5  # A1과 같은 12개 관절 토크 한계 (N·m); 이전 run 재평가 시 저장된 config 사용
+choice: "00000011"  # A1과 앞·뒤 무릎 굽힘 방향이 모두 같은 TT topology
+multi_design: true
+train_designs: [e000, e001, e002]  # e003은 미학습 morphology 평가용
 
 wandb:
   tags: null

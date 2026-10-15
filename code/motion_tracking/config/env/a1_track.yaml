@@ -1,14 +1,6 @@
 _target_: track_env.TrackMjxEnv
-# pd_replay.py --retarget 출력. 학습 스크립트가 <reference_dir>/<choice>/<motion>.npz 로 쓴다. backFlip/howAreYou/rollBack 미사용
-reference_dir: ${hydra:runtime.cwd}/artifacts/retarget_tt
-# tiltYaw 제외 (같은 방향 무릎 형상에서 학습 불안정, 사용자 결정), jumpInPlace·stairsUpDown 추가 (A1 RL 로 생성)
-# 전환 3 종 추가 (pd_replay.py --transitions, 2026-10-12 사용자 결정)
-clips: [sitDown, squat, standUp, tiltPitch, tiltRoll, jumpInPlace, stairsUpDown,
-  walkToJump, jumpToWalk, walkToStand,
-  trotBackwardFast, trotBackwardSlow, trotCCWSlow, trotCWSlow, trotForwardFast, trotForwardSlow,
-  trotLeftFast, trotLeftSlow, trotRightFast, trotRightSlow,
-  walkBackwardFast, walkBackwardSlow, walkCCWSlow, walkCWSlow, walkForwardFast, walkForwardSlow,
-  walkLeftFast, walkLeftSlow, walkRightFast, walkRightSlow]
+reference_dir: ${hydra:runtime.cwd}/runs/pipeline_v1/retargeting/e000
+clips: [sitDown__r00]  # 모션별 expert: 다른 모션은 env.clips와 eval_env.clips를 함께 override
 clip_boost: null  # {모션: 배수} 샘플링 가중치, 나머지 1 (null = 균등)
 # 목표 바꾸기 전환 학습 (track_env._maybe_switch). switch_prob 0 = 끔 (기존과 동일)
 switch_prob: 0.0
@@ -18,10 +10,8 @@ switch_min_remain: 50  # B 에 최소 1 s 남는 프레임으로만 들어간다
 switch_entry: match  # B 진입 프레임: match = 가장 비슷한 자세, start = B 처음 (전환 구간 동안 첫 프레임 유지)
 switch_at: time  # time = switch_wait 뒤, end = A 마지막 프레임에서 B 로 이어 감 (DeepMimic skill selector 방식)
 switch_ramp: true  # 바꾼 뒤 tracking 보상 0→1 (DeepMimic 은 없음)
-switch_exclude: [stairsUpDown]  # 계단은 장면 위치가 고정이라 바꾸기 출발·도착 금지 (계단 전환은 모션 안에 이미 있음)
-# held-out (조합 3 중 '회전 보행 중 점프') 은 학습에서 뺀다
-switch_forbid: [[walkCWSlow, jumpInPlace], [walkCCWSlow, jumpInPlace], [trotCWSlow, jumpInPlace], [trotCCWSlow, jumpInPlace],
-  [walkCWSlow, walkToJump], [walkCCWSlow, walkToJump], [trotCWSlow, walkToJump], [trotCCWSlow, walkToJump]]
+switch_exclude: []
+switch_forbid: []
 max_episode_length: 1000
 n_ctrl: 12  # 다리 12 관절만 정책 제어 (TT 팔 6 은 home 자세 고정, 사용자 결정)
 ctrl_dt: 0.02  # = reference dt (50Hz)

@@ -43,7 +43,7 @@ TT_LEG = {"FR": "right_leg", "FL": "left_leg", "RR": "right_leg_1", "RL": "left_
 N_LEG = 12  # 다리 관절 수 (qpos·actuator 앞쪽 12)
 
 
-def build_model(choice=None, kp=None, tau_scale=None):
+def build_model(choice=None, kp=None, tau_scale=None, torque_limit=None, uniforms=None):
     """choice 가 없으면 A1 (menagerie MJCF, kp 100, ±33.5 N·m), 있으면 TT design space 형상 (kp 30, ±23.7 N·m, 팔 제거).
     두 경우 모두 발 geom 이름을 "<LEG>_foot", 렌더링 카메라 body_cam 을 몸통에 둔다."""
     if choice is None:
@@ -57,6 +57,10 @@ def build_model(choice=None, kp=None, tau_scale=None):
     else:
         import sys
 
+        uniforms = [0.5] * 13 if uniforms is None else list(uniforms)
+        if len(uniforms) != 13 or not np.isfinite(uniforms).all() or np.any(np.asarray(uniforms) < 0) or np.any(np.asarray(uniforms) > 1):
+            raise ValueError("uniforms must contain 13 finite values in [0, 1]")
+
         sys.path.insert(0, TT)
         from t2.env.mj_utils import set_up_default_scene
         from t2.robogen.umi_on_legs_plus_plus import umi_on_legs_plus_plus_from_params
@@ -64,7 +68,7 @@ def build_model(choice=None, kp=None, tau_scale=None):
         import contextlib
 
         with contextlib.chdir(TT):  # robogen 컴포넌트 경로가 TT 저장소 기준 상대경로
-            root = umi_on_legs_plus_plus_from_params(choices=[int(c) for c in str(choice).zfill(8)], uniforms=[0.5] * 13)
+            root = umi_on_legs_plus_plus_from_params(choices=[int(c) for c in str(choice).zfill(8)], uniforms=uniforms)
             root = set_up_default_scene(root, add_plane=True, plane_z_pos=0.0)
             spec = mujoco.MjSpec.from_string(root.to_xml_string(), assets=root.get_assets())
         # 사용자 결정 (2026-10-11): 팔(ARX5)·레일 제거 → 다리 4 족만. keyframe 은 크기가 바뀌므로 지우고 다리 부분만 다시 만든다
@@ -102,6 +106,10 @@ def build_model(choice=None, kp=None, tau_scale=None):
             m.actuator_biasprm[:, 1] = -kp
         if tau_scale is not None:  # 토크 한계 배율. jumpInPlace 토크 부족 확인용 (사용자 실험 2026-10-12)
             m.actuator_forcerange *= tau_scale
+        if torque_limit is not None:
+            if not np.isfinite(torque_limit) or torque_limit <= 0:
+                raise ValueError("torque_limit must be positive and finite")
+            m.actuator_forcerange[:N_LEG] = (-torque_limit, torque_limit)
         return m
     # track_env 렌더링용 (TT a1_umi_on_legs.xml 의 body_cam 과 동일)
     cam = spec.body(base).add_camera(name="body_cam", mode=mujoco.mjtCamLight.mjCAMLIGHT_TRACKCOM, pos=[1.2, 1.2, 0.5])
@@ -542,7 +550,7 @@ def stitch(name, A, B, hold):
           f"dq max={fix['fix_dq_max_deg']:.1f}deg, inv bad={inv['inv_bad_frac'] * 100:.1f}% ghost p95={inv['inv_res_force_p95_pct']:.1f}%W -> {out}")
 
 
-def retarget_tt(src, dst, only=None, height_trace_only=False):
+def retarget_tt(src, dst, only=None, height_trace_only=False, torque_limit=None, choices=None, uniforms=None):
     """A1 reference(fix_*) → TT 형상 (TT_CHOICES). 치수가 달라 IK 로 리타겟한다 (Peng 2020 keypoint IK 방식).
 
     발 목표 (몸통 기준) = TT 엉덩이 + s·(A1 발 − A1 엉덩이), s = 다리 길이 비 (TT/A1). base xy 도 s 배 (보폭과 일치),
@@ -558,8 +566,8 @@ def retarget_tt(src, dst, only=None, height_trace_only=False):
     thighA = [mA.body(f"{l}_thigh").id for l in LEGS]
     rows = []
     height_traces = {}
-    for choice in TT_CHOICES:
-        m = build_model(choice)
+    for choice in TT_CHOICES if choices is None else choices:
+        m = build_model(choice, torque_limit=torque_limit, uniforms=uniforms)
         d = mujoco.MjData(m)
         base = m.jnt_bodyid[0]
         home = m.key("home").qpos.copy()
@@ -622,8 +630,9 @@ def retarget_tt(src, dst, only=None, height_trace_only=False):
                             lock=not name.endswith(UNLOCKED))
             fix["fix_q"][:, N_LEG:] = home[7 + N_LEG:]  # 팔은 home 자세 고정
             inv = inverse_check(m, fix, dt)
-            extra = {"terrain_boxes": z["terrain_boxes"]} if terrain else {}
-            np.savez(os.path.join(dst, choice, f"{name}.npz"), **fix, **inv, **extra, dt=dt, a1_qpos=a1_qpos, scale=s)
+            extra = {k: z[k] for k in ("terrain_boxes", "source_motion", "seed", "speed", "stride", "heading_rad") if k in z.files}
+            np.savez(os.path.join(dst, choice, f"{name}.npz"), **fix, **inv, **extra, dt=dt, a1_qpos=a1_qpos, scale=s,
+                     uniforms=np.asarray([0.5] * 13 if uniforms is None else uniforms))
             lo, hi = m.jnt_range[1:].T
             r = dict(choice=choice, motion=name, scale=s, foot_err_mm=fix["fix_track_err"] * 1000, slip=fix["fix_slip"],
                      q_at_limit=float(((fix["fix_q"] <= lo + 1e-3) | (fix["fix_q"] >= hi - 1e-3)).any(1).mean()),
@@ -634,6 +643,8 @@ def retarget_tt(src, dst, only=None, height_trace_only=False):
                   f"ghost p95={inv['inv_res_force_p95_pct']:5.1f}%W tau p99/max={inv['inv_tau_p99']:5.1f}/{inv['inv_tau_max']:5.1f}", flush=True)
     if height_trace_only:
         return height_traces
+    if not rows:
+        raise ValueError(f"no reference clips found in {src}")
     summary = os.path.join(dst, "summary.csv" if not only else f"summary_{'_'.join(only)}.csv")
     with open(summary, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=rows[0].keys())
@@ -649,6 +660,10 @@ def main():
     ap.add_argument("--import_sim", action="store_true", help="SIM_MOTIONS 의 sim 녹화 → artifacts/pd_replay/<name>.npz")
     ap.add_argument("--transitions", action="store_true", help="TRANSITIONS 이어붙이기 → artifacts/pd_replay/<name>.npz")
     ap.add_argument("--retarget", action="store_true", help="artifacts/pd_replay → artifacts/retarget_tt/<choice>/")
+    ap.add_argument("--source-dir", default=os.path.join(ROOT, "artifacts", "pd_replay"))
+    ap.add_argument("--choices", nargs="*", choices=TT_CHOICES, help="리타겟할 TT topology (기본 4개)")
+    ap.add_argument("--uniforms", nargs=13, type=float, help="TT 연속 치수 13개 (기본 모두 0.5)")
+    ap.add_argument("--torque-limit", type=float, help="TT retarget inverse check의 관절별 대칭 토크 한계 (N·m)")
     ap.add_argument("--clips", nargs="*", help="기본: raw/ 전체")
     ap.add_argument("--video", action="store_true")
     ap.add_argument("--out", default=os.path.join(ROOT, "artifacts", "pd_replay"))
@@ -666,7 +681,9 @@ def main():
             stitch(name, A, B, hold)
         return
     if a.retarget:
-        return retarget_tt(os.path.join(ROOT, "artifacts", "pd_replay"), os.path.join(ROOT, "artifacts", "retarget_tt"), a.only)
+        dst = a.out if a.out != os.path.join(ROOT, "artifacts", "pd_replay") else os.path.join(ROOT, "artifacts", "retarget_tt")
+        return retarget_tt(a.source_dir, dst, a.only, torque_limit=a.torque_limit, choices=a.choices,
+                           uniforms=a.uniforms)
 
     clips = [load_clip(p) for p in sorted(glob.glob(os.path.join(ROOT, "raw", "*_raw_state.csv")))]
     if a.clips:

@@ -6,6 +6,7 @@ usage (codesign/ 에서):
 영상: 파랑 = 학습 형상, 반투명 주황 = 레퍼런스 모션 (A1 원래 관절각). 넓은 화면, 몸통을 따라가는 카메라.
 """
 
+import argparse
 import csv
 import glob
 import os
@@ -23,7 +24,7 @@ import numpy as np
 from omegaconf import OmegaConf
 
 from pd_replay import build_model
-from t2.eval.stair_design import load_run
+from policy_io import load_run
 from track_env import TrackMjxEnv
 
 # 통과 기준 (2026-10-11 사용자 확정). 접지 일치는 착지·이륙 타이밍 ±CONTACT_TOL 프레임 허용 (사용자 확정)
@@ -32,14 +33,27 @@ CONTACT_DIST = 1e-3  # m. 발 geom 과 바닥 거리가 이 이하면 접지
 CONTACT_TOL = 1  # 프레임 (20 ms). reference 접지 자체가 50Hz 운동학 추정이라 전환 시점에 ±1 프레임 불확실
 FOOT_R = 0.02  # 발 sphere 반지름
 
-run = Path(sys.argv[1])
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("run", type=Path)
+parser.add_argument("clips", nargs="*")
+parser.add_argument("--design", default="e000", help="TT morphology to evaluate")
+args = parser.parse_args()
+run = args.run
 ckpt = sorted(glob.glob(str(run / "files/checkpoints/*")), key=lambda p: int(os.path.basename(p)))[-1]
 cfg, policy = load_run(ckpt)
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
 choice = cfg.get("choice")  # 없거나 "A1" 이면 A1 몸
 choice = None if choice == "A1" else choice
-env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale")), **ecfg)
+if choice is not None:
+    ref_root = Path(ecfg["reference_dir"]).parents[1]
+    ecfg["reference_dir"] = str(ref_root / args.design / choice)
+    with np.load(Path(ecfg["reference_dir"]) / f"{ecfg['clips'][0]}.npz") as first:
+        uniforms = first["uniforms"]
+else:
+    uniforms = None
+env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+                                                 torque_limit=cfg.get("torque_limit"), uniforms=uniforms), **ecfg)
 reset_with_traj, step, policy = jax.jit(env.reset_with_traj), jax.jit(env.step), jax.jit(policy)
 
 m = env.mj_model
@@ -77,11 +91,11 @@ def render(qpos, ref_qpos, a1_qpos):
     return renderer.render()
 
 feet = np.array(env._foot_ids)
-out = run / "motion_eval"
+out = run / "motion_eval" / args.design
 (out / "videos").mkdir(parents=True, exist_ok=True)
 
 rows = []
-only = sys.argv[2:]  # 모션 이름을 주면 그 모션만
+only = args.clips  # 모션 이름을 주면 그 모션만
 for ci, name in enumerate(ecfg["clips"]):
     if only and name not in only:
         continue
@@ -95,7 +109,8 @@ for ci, name in enumerate(ecfg["clips"]):
     fell = False
     for _ in range(end - start - 1):
         rng, key = jax.random.split(rng)
-        s = step(s, policy(s.obs, key)[0])
+        obs = jnp.concatenate((s.obs, jnp.asarray(uniforms))) if cfg.get("multi_design") else s.obs
+        s = step(s, policy(obs, key)[0])
         i = int(s.info["frame"])
         qpos = np.asarray(s.data.qpos)
         ref_q = np.asarray(env.ref_qpos[i])
@@ -130,7 +145,7 @@ for ci, name in enumerate(ecfg["clips"]):
     end_tol = max(PASS["end_pos_frac"] * travel, PASS["end_pos_min_m"])
     inv_bad = float(np.load(os.path.join(ecfg["reference_dir"], f"{name}.npz"))["inv_bad_frac"])
     r = dict(
-        motion=name, frames=end - start, survived=int(not fell),
+        design=args.design, motion=name, frames=end - start, evaluated_frames=len(jerr), survived=int(not fell),
         joint_rms_deg=float(np.degrees(np.mean(jerr))), foot_err_cm=float(np.mean(ferr) * 100),
         orn_err_deg=float(np.degrees(np.mean(oerr))), end_pos_err_cm=end_err * 100, end_pos_tol_cm=end_tol * 100,
         travel_m=travel, contact_agree=float(np.mean(cagree)), ref_infeasible=inv_bad,
@@ -152,4 +167,5 @@ with open(out / "motion_eval.csv", "w", newline="") as f:
     w = csv.DictWriter(f, fieldnames=rows[0].keys())
     w.writeheader()
     w.writerows(rows)
+renderer.close()
 print("->", out, f"pass {sum(r['pass_all'] for r in rows)}/{len(rows)}")

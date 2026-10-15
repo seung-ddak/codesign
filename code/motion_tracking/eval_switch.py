@@ -23,7 +23,7 @@ import numpy as np
 from omegaconf import OmegaConf
 
 from pd_replay import build_model
-from t2.eval.stair_design import load_run
+from policy_io import load_run
 from track_env import TrackMjxEnv
 
 # (A, B, 학습 여부). held-out = 학습에서 뺀 '회전 보행 → 점프'
@@ -52,7 +52,8 @@ ecfg.pop("_target_")
 ecfg["switch_entry"] = os.environ.get("SWITCH_ENTRY", "start")  # B 진입: start = B 처음부터 (사용자 결정)
 AT_END = os.environ.get("SWITCH_AT", "end") == "end"  # end = A 를 끝까지 따라간 뒤 B (DeepMimic 동작 경계)
 choice = cfg.get("choice")
-env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale")), **ecfg)
+env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+                                                 torque_limit=cfg.get("torque_limit")), **ecfg)
 reset_with_traj, step, switch_now, policy = jax.jit(env.reset_with_traj), jax.jit(env.step), jax.jit(env.switch_now), jax.jit(policy)
 clips = ecfg["clips"]
 

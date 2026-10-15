@@ -13,14 +13,17 @@ from pd_replay import build_model
 from track_env import TrackMjxEnv
 
 cfg = OmegaConf.load(Path(__file__).parent / "config/env/a1_track.yaml")
-cfg.reference_dir = str(Path(__file__).resolve().parents[2] / "artifacts/retarget_tt/00000010")
+cfg.reference_dir = str(Path(__file__).resolve().parents[2] / "runs/pipeline_v1/retargeting/e000/00000011")
+cfg.clips = ["sitDown__r00"]
+cfg.switch_exclude = []
+cfg.switch_forbid = []
 cfg = OmegaConf.to_container(cfg)
 cfg.pop("_target_")
 cfg.update(reset_qpos=0.0, reset_qvel=0.0, velocity_kick=[0.0, 0.0])
-env = TrackMjxEnv(mj_model_fn=lambda: build_model("00000010"), **cfg)
+env = TrackMjxEnv(mj_model_fn=lambda: build_model("00000011", torque_limit=33.5), **cfg)
 print("obs", env.observation_size, "act", env.action_size, "frames", env.ref_qpos.shape[0])
 
-N, T = 256, 100
+N, T = 4, 20
 reset, step = jax.jit(jax.vmap(env.reset)), jax.jit(jax.vmap(env.step))
 s = reset(jax.random.split(jax.random.PRNGKey(0), N))
 for k in ("pose", "ee", "root_pos", "root_orn"):

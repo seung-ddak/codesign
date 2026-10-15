@@ -1,4 +1,5 @@
 import functools
+import json
 import os
 import pickle
 import sys
@@ -66,16 +67,39 @@ def main(cfg):
     os.makedirs(ckpt_path, exist_ok=True)
     print(f"Checkpoint path: {ckpt_path}")
 
-    # TT design space 형상 1 개씩 학습 (연속 치수 중간값 고정). reference 는 artifacts/retarget_tt/<choice>/
+    # TT model and its retargeted reference must use the same morphology.
     from pd_replay import build_model
 
-    mj_model_fn = functools.partial(build_model, choice=None if choice == "A1" else choice, kp=cfg.kp, tau_scale=cfg.get("tau_scale"))
+    mj_model_fn = functools.partial(build_model, choice=None if choice == "A1" else choice, kp=cfg.kp,
+                                    tau_scale=cfg.get("tau_scale"), torque_limit=cfg.get("torque_limit"))
 
     randomization_fn = None
 
     env: MjxEnv = hydra.utils.instantiate(cfg.env, mj_model_fn=mj_model_fn)
     # Load evaluation environment
     eval_env: MjxEnv = hydra.utils.instantiate(cfg.eval_env, mj_model_fn=mj_model_fn)
+    if cfg.get("multi_design"):
+        from multi_design import make_bank, randomize_bank, wrap_for_multi_design
+
+        root = Path(cfg.env.reference_dir).parents[1]
+        designs = json.loads((root / "designs.json").read_text())
+        design_names = list(cfg.train_designs)
+        if design_names[0] != "e000" or choice != designs["topology"]:
+            raise ValueError("Multi-design training requires e000 as base and matching topology")
+        design_envs = [env]
+        for name in design_names[1:]:
+            if name not in designs:
+                raise ValueError(f"Unknown design: {name}")
+            design_cfg = OmegaConf.create(OmegaConf.to_container(cfg.env, resolve=True))
+            design_cfg.reference_dir = str(root / name / choice)
+            design_envs.append(hydra.utils.instantiate(
+                design_cfg, mj_model_fn=functools.partial(build_model, choice=choice,
+                    uniforms=designs[name], kp=cfg.kp, tau_scale=cfg.get("tau_scale"),
+                    torque_limit=cfg.get("torque_limit"))))
+        bank = make_bank(design_envs, [designs[name] for name in design_names])
+        env.design_bank = bank
+        eval_env.design_bank = bank
+        randomization_fn = functools.partial(randomize_bank, bank)
 
     def randomization_obs_fn(model: mjx.Model):
         extra_obs = []
@@ -87,6 +111,8 @@ def main(cfg):
 
     def reset(rng: jax.Array):
         state = eval_env.reset(rng)
+        if cfg.get("multi_design"):
+            state = state.replace(obs=jnp.concatenate((state.obs, eval_env.design_bank["uniforms"][0])))
         if cfg.observe_domain_randomized_attrs:
             extra_obs = jit_randomization_obs_fn(eval_env.mjx_model)
             state = state.replace(
@@ -102,6 +128,8 @@ def main(cfg):
 
     def step(state: State, action: jax.Array):
         state = eval_env.step(state, action)
+        if cfg.get("multi_design"):
+            state = state.replace(obs=jnp.concatenate((state.obs, eval_env.design_bank["uniforms"][0])))
         if cfg.observe_domain_randomized_attrs:
             extra_obs = jit_randomization_obs_fn(eval_env.mjx_model)
             state = state.replace(
@@ -191,15 +219,12 @@ def main(cfg):
         cfg.train,
         _partial_=True,
         policy_params_fn=policy_params_fn,
-        wrap_env_fn=functools.partial(
-            wrap_for_brax_training,
-            full_reset=cfg.full_reset,
-            randomization_obs_fn=(
-                jit_randomization_obs_fn
-                if cfg.observe_domain_randomized_attrs
-                else None
-            ),
-        ),
+        wrap_env_fn=(functools.partial(wrap_for_multi_design, full_reset=cfg.full_reset)
+                     if cfg.get("multi_design") else functools.partial(
+                         wrap_for_brax_training,
+                         full_reset=cfg.full_reset,
+                         randomization_obs_fn=(jit_randomization_obs_fn
+                                               if cfg.observe_domain_randomized_attrs else None))),
         randomization_fn=randomization_fn,
         environment=env,
         progress_fn=progress,
