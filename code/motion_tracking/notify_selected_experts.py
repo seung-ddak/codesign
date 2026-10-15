@@ -53,7 +53,8 @@ def make_report(motion, summary):
     metrics = {}
     steps = {}
     step = 0
-    for line in (EXPERTS / motion / "train.log").read_text().splitlines():
+    resume_log = EXPERTS / motion / "resume.log"
+    for line in (resume_log if resume_log.exists() else EXPERTS / motion / "train.log").read_text().splitlines():
         if line.startswith("-" * 40) and line.endswith("-" * 40):
             middle = line[40:-40]
             if middle.isdigit():
@@ -96,6 +97,8 @@ def make_report(motion, summary):
         f"| 클립 완료율 | {trend('eval/episode/done/clip_end/mean', True)} | 높을수록 좋습니다. |",
         "", "학습 손실보다 아래 평가 CSV의 생존·오차·`pass_all`과 영상을 우선 확인하세요.",
     ]
+    if resume_log.exists():
+        lines.append("체크포인트에서 재개한 모션은 재개 이후 로그의 값과 추가 학습 스텝만 표시합니다.")
     lines += ["", "#### PPO 지표 추이 (x축: 학습 스텝, y축: 지표 값)"]
     for key, title, unit in (
         ("training/policy_loss", "Policy loss", "loss"),

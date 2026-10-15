@@ -19,13 +19,30 @@ done < <(tail -n +2 "$selection")
 
 for motion in "${motions[@]}"; do
   run="$root/$motion"
-  [[ ! -e "$run" ]] || { echo "Run already exists: $run" >&2; exit 1; }
-  mkdir -p "$run"
+  if grep -q "^Completed $motion:" "$root/queue.log"; then
+    echo "Skipping completed $motion"
+    continue
+  fi
+  overrides=()
+  log="$run/train.log"
+  if [[ -d "$run" ]]; then
+    ckpt=$(find "$run/wandb" -path '*/files/checkpoints/*/_CHECKPOINT_METADATA' -printf '%h\n' | sort -t/ -k9,9nr | head -n 1)
+    [[ -n "$ckpt" ]] || { echo "No checkpoint to resume: $motion" >&2; exit 1; }
+    step=${ckpt##*/}
+    remaining=$((5242880 - step))
+    [[ $remaining -gt 0 ]] || { echo "No steps remaining: $motion" >&2; exit 1; }
+    overrides+=("restore_ckpt=$PWD/$ckpt" "train.num_timesteps=$remaining" "hydra.run.dir=$run/resume")
+    log="$run/resume.log"
+    echo "Resuming $motion from $step ($remaining steps remaining)"
+  else
+    mkdir -p "$run"
+    overrides+=("train.num_timesteps=5242880" "hydra.run.dir=$run")
+  fi
   echo "Training $motion"
   WANDB_DIR="$PWD/$run" "$python" code/motion_tracking/train_rl_procedural.py \
     "env.clips=[$motion]" "eval_env.clips=[$motion]" \
-    train.num_timesteps=5242880 train.num_envs=32 train.batch_size=32 \
-    train.num_eval_envs=4 train.num_evals=10 render_final=false "hydra.run.dir=$run" >"$run/train.log" 2>&1
+    train.num_envs=32 train.batch_size=32 \
+    train.num_eval_envs=4 train.num_evals=10 render_final=false "${overrides[@]}" >"$log" 2>&1
   latest=$(find "$run/wandb" -maxdepth 1 -type d -name 'offline-run-*' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
   [[ -n "$latest" && -d "$latest/files/checkpoints" ]] || { echo "Missing checkpoint: $motion" >&2; exit 1; }
   bash code/motion_tracking/eval_multi_designs.sh "$latest" >"$run/eval.log" 2>&1
