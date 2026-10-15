@@ -2,12 +2,20 @@
 
 - Topology: `00000011`; 연속 치수 13개를 사용하는 TT 형상 4개(중간값 `e000`, 무작위 표본 `e001`~`e003`). 표본값은 `retargeting/designs.json`에 기록했다. 관절 토크 한계는 A1과 같은 ±33.5 N·m.
 - 입력: `artifacts/randomized_reference/manifest.csv`의 25개 모션. tiltYaw, backFlip, howAreYou, rollBack, 점프·계단 및 관련 전환 제외.
+- PPO 후보 목록: `experts/selection.csv`의 19개 모션. fast/slow/walk/trot 구분 없이 네 형상 모두에서 비발 형상 바닥 관통의 기록값이 0 mm인 모션만 선택했다. 이는 운동학적 충돌 기준이며 물리적 추종 성능을 보증하지 않는다.
+- 선정 모션 expert 순차 학습: `experts/HARDWARE.md`에 이 PC의 사양과 검증 설정을 기록했다. `code/motion_tracking/train_selected_experts.sh`가 selection을 읽어 e000~e002 공유 정책을 모션별로 한 개씩 학습한 뒤 e000~e003의 CSV·비교 영상을 평가한다. `track_env.py`는 평지에서 모든 로봇 형상 충돌을 켰고 MJX 미지원 원통-상자 충돌을 피하려 계단은 발에만 충돌시킨다.
+- 학습 완료 현황은 `experts/queue.log`와 [GitHub Issue #2](https://github.com/seung-ddak/codesign/issues/2)에 남긴다. 별도 알림 감시 세션이 모션별 학습·평가 완료 후 Issue 댓글을 게시한다.
 - 랜덤화된 A1 reference의 운동학적 미리보기 영상: `randomized_reference_videos/*.mp4` (25 fps). 저장된 자세를 프레임마다 표시한 것으로 PPO 정책의 물리 rollout 영상은 아니다.
 - 리타겟 결과: `retargeting/e000`~`e003/00000011/*.npz` 각 25개와 형상별 `summary.csv`. 각 NPZ에 원본, 랜덤화 파라미터, 형상 치수를 저장했다. 총 100개 파일의 관절각 유한값을 확인했다.
 - TT 리타겟 영상: `retargeting/videos/e000`~`e003/*.mp4`, 각 형상당 25개(총 100개, 25 fps). TT 모델에 저장된 리타겟 자세를 표시한 운동학적 미리보기이며, PPO 물리 rollout은 아니다.
-- 기구학 검사: 25개 모두 foot IK 평균 오차 0.31 mm 이하, 접지 미끄러짐 0.002 m/s 이하, 관절 한계 프레임 0%.
-- 역동역학 검사: 정적 자세 5개(`sitDown`, `squat`, `standUp`, `tiltPitch`, `tiltRoll`)는 불량 프레임 0%; 이동 모션은 14.2~65.2%로 PPO tracking 가능 여부를 별도 확인해야 함.
-- `check_track_env.log`: `sitDown__r00` reference 관절각 제어 20 step, 생존율 100%.
+- 몸체 높이 보정: 기존 IK는 base 위치 비용 0.1로 인해 `sitDown__r00`의 A1 높이 변화 19.6 cm를 e000에서 6.9 cm로 압축했다. TT 리타겟에만 비용 1.0을 적용한 뒤 e000/e001/e002/e003의 앉기 높이 변화는 각각 18.3/20.6/22.4/13.7 cm다(다리 길이 배율에 따라 다름). 발 중심 4개와 몸체 위치·자세를 IK 목표로 사용하며, 무릎 등 다른 몸체 점은 직접 추종하지 않는다.
+- 충돌 검사 (`retargeting/collision_audit.csv`): 위 높이 보정으로 깊어진 앉기에서 다리·모터 형상이 실제 MuJoCo 바닥에 관통한다. `sitDown__r00` 최대 관통 깊이는 e000/e001/e002/e003 순서로 65.5/134.9/12.7/0 mm이며, 100개 클립 중 15개에 비발 형상의 5 mm 초과 관통이 있다. e000의 이전 얕은 reference는 관통이 0이었다. TT 발 고정을 끈 시험에서도 e000 앉기는 66 mm·265프레임 관통으로 동일하여 발 고정이 원인이 아니다. **현재 관통 클립은 물리적으로 타당한 expert 학습 목표로 사용하지 않는다.**
+- 기구학 검사: 4개 형상에 대해 각 25개 클립 재생성. e000은 발 IK 평균 오차 최대 0.46 mm, 관절 한계 프레임 0%. 무작위 형상은 앉기에서 관절 한계 프레임 최대 49%로, 해당 형상의 낮은 자세 추종 성능은 별도 확인이 필요하다.
+- 역동역학 검사: e000의 정적 자세 5개(`sitDown`, `squat`, `standUp`, `tiltPitch`, `tiltRoll`)는 불량 프레임 0%; 이동 모션은 형상·속도에 따라 불량 프레임이 있으므로 형상별 `summary.csv` 확인이 필요하다.
+- 새 reference로 `check_track_env.py`를 CPU 실행: RSI 직후 오차 검증 통과, `sitDown__r00` reference 관절각 제어 20 step 생존율 100%.
 - `smoke/sitDown__r00/`: CPU PPO 8,192 step 실행, checkpoint와 영상 저장. 평가 4 episode 모두 낙상(`eval/episode/done/fellover/mean=1.0`). **expert 아님.**
-- PPO 진입점에 동일 topology의 여러 형상과 각각의 리타겟 reference를 함께 쓰는 학습 경로를 추가했다. `e000`~`e002` 공유 정책을 `sitDown__r00`으로 131,072 step 시험했고, `e003`은 미학습 형상으로 평가했다. 4개 형상 모두 추종 오차 기준을 통과하지 못해 추가 학습 중이다. 형상별 CSV·A1 주황색/TT 파란색 영상과 통합 `summary.csv`는 `training/sitDown_multidesign/`의 W&B offline run에 있다.
+- PPO는 RSI를 사용한다: 에피소드마다 reference 클립과 시작 프레임을 무작위 선택해 해당 qpos/qvel에서 시작하고, 종료 후에도 `full_reset: true`로 다시 샘플링한다. 훈련 시 관절 위치 ±0.01 rad, 속도 ±0.5 rad/s 교란을 더한다.
+- PPO 진입점에 동일 topology의 여러 형상과 각각의 리타겟 reference를 함께 쓰는 학습 경로를 추가했다. `e000`~`e002` 공유 정책을 `sitDown__r00`으로 131,072 step 시험했고, `e003`은 미학습 형상으로 평가했다. 기존 결과는 높이가 압축된 이전 reference로 학습·평가했으므로 현재 reference의 expert 성능으로 간주할 수 없다. 새 reference도 위 관통 문제를 해결하기 전까지 재학습에 사용하지 않는다. 기존 형상별 CSV·A1 주황색/TT 파란색 영상과 통합 `summary.csv`는 `training/sitDown_multidesign/`의 W&B offline run에 있다.
 - GPU는 RTX 4070 SUPER로 다시 인식된다. `e000` 단독 `sitDown` 131,072-step 시험 결과는 낙상으로 평가 불합격이며, 해당 `motion_eval.csv`와 A1 주황색·TT 파란색 비교 영상은 `experts/sitDown__r00/`의 최신 W&B offline run에 있다.
+- `walkBackwardSlow__r00` 공유 PPO: 초기 약 108만 스텝은 e000~e003 모두 추종 기준 실패. 이어 약 421만 스텝 학습 후 e000/e001/e002는 전 구간 추종 기준 통과(관절 1.16~1.44°, 발 0.72~1.03 cm, 접지 일치 100%). 미학습 e003은 생존했지만 관절 13.09°·발 5.34 cm로 실패. 결과 CSV·비교 영상은 `experts/walkBackwardSlow__r00/wandb/offline-run-20261015_153518-64y8170r/motion_eval/`에 있다. 이 정책은 `walkBackwardSlow` 전용이며 여러 형상에서 공유한다.
+- 이전 `walkBackwardSlow` 평가 수치는 기록되어 있으나 현재 로컬 expert checkpoint는 확인되지 않는다. 진행 중이던 `walkForwardSlow`와 `trotBackwardFast` 학습은 사용자 요청에 따라 중단했다. 이후 선정 모션의 새 expert 순차 학습을 시작했다.

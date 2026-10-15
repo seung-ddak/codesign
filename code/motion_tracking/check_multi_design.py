@@ -17,7 +17,7 @@ root = Path(ROOT) / "runs/pipeline_v1/retargeting"
 designs = json.loads((root / "designs.json").read_text())
 config = OmegaConf.to_container(OmegaConf.load(Path(__file__).parent / "config/env/a1_track.yaml"))
 config.pop("_target_")
-config["clips"] = ["sitDown__r00"]
+config["clips"] = ["walkBackwardSlow__r00"]
 names = ("e000", "e001", "e002")
 envs = [TrackMjxEnv(**{**config, "reference_dir": str(root / name / designs["topology"]),
                        "mj_model_fn": functools.partial(build_model, choice=designs["topology"],

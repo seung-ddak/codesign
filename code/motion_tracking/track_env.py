@@ -220,13 +220,12 @@ class TrackMjxEnv(MjxEnv):
         mj_model.opt.timestep = self.sim_dt
         mj_model.opt.iterations = self.solver_iterations
         mj_model.opt.ls_iterations = self.solver_ls_iterations
-        # 발(sphere)과 바닥(plane)만 충돌. 넘어짐은 up 벡터로 종료
-        geom_is_sphere = mj_model.geom_type == mujoco.mjtGeom.mjGEOM_SPHERE
-        geom_is_ground = (mj_model.geom_type == mujoco.mjtGeom.mjGEOM_PLANE) | np.array(
-            [mj_model.geom(i).name.startswith("stair_") for i in range(mj_model.ngeom)]
-        )  # 바닥 + 계단 상자 (pd_replay.add_terrain)
-        mj_model.geom_conaffinity[:] = geom_is_sphere | geom_is_ground
-        mj_model.geom_contype[:] = geom_is_sphere | geom_is_ground
+        # 평지는 모든 로봇 형상과, 계단 상자는 발과만 충돌한다 (MJX는 원통-상자 충돌 미지원).
+        floor = mj_model.geom_type == mujoco.mjtGeom.mjGEOM_PLANE
+        stairs = np.array([mj_model.geom(i).name.startswith("stair_") for i in range(mj_model.ngeom)])
+        feet = np.array([mj_model.geom(i).name.endswith("_foot") for i in range(mj_model.ngeom)])
+        mj_model.geom_contype[:] = np.select((floor, stairs, feet), (1, 8, 4), default=2)
+        mj_model.geom_conaffinity[:] = np.select((floor, stairs, feet), (6, 4, 9), default=1)
 
         assert mj_model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE and (mj_model.jnt_type[1:] == mujoco.mjtJoint.mjJNT_HINGE).all()
         home = mj_model.keyframe("home")

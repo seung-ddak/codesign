@@ -260,11 +260,11 @@ def clean_runs(c, min_run=MIN_RUN):
     return c
 
 
-def foot_lock(m, clip, ref, posture_q=None, first_iters=IK_ITERS, ground_z=False, lock=True):
+def foot_lock(m, clip, ref, posture_q=None, first_iters=IK_ITERS, ground_z=False, lock=True, base_position_cost=0.1):
     """접지 구간마다 발바닥을 구간 평균 xy, z=0 에 고정하고 mink IK 로 q 를 보정한다.
 
     공중 구간의 발 목표 = 원래 궤적 + (앞뒤 접지 구간 보정량의 선형 보간) → 경계에서 관절이 튀지 않음.
-    base 는 kin_ref 궤적을 따르되 위치 비용을 낮게 줘 IK 가 약간 움직일 수 있게 한다.
+    base 는 reference 궤적을 따른다. TT 리타겟은 높이 변화를 보존하도록 위치 비용을 높인다.
     """
     posture_q = clip["q"] if posture_q is None else posture_q  # (T, nq-7) 자세 정규화 목표
     T = len(posture_q)
@@ -290,7 +290,7 @@ def foot_lock(m, clip, ref, posture_q=None, first_iters=IK_ITERS, ground_z=False
 
     cfg = mink.Configuration(m)
     feet = [mink.FrameTask(f"{l}_foot", "geom", position_cost=1.0, orientation_cost=0.0, lm_damping=1.0) for l in LEGS]
-    base = mink.FrameTask(m.body(m.jnt_bodyid[0]).name, "body", position_cost=0.1, orientation_cost=1.0, lm_damping=1.0)
+    base = mink.FrameTask(m.body(m.jnt_bodyid[0]).name, "body", position_cost=base_position_cost, orientation_cost=1.0, lm_damping=1.0)
     posture = mink.PostureTask(m, cost=1e-2)
     limits = [mink.ConfigurationLimit(m)]
     q_fix = np.zeros_like(posture_q)
@@ -627,7 +627,7 @@ def retarget_tt(src, dst, only=None, height_trace_only=False, torque_limit=None,
             ref = dict(ref_base_pos=pos, ref_base_quat=quat, ref_foot_pos=pos[:, None] + rel - [0, 0, RADIUS], ref_contact=contact)
             posture = np.tile(home[7:], (T, 1))
             fix = foot_lock(m, dict(dt=dt), ref, posture_q=posture, first_iters=300, ground_z=terrain,
-                            lock=not name.endswith(UNLOCKED))
+                            lock=not name.endswith(UNLOCKED), base_position_cost=1.0)
             fix["fix_q"][:, N_LEG:] = home[7 + N_LEG:]  # 팔은 home 자세 고정
             inv = inverse_check(m, fix, dt)
             extra = {k: z[k] for k in ("terrain_boxes", "source_motion", "seed", "speed", "stride", "heading_rad") if k in z.files}
@@ -647,7 +647,7 @@ def retarget_tt(src, dst, only=None, height_trace_only=False, torque_limit=None,
         raise ValueError(f"no reference clips found in {src}")
     summary = os.path.join(dst, "summary.csv" if not only else f"summary_{'_'.join(only)}.csv")
     with open(summary, "w", newline="") as fh:
-        w = csv.DictWriter(fh, fieldnames=rows[0].keys())
+        w = csv.DictWriter(fh, fieldnames=rows[0].keys(), lineterminator="\n")
         w.writeheader()
         w.writerows(rows)
     print("->", dst)

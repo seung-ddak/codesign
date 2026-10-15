@@ -78,3 +78,7 @@
 - 25개 사용 대상 A1 reference를 랜덤화하고, 동일한 `00000011` topology의 연속 형상 4개에서 각각 리타겟했다. 결과와 영상은 `runs/pipeline_v1/retargeting/` 아래 형상별로 저장했다. 수치와 재현 경로는 `runs/pipeline_v1/README.md` 참조.
 - `sitDown__r00`의 CPU PPO 8,192-step 실행으로 checkpoint 저장 경로를 확인했으나 평가 episode가 모두 낙상하여 expert로 사용하지 않는다.
 - GPU가 다시 인식되어 `e000` 단독 `sitDown` PPO 시험 학습 및 CSV·A1 주황색/TT 파란색 비교 영상을 생성했다. 짧은 시험 결과는 낙상으로 통과하지 못했다. `e000`~`e002`의 모델과 reference를 함께 바꾸는 공유 정책 학습 경로를 추가하고 `sitDown` 시험 중이며, `e003`은 미학습 형상 평가용이다.
+- 리타겟 IK가 몸체 높이 목표를 약하게 반영하여 앉기 깊이를 압축하는 문제를 수정하고 4개 형상 × 25개 reference를 재생성했다. 기존 PPO checkpoint와 평가는 이전 reference를 사용했으므로 새 reference 기준 expert 학습은 다시 해야 한다. PPO 환경의 RSI(무작위 클립·프레임 시작, 매 종료 시 새 reset)는 이미 활성화되어 있다.
+- 새 리타겟의 깊은 앉기에서는 비발 형상(종아리 모터·허벅지)이 MuJoCo 바닥을 관통한다. `runs/pipeline_v1/retargeting/collision_audit.csv`에서 100개 중 15개 클립이 5 mm 초과 관통한다. 발 고정 해제 시험은 관통을 해결하지 못했다. 관통 클립은 충돌 제약을 포함해 다시 리타겟하기 전까지 expert 학습에서 사용하지 않는다.
+- `walkBackwardSlow__r00` 공유 PPO expert는 e000~e002 세 학습 형상에서 전체 모션 추종 기준을 통과했고 미학습 e003은 불합격이다. 현재 후보 목록(`runs/pipeline_v1/experts/selection.csv`)에는 fast/slow/walk/trot 구분 없이 네 TT 형상 모두에서 비발 형상 바닥 관통 기록값이 0 mm인 19개 모션을 선정했다. 이 기준만으로 동역학적 추종 가능성이 확인되지는 않는다. 진행 중이던 `walkForwardSlow` 및 `trotBackwardFast` 학습은 중단했고 이번에는 목록만 기록했다.
+- 선정된 19개 모션 expert 학습용으로 평지 전체 형상 충돌을 활성화하고 MJX 계단 충돌은 발만 유지했다. 세 형상 GPU reset/step과 `squat` 12,288-step 소규모 학습·e000 CSV/영상 평가 경로를 확인했다. 장비와 설정은 `runs/pipeline_v1/experts/HARDWARE.md`에 기록하고 `train_selected_experts.sh`로 모션별 순차 학습을 실행한다.

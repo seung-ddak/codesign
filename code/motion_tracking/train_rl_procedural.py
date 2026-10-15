@@ -231,9 +231,10 @@ def main(cfg):
         eval_env=eval_env,
     )(restore_params=restore)
 
-    render_path = wandb.run.dir + "/final-rollout.mp4"
-    render_rollout(make_inference_fn, params, str(render_path))
-    wandb.log({"rollout_video": wandb.Video(str(render_path))})
+    if cfg.get("render_final", True):
+        render_path = wandb.run.dir + "/final-rollout.mp4"
+        render_rollout(make_inference_fn, params, str(render_path))
+        wandb.log({"rollout_video": wandb.Video(str(render_path))})
 
 
 if __name__ == "__main__":
