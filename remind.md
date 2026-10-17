@@ -12,10 +12,9 @@
    - 기존 reference를 검증하고 사용할 모션만 선택한다.
 2. retargeting한 primitive motion을 추종하는 PPO expert를 학습한다.
    - 모션별 expert를 학습하고 여러 연속 morphology에서 추종하도록 한다.
-3. primitive motion 사이의 transition을 별도 PPO expert로 학습한다.
-   - 기존 primitive expert는 고정한다.
-   - A expert → transition expert → B expert를 실제 물리 상태가 이어지도록 
-     실행한다.
+3. transition은 별도 정책 없이 고정된 primitive expert를 이어 붙여 데이터로 확보한다 (2026-10-17 결정).
+   - TT는 dynamics를 배우고 최종 실행은 MJX open-loop이므로 expert hand-off 정책이 필요 없다. 필요한 것은 전환 구간 데이터다.
+   - DeepMimic composite 방식: 10초 sequence 안에서 무작위 시점에 무작위 모션 expert로 넘긴다.
 4. 여러 morphology에서 primitive 및 transition expert를 MJX로 실행한다.
    - 실제 dynamics rollout의 E, state, action, next-state를 수집한다.
 5. 여러 morphology의 rollout을 통합하여 TT dataset을 생성한다.
@@ -82,3 +81,16 @@
 - 새 리타겟의 깊은 앉기에서는 비발 형상(종아리 모터·허벅지)이 MuJoCo 바닥을 관통한다. `runs/pipeline_v1/retargeting/collision_audit.csv`에서 100개 중 15개 클립이 5 mm 초과 관통한다. 발 고정 해제 시험은 관통을 해결하지 못했다. 관통 클립은 충돌 제약을 포함해 다시 리타겟하기 전까지 expert 학습에서 사용하지 않는다.
 - `walkBackwardSlow__r00` 공유 PPO expert는 e000~e002 세 학습 형상에서 전체 모션 추종 기준을 통과했고 미학습 e003은 불합격이다. 현재 후보 목록(`runs/pipeline_v1/experts/selection.csv`)에는 fast/slow/walk/trot 구분 없이 네 TT 형상 모두에서 비발 형상 바닥 관통 기록값이 0 mm인 19개 모션을 선정했다. 이 기준만으로 동역학적 추종 가능성이 확인되지는 않는다. 진행 중이던 `walkForwardSlow` 및 `trotBackwardFast` 학습은 중단했고 이번에는 목록만 기록했다.
 - 선정된 19개 모션 expert 학습용으로 평지 전체 형상 충돌을 활성화하고 MJX 계단 충돌은 발만 유지했다. 세 형상 GPU reset/step과 `squat` 12,288-step 소규모 학습·e000 CSV/영상 평가 경로를 확인했다. 장비와 설정은 `runs/pipeline_v1/experts/HARDWARE.md`에 기록하고 `train_selected_experts.sh`로 모션별 순차 학습을 실행한다.
+
+### 8-1. 선정 모션 expert (Issue #2, 2026-10-15)
+- 19개 모션 통과: e000 19/19, e001 16/19, e002 14/19, 미학습 e003 0/19. 체크포인트 19개 모두 GitHub `runs/pipeline_v1/experts/`.
+- 학습 형상 3개로는 미학습 형상에 일반화되지 않는다 → 다형상 수집 시 학습 형상 수가 핵심 변수.
+- 11/19 run이 학습 말기 KL > 1 (최대 1.2e4, entropy → 0). e001·e002 불합격 모션과 겹친다. 원인 미확인.
+
+### 8-2. e000 rollout 수집 (2026-10-17, 계획·조건 `runs/pipeline_v1/ROLLOUT_PLAN.md`)
+- 결론: 전환 정책 없이 19개 expert를 이어 붙인 10초 sequence로 수집한다. 시험(모션 4개, 8 ep) 7/8 완주, 전환 4.9회/ep, 전환 직후 관절 오차 2~6°.
+- 구성: 무작위 모션·프레임 시작 → 1~3 s마다 무작위 다른 모션 (2발 이상 접지 프레임에서만, 진입 = 관절각·접지 최근접 프레임, B reference를 로봇 xy·yaw에 정렬, 클립 끝이면 즉시 전환) → 10 s 또는 낙상까지.
+- 환경: e000, 50 Hz 제어, kick·초기 교란 없음, obs noise 학습값, 결정적 정책, 낙상만 종료. 낙상 구간도 `fell`·`valid`로 표시해 저장.
+- 저장: `rollouts/e000/seq_seed<N>.npz` (qpos·qvel·contact·action·target_q·clip·ref_frame·switched·valid, E) + `_pairs.csv` (pair별 1 s 내 낙상).
+- 다음: 다른 PC(4070, V100보다 2.3배 빠름)에서 seed 0~3 × 256 ep. seed 0 낙상 < 20 %면 진행, pair 집중 낙상은 기록 후 사용자 결정, ≥ 20 %면 매칭·정렬 점검.
+- 보류: 전환 없는 데이터 vs 전환 포함 데이터로 학습한 TT의 전환 구간 예측 오차 비교 (6단계).
