@@ -1,0 +1,72 @@
+name: Rollout data notification
+on:
+  push:
+    branches: [main]
+    paths: ['runs/pipeline_v1/rollouts/**']
+  workflow_dispatch:
+    inputs:
+      before:
+        description: Commit before the data commits to announce
+        required: true
+permissions:
+  contents: read
+  issues: write
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from urllib.request import Request, urlopen
+
+          api = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}"
+          with open(os.environ['GITHUB_EVENT_PATH']) as f:
+              event = json.load(f)
+          before = event.get('before') or event['inputs']['before']
+          after = event.get('after') or os.environ['GITHUB_SHA']
+
+          def request(path, data=None):
+              req = Request(api + path, data=None if data is None else json.dumps(data).encode(),
+                            headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'],
+                                     'Accept': 'application/vnd.github+json',
+                                     'Content-Type': 'application/json'})
+              with urlopen(req, timeout=30) as response:
+                  return json.load(response)
+
+          comments = []
+          page = 1
+          while True:
+              batch = request(f'/issues/2/comments?per_page=100&page={page}')
+              comments.extend(c['body'] for c in batch)
+              if len(batch) < 100:
+                  break
+              page += 1
+          page = 1
+          while True:
+              commits = request(f'/compare/{before}...{after}?per_page=100&page={page}')['commits']
+              for commit in commits:
+                  sha = commit['sha']
+                  marker = f'<!-- rollout-commit:{sha} -->'
+                  if any(marker in body for body in comments):
+                      continue
+                  detail = request(f'/commits/{sha}')
+                  files = [f['filename'] for f in detail['files']
+                           if f['filename'].startswith('runs/pipeline_v1/rollouts/')
+                           and f['filename'].endswith('.npz') and f['status'] != 'removed']
+                  if not files:
+                      continue
+                  body = marker + '\n@seung-ddak 새 rollout 데이터가 GitHub에 저장되었습니다.\n\n'
+                  body += f"[{sha[:9]}]({commit['html_url']}) — {commit['commit']['message'].splitlines()[0]}\n\n"
+                  body += '\n'.join(f'- [{p}](https://github.com/{os.environ["GITHUB_REPOSITORY"]}/blob/{sha}/{p})' for p in files)
+                  request('/issues/2/comments', {'body': body})
+                  comments.append(body)
+                  print('Notified', sha)
+              if len(commits) < 100:
+                  break
+              page += 1
+          PY
