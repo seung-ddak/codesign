@@ -5,6 +5,7 @@
 - PPO 후보 목록: `experts/selection.csv`의 19개 모션. fast/slow/walk/trot 구분 없이 네 형상 모두에서 비발 형상 바닥 관통의 기록값이 0 mm인 모션만 선택했다. 이는 운동학적 충돌 기준이며 물리적 추종 성능을 보증하지 않는다.
 - 선정 모션 expert 순차 학습: `experts/HARDWARE.md`에 이 PC의 사양과 검증 설정을 기록했다. `code/motion_tracking/train_selected_experts.sh`가 selection을 읽어 e000~e002 공유 정책을 모션별로 한 개씩 학습한 뒤 e000~e003의 CSV·비교 영상을 평가한다. `track_env.py`는 평지에서 모든 로봇 형상 충돌을 켰고 MJX 미지원 원통-상자 충돌을 피하려 계단은 발에만 충돌시킨다.
 - 학습 완료 현황은 `experts/queue.log`와 [GitHub Issue #2](https://github.com/seung-ddak/codesign/issues/2)에 남긴다. 별도 알림 감시 세션이 모션별 학습·평가 완료 후 Issue 댓글을 게시한다.
+- e000 rollout 수집 계획 (10 s 혼합 sequence, 전환 정책 없음): [`ROLLOUT_PLAN.md`](ROLLOUT_PLAN.md), 코드 `code/motion_tracking/collect_rollouts.py`.
 - 랜덤화된 A1 reference의 운동학적 미리보기 영상: `randomized_reference_videos/*.mp4` (25 fps). 저장된 자세를 프레임마다 표시한 것으로 PPO 정책의 물리 rollout 영상은 아니다.
 - 리타겟 결과: `retargeting/e000`~`e003/00000011/*.npz` 각 25개와 형상별 `summary.csv`. 각 NPZ에 원본, 랜덤화 파라미터, 형상 치수를 저장했다. 총 100개 파일의 관절각 유한값을 확인했다.
 - TT 리타겟 영상: `retargeting/videos/e000`~`e003/*.mp4`, 각 형상당 25개(총 100개, 25 fps). TT 모델에 저장된 리타겟 자세를 표시한 운동학적 미리보기이며, PPO 물리 rollout은 아니다.
