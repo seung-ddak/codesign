@@ -102,3 +102,10 @@
 - 결론: 매칭 방식은 낙상 원인이 아니다. 전환 후 1 s 내 낙상 = 기존 8.1% / 속도 반영 표 6.3% / 실제 state 매칭 7.0% (seed 1 개, 차이 유의하지 않음).
 - 실제 state 매칭에서도 진입 속도차 median 0.19 m/s 불변 → B 클립에 맞는 속도 프레임이 없다. 낙상 = 모션 간 속도 간극 + expert 견고성 (walkForwardFast 도착 ~42% 고정).
 - 결정 (사용자): 기존 데이터 그대로 사용 (가). 비교 데이터 `rollouts_velmatch/`, `rollouts_livematch/` 보존. 옵션 `--switch-entry live`, `--match-vel-weight` (기본값 = 기존).
+
+### 8-5. TT dynamics 학습 (npz 직접, e000~e002 rollout 1,680 ep, 2026-10-17)
+- 결론: 데이터에는 몸통 dynamics 정답이 충분하다 (1-step MLP 32 step 예측 yaw 4.0°·위치 2.2 cm). TT 는 아직 못 뽑아낸다 → 원인 = TT 학습 (조건 혼합 희석 + 학습량), 데이터 아님.
+- horizon: 500 step 한 번에 = 실패 (1 step 오차가 s0 유지보다 큼). 원본처럼 짧은 window 가 필요 (h8 1 step 3.7°·1 cm). window 이어 붙이기 누적 원인 = 횟수 (stride 1/4/7 비교) → h32 가 관절 최선.
+- 위치 오차의 주원인 = 몸통 yaw·속도 오차 (직진에서 없는 회전 생성). 위치 delta 표현 (C) 은 효과 없음. 조건을 dynamics 만으로 (G2) 하면 yaw 11.0°→5.9°, 위치 13.1→8.6 cm (MLP 와 격차 남음).
+- 원본 TT 확인: 4 족 학습 task = `hardware_gen` 하나 (목표 궤적 → 형상·state·제어, ε 예측, 100 단계). 5 단계는 `ctrl` task 값 (이전 기록 정정). 목표 궤적 조건은 사용자 의도와 달라 쓰지 않는다.
+- 코드 `code/tt_dynamics/` (train_tt.py, rollout_data.py, diag_mlp.py), 지표 `runs/pipeline_v1/tt/<run>/` (checkpoint·sample npz 는 로컬만). 진행 중: h32_try4 (3 조건, 100k step).
