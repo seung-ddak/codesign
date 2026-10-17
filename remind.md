@@ -108,4 +108,5 @@
 - horizon: 500 step 한 번에 = 실패 (1 step 오차가 s0 유지보다 큼). 원본처럼 짧은 window 가 필요 (h8 1 step 3.7°·1 cm). window 이어 붙이기 누적 원인 = 횟수 (stride 1/4/7 비교) → h32 가 관절 최선.
 - 위치 오차의 주원인 = 몸통 yaw·속도 오차 (직진에서 없는 회전 생성). 위치 delta 표현 (C) 은 효과 없음. 조건을 dynamics 만으로 (G2) 하면 yaw 11.0°→5.9°, 위치 13.1→8.6 cm (MLP 와 격차 남음).
 - 원본 TT 확인: 4 족 학습 task = `hardware_gen` 하나 (목표 궤적 → 형상·state·제어, ε 예측, 100 단계). 5 단계는 `ctrl` task 값 (이전 기록 정정). 목표 궤적 조건은 사용자 의도와 달라 쓰지 않는다.
-- 코드 `code/tt_dynamics/` (train_tt.py, rollout_data.py, diag_mlp.py), 지표 `runs/pipeline_v1/tt/<run>/` (checkpoint·sample npz 는 로컬만). 진행 중: h32_try4 (3 조건, 100k step).
+- 코드 `code/tt_dynamics/` (train_tt.py, rollout_data.py, diag_mlp.py), 지표 `runs/pipeline_v1/tt/<run>/` (checkpoint·sample npz 는 로컬만).
+- G1 (h32_try4, 3 조건, 100k step): 32 step yaw 5.6°·위치 8.4 cm·관절 6.8° = G2 수준 이상 → 희석은 학습량으로 메워진다. 남은 격차: 속도 0.153 vs MLP 0.055 m/s, 회전 모션 yaw 15.2°.
