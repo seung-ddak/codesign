@@ -92,3 +92,8 @@
 - 구성: 무작위 모션·프레임 시작 → 1~3 s마다 무작위 다른 모션 (2발 이상 접지 프레임에서만, 진입 = 관절각·접지 최근접 프레임, B reference를 로봇 xy·yaw에 정렬, 클립 끝이면 즉시 전환) → 10 s 또는 낙상까지.
 - 환경: e000, 50 Hz 제어, kick·초기 교란 없음, obs noise 학습값, 결정적 정책, 낙상만 종료. 낙상 구간도 `fell`·`valid`로 표시해 저장.
 - 저장: `rollouts/e000/seq_seed<N>.npz` (qpos·qvel·contact·action·target_q·clip·ref_frame·switched·valid, E) + `_pairs.csv` (pair별 1 s 내 낙상).
+
+### 8-3. 로컬 e000 수집 판정 (2026-10-17)
+- 수집기 수정: 마지막 전환 집계, 제한된 PD 목표 저장, 수치 오류 차단, 날짜 기반 run 선택, 기존 출력 덮어쓰기 방지. 회귀 검사·NPZ 검증 통과.
+- 19 expert smoke 8 ep 중 5 낙상. seed 0은 256 ep 중 106 낙상(41.4%), 150 완주; 유효 104,465 step, 전환 1,208회. `runs/pipeline_v1/rollouts/e000/seq_seed0.npz` 보존.
+- ROLLOUT_PLAN 분기 C에 따라 seed 1~3 중단. 전환 후 1 s 내 낙상 98, 그 외 8; pair 제외 없음. 일반화 검증이나 TT 학습 완료를 뜻하지 않는다.

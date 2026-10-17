@@ -14,7 +14,7 @@ usage (codesign/ 에서):
   qpos [B,T+1,nq], qvel [B,T+1,nv]  MJX 물리 state (root pos·quat·vel + 관절)
   contact [B,T+1,4]                 발 접지 (geom 거리 < CONTACT_DIST)
   action [B,T,12]                   정책 출력 (정규화 값)
-  target_q [B,T,12]                 PD 목표 관절각 = action_offset + action * action_scale
+  target_q [B,T,12]                 PD 목표 관절각 = action_offset + clip(action) * action_scale
   clip [B,T], ref_frame [B,T]       step t 에 action 을 낸 expert 의 모션 번호 (motions[clip]) 와 reference 프레임
   switched [B,T]                    step t 직후 모션이 바뀌었으면 1
   valid [B,T]                       step t 의 입력 state 가 낙상 이전이면 1
@@ -45,12 +45,18 @@ CODESIGN = Path(__file__).resolve().parents[2]
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("runs", nargs="+", type=Path)
 parser.add_argument("--design", default="e000")
+parser.add_argument("--mode", choices=("mixed", "primitive"), default="mixed")
 parser.add_argument("--episodes", type=int, default=64, help="병렬 에피소드 수")
 parser.add_argument("--seconds", type=float, default=10.0)
 parser.add_argument("--switch-wait", type=float, nargs=2, default=(1.0, 3.0), help="s, 모션 바꾸기 간격")
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--out", type=Path, default=Path("runs/pipeline_v1/rollouts"))
 args = parser.parse_args()
+assert args.episodes > 0 and args.seconds > 0
+prefix = "seq" if args.mode == "mixed" else "primitive"
+path = args.out / args.design / f"{prefix}_seed{args.seed}.npz"
+if path.exists() or path.with_name(path.stem + "_pairs.csv").exists():
+    raise FileExistsError(path)
 
 
 def resolve(run):
@@ -59,12 +65,14 @@ def resolve(run):
     runs = [p for p in (run / "wandb").glob("offline-run-*") if (p / "files/checkpoints").is_dir()]
     if not runs:
         raise FileNotFoundError(f"No checkpoints under {run}")
-    return max(runs, key=lambda p: p.stat().st_mtime)
+    return max(runs, key=lambda p: p.name)
 
 
+checkpoint_paths = []
 experts = []  # (모션, policy)
 for r in args.runs:
     ckpt = sorted(glob.glob(str(resolve(r) / "files/checkpoints/*")), key=lambda p: int(os.path.basename(p)))[-1]
+    checkpoint_paths.append(str(Path(ckpt).resolve()))
     cfg, policy = load_run(ckpt)
     (name,) = cfg.eval_env.clips  # expert 1 개 = 모션 1 개
     experts.append((name, policy))
@@ -79,7 +87,7 @@ choice = cfg.get("choice")
 # 다른 PC 에서 학습한 checkpoint 는 절대 경로가 다르므로 이 저장소 기준으로 바꾼다
 ref_root = CODESIGN / Path(ecfg["reference_dir"].split("/codesign/", 1)[-1]).parents[1]
 ecfg["reference_dir"] = str(ref_root / args.design / choice)
-ecfg.update(clips=motions, clip_boost=None, switch_prob=1.0, switch_wait=list(args.switch_wait), switch_at="time",
+ecfg.update(clips=motions, clip_boost=None, switch_prob=float(args.mode == "mixed"), switch_wait=list(args.switch_wait), switch_at="time",
             switch_entry="match", max_episode_length=10**6)
 with np.load(Path(ecfg["reference_dir"]) / f"{motions[0]}.npz") as z:
     uniforms = jnp.asarray(z["uniforms"], dtype=jnp.float32)
@@ -101,8 +109,8 @@ def obs(s):
 
 @jax.jit
 @jax.vmap
-def reset(key):
-    s = env.reset(key)
+def reset(key, clip):
+    s = env.reset(key) if args.mode == "mixed" else env.reset_with_traj(key, clip, env.clip_start[clip])
     return s, contact(s.data)
 
 
@@ -112,25 +120,28 @@ def step(s, key, alive):
     clip, frame = s.info["clip"], s.info["frame"]
     a = jax.lax.switch(clip, branches, obs(s), key)
     s = env.step(s, a)
-    # 클립 끝에서 reference 가 멈추므로 그 자리에서 다른 모션으로 바꾼다
-    at_end = s.info["frame"] >= s.info["clip_end"] - 1
-    info = dict(s.info)
-    info["rng"], k = jax.random.split(info["rng"])
-    p = jnp.where(env.pair_ok[info["clip"]], env.clip_p, 0.0)
-    clip_b = jax.random.choice(k, len(motions), p=p / p.sum())
-    info = env._switch(s.data, info, at_end, clip_b)
-    info, _ = env.tracking_terms(s.data, info)
-    s = s.replace(info=info, obs=env._get_obs(s.data, info))
+    if args.mode == "mixed":
+        # 클립 끝에서 reference 가 멈추므로 그 자리에서 다른 모션으로 바꾼다
+        at_end = s.info["frame"] >= s.info["clip_end"] - 1
+        info = dict(s.info)
+        info["rng"], k = jax.random.split(info["rng"])
+        p = jnp.where(env.pair_ok[info["clip"]], env.clip_p, 0.0)
+        clip_b = jax.random.choice(k, len(motions), p=p / p.sum())
+        info = env._switch(s.data, info, at_end, clip_b)
+        info, _ = env.tracking_terms(s.data, info)
+        s = s.replace(info=info, obs=env._get_obs(s.data, info))
     still = alive & (s.info["done/fellover"] == 0)
-    return s, a, contact(s.data), clip, frame, s.info["clip"] != clip, still
+    if args.mode == "primitive":
+        still &= s.info["frame"] < s.info["clip_end"] - 1
+    return s, a, contact(s.data), clip, frame, s.info["clip"], still
 
 
-T = round(args.seconds / env.dt)
+T = round(args.seconds / env.dt) if args.mode == "mixed" else int((env.clip_end - env.clip_start).max()) - 1
 B = args.episodes
 rng = jax.random.PRNGKey(args.seed)
 rng, k0 = jax.random.split(rng)
-s, c = reset(jax.random.split(k0, B))
-rec = {k: [] for k in ("qpos", "qvel", "contact", "action", "clip", "ref_frame", "switched", "valid")}
+s, c = reset(jax.random.split(k0, B), jnp.arange(B) % len(motions))
+rec = {k: [] for k in ("qpos", "qvel", "contact", "action", "clip", "ref_frame", "switched", "next_clip", "valid")}
 rec["qpos"].append(s.data.qpos)
 rec["qvel"].append(s.data.qvel)
 rec["contact"].append(c)
@@ -138,18 +149,22 @@ alive = jnp.ones(B, bool)
 fell = jnp.zeros(B, bool)
 for t in range(T):
     rng, k = jax.random.split(rng)
-    s, a, c, clip, frame, sw, still = step(s, jax.random.split(k, B), alive)
+    s, a, c, clip, frame, next_clip, still = step(s, jax.random.split(k, B), alive)
+    if bool((alive & (s.info["state_is_nan"] != 0)).any()):
+        raise FloatingPointError("Invalid physics step; rollout was not saved")
     for key, v in (("qpos", s.data.qpos), ("qvel", s.data.qvel), ("contact", c), ("action", a), ("clip", clip),
-                   ("ref_frame", frame), ("switched", sw), ("valid", alive)):
+                   ("ref_frame", frame), ("switched", next_clip != clip), ("next_clip", next_clip), ("valid", alive)):
         rec[key].append(v)
-    fell |= alive & ~still
+    fell |= alive & (s.info["done/fellover"] != 0)
     alive = still
     if not bool(alive.any()):
         break
 out = {k: np.asarray(jnp.stack(v, 1)) for k, v in rec.items()}
-out["target_q"] = np.asarray(env.action_offset[:n]) + out["action"] * env.action_scale
-out.update(fell=np.asarray(fell), E=np.asarray(uniforms), motions=np.array(motions), dt=env.dt, design=args.design)
-path = args.out / args.design / f"seq_seed{args.seed}.npz"
+out["target_q"] = np.asarray(env.action_offset[:n]) + np.clip(out["action"], *env.clip_actions) * env.action_scale
+out.update(fell=np.asarray(fell), E=np.asarray(uniforms), motions=np.array(motions), dt=env.dt, design=args.design, mode=args.mode,
+           clip_start=np.asarray(env.clip_start), clip_end=np.asarray(env.clip_end), seed=args.seed,
+           checkpoint_paths=np.array(checkpoint_paths), action_offset=np.asarray(env.action_offset[:n]),
+           action_scale=np.asarray(env.action_scale), clip_actions=np.asarray(env.clip_actions))
 path.parent.mkdir(parents=True, exist_ok=True)
 np.savez_compressed(path, **out)
 lens = out["valid"].sum(1)
@@ -162,7 +177,7 @@ pairs, seg_falls = {}, {m: 0 for m in motions}
 for b in range(B):
     L, last = int(lens[b]), None
     for t in np.where(out["switched"][b, :L])[0]:
-        key = (motions[out["clip"][b, t]], motions[out["clip"][b, t + 1]] if t + 1 < T else "?")
+        key = (motions[out["clip"][b, t]], motions[out["next_clip"][b, t]])
         pairs.setdefault(key, [0, 0])[0] += 1
         last = (key, t)
     if out["fell"][b]:

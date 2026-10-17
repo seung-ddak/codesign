@@ -51,3 +51,21 @@ npz 키: `qpos [B,501,19]`, `qvel [B,501,18]`, `contact [B,501,4]`, `action [B,5
 - `data.contact` DeprecationWarning 은 무시해도 된다 (MJX 버전 경고).
 - Issue #2 의 expert 중 11 개는 학습 말기 KL > 1 (최대 1.2e4). e000 평가는 19/19 통과라 수집에는 사용하지만, 낙상 많은 모션이 이 목록과 겹치는지 확인할 것.
 - e003 (미학습 형상) 0/19 통과 — 다형상 수집 단계에서 학습 형상 수가 핵심 변수.
+
+## 4070 SUPER 실행 결과 (2026-10-17)
+- 19 expert smoke: 8 ep, 3 완주 / 5 낙상(62.5%), 유효 2,610 step, 전환 30회. `rollouts_smoke/e000/seq_seed0.npz`.
+- seed 0: 256 ep, 150 완주 / 106 낙상(41.4%), 유효 104,465 step, 평균 8.16 s, 전환 1,208회 / 336 pair. 전환 후 1 s 내 낙상 98회, 그 외 8회. **분기 C: seed 1~3 중단**, 데이터 보존.
+- 전환 ≥5회·낙상 >50% pair: tiltRoll→trotCCWSlow 4/5, walkCCWSlow→walkForwardFast 6/8. pair 제외는 적용하지 않았다. 전체 표는 `rollouts/e000/seq_seed0_pairs.csv`.
+- 검증: `check_rollouts.py`로 state/action 시간축, finite 값, valid 마스크, 모션 전환 연결, PD action 변환 검사 통과. 19 expert의 eval 설정은 clips/reference 경로 외 일치; kick·초기 교란 0. 낙상 원인 확정 및 수정 후 재수집은 아직 하지 않았다.
+
+### 저장 단위와 재현 정보
+- NPZ 하나는 seed 하나의 병렬 episode 묶음이다. seed 0은 state `[256,501,...]`, action `[256,500,12]`. 50 Hz, 최대 10초이며 낙상 후 구간은 `valid=False`다. 전체 배치가 조기 종료되면 시간축도 짧아진다.
+- `action`은 정책 출력, `target_q`는 action 제한 후 실제 PD 목표다. `next_clip`은 step 직후 모션 번호다. `checkpoint_paths`, `action_offset`, `action_scale`, `clip_actions`를 본 수집 NPZ에 추가했다. smoke는 메타데이터 추가 전 실행본이다.
+- 체크포인트를 새로 학습·복사하지 않는다. 기존 expert 체크포인트를 읽는다. `_pairs.csv`는 seed 전체의 전환 집계이며 `.log`는 실행 로그다. 영상은 수집하지 않는다. 동일 seed 출력이 있으면 덮어쓰지 않고 오류로 종료한다.
+
+## 다형상 추가 수집 (2026-10-17 사용자 요청)
+- 기존 e000 mixed seed 0은 보존한다. e000/e001/e002 각각 primitive 304 episode(19 모션 × 16회), e001/e002 mixed 256 episode씩 추가한다. 미학습 e003은 이번 수집에서 제외한다.
+- primitive는 모션 시작 프레임부터 클립 끝 또는 낙상까지 실행한다. 모션은 episode별 순환 배정하고 전환은 없다. 초기 물리 교란은 0이며 관측 noise는 기존 학습값이다. 반복은 독립적인 새 모션 reference를 뜻하지 않는다.
+- mixed는 기존과 동일한 10 s 무작위 전환이다. 사용자와 확인한 목적에 따라 낙상률만으로 중단하지 않고 실패도 보존한다. 수치 오류 또는 파일 검증 실패 시 중단한다.
+- `collect_rollouts_batch.sh`: 각 묶음 저장 → `check_rollouts.py` 검증 → 해당 NPZ·CSV·실행 로그만 commit/push. push 실패 시 중단하며 강제 push하지 않는다. 이미 있는 출력은 덮어쓰지 않는다.
+- 출력은 `rollouts/<design>/primitive_seed0.npz`와 `seq_seed0.npz`. `mode`, `seed`, `clip_start`, `clip_end`를 추가하여 정상 클립 종료와 낙상을 구분한다. 시퀀스 i의 유효 길이는 `valid[i].sum()`이며 인접 상태 쌍과 action을 함께 사용한다.
