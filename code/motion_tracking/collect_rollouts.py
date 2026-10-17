@@ -50,6 +50,8 @@ parser.add_argument("--episodes", type=int, default=64, help="병렬 에피소�
 parser.add_argument("--seconds", type=float, default=10.0)
 parser.add_argument("--switch-wait", type=float, nargs=2, default=(1.0, 3.0), help="s, 모션 바꾸기 간격")
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--switch-entry", choices=("match", "live"), default="match", help="match = reference 끼리 미리 계산한 표, live = 전환 순간 로봇 실제 state 와 비교")
+parser.add_argument("--match-vel-weight", type=float, default=0.0, help="진입 프레임 매칭의 몸통 수평 속도 차이 가중치 (/(m/s)^2), 0 = 기존")
 parser.add_argument("--out", type=Path, default=Path("runs/pipeline_v1/rollouts"))
 args = parser.parse_args()
 assert args.episodes > 0 and args.seconds > 0
@@ -88,7 +90,7 @@ choice = cfg.get("choice")
 ref_root = CODESIGN / Path(ecfg["reference_dir"].split("/codesign/", 1)[-1]).parents[1]
 ecfg["reference_dir"] = str(ref_root / args.design / choice)
 ecfg.update(clips=motions, clip_boost=None, switch_prob=float(args.mode == "mixed"), switch_wait=list(args.switch_wait), switch_at="time",
-            switch_entry="match", max_episode_length=10**6)
+            switch_entry=args.switch_entry, switch_vel_weight=args.match_vel_weight, max_episode_length=10**6)
 with np.load(Path(ecfg["reference_dir"]) / f"{motions[0]}.npz") as z:
     uniforms = jnp.asarray(z["uniforms"], dtype=jnp.float32)
 env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
@@ -163,6 +165,7 @@ out = {k: np.asarray(jnp.stack(v, 1)) for k, v in rec.items()}
 out["target_q"] = np.asarray(env.action_offset[:n]) + np.clip(out["action"], *env.clip_actions) * env.action_scale
 out.update(fell=np.asarray(fell), E=np.asarray(uniforms), motions=np.array(motions), dt=env.dt, design=args.design, mode=args.mode,
            clip_start=np.asarray(env.clip_start), clip_end=np.asarray(env.clip_end), seed=args.seed,
+           match_vel_weight=args.match_vel_weight, switch_entry=args.switch_entry,
            checkpoint_paths=np.array(checkpoint_paths), action_offset=np.asarray(env.action_offset[:n]),
            action_scale=np.asarray(env.action_scale), clip_actions=np.asarray(env.clip_actions))
 path.parent.mkdir(parents=True, exist_ok=True)

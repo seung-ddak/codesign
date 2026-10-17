@@ -83,9 +83,10 @@ class TrackMjxEnv(MjxEnv):
         switch_min_remain: int = 50,
         switch_exclude: tuple[str, ...] = (),
         switch_forbid: tuple[tuple[str, str], ...] = (),
-        switch_entry: Literal["match", "start"] = "match",
+        switch_entry: Literal["match", "live", "start"] = "match",
         switch_at: Literal["time", "end"] = "time",
         switch_ramp: bool = True,
+        switch_vel_weight: float = 0.0,
     ):
         super().__init__(ctrl_dt, sim_dt)
         self.max_episode_length = max_episode_length
@@ -141,6 +142,8 @@ class TrackMjxEnv(MjxEnv):
         # 바꾸는 시점: time = switch_wait 뒤 아무 접지 프레임, end = A 의 마지막 프레임 (DeepMimic skill selector 처럼 동작 경계에서,
         # 끝나는 대신 B 로 이어 간다). switch_ramp = 바꾼 뒤 tracking 보상을 0→1 로 올림 (DeepMimic 은 없음)
         self.switch_at, self.switch_ramp = switch_at, switch_ramp
+        # match 거리에 몸통 수평 속도 (heading frame) 차이 제곱 × 이 가중치를 더한다. 0 = 관절각·접지만 (기존)
+        self.switch_vel_weight = switch_vel_weight
         self._build_switch_tables(list(clips), switch_min_remain, set(switch_exclude), {tuple(x) for x in switch_forbid})
 
     def _build_switch_tables(self, clips, min_remain, exclude, forbid):
@@ -154,6 +157,11 @@ class TrackMjxEnv(MjxEnv):
         dst_ok = src_ok & (np.arange(N) <= ends[frame_clip] - min_remain)  # B 가 최소 min_remain 프레임 남는 곳으로만
         q = np.asarray(self.ref_qpos)[:, 7:7 + self.n_ctrl]
         c = np.asarray(self.ref_contact)
+        qpos, v = np.asarray(self.ref_qpos), np.asarray(self.ref_qvel)[:, :2]  # 선속도는 world frame
+        w, x, y, z = qpos[:, 3:7].T
+        yaw = np.arctan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))
+        cy, sy = np.cos(yaw), np.sin(yaw)
+        vh = np.c_[cy * v[:, 0] + sy * v[:, 1], -sy * v[:, 0] + cy * v[:, 1]]
         match = np.zeros((N, n_clip), np.int32)  # A 의 각 프레임에서 B 로 갈 때 들어갈 프레임 = 관절각·접지가 가장 비슷한 프레임
         for b in range(n_clip):
             cand = np.where(dst_ok & (frame_clip == b))[0]
@@ -161,12 +169,30 @@ class TrackMjxEnv(MjxEnv):
                 match[:, b] = starts[b]
                 continue
             dist = ((q[:, None] - q[cand][None]) ** 2).sum(-1) + 0.5 * (c[:, None] != c[cand][None]).sum(-1)
+            if self.switch_vel_weight:  # B 를 로봇 yaw 에 맞추므로 속도는 각 프레임 heading frame 에서 비교
+                dist = dist + self.switch_vel_weight * ((vh[:, None] - vh[cand][None]) ** 2).sum(-1)
             match[:, b] = cand[dist.argmin(1)]
         has_dst = np.array([(dst_ok & (frame_clip == b)).any() for b in range(n_clip)])
         pair_ok = (~excl[:, None]) & (~excl[None]) & has_dst[None] & ~np.eye(n_clip, dtype=bool)
         for a, b in forbid:  # held-out 조합은 학습에서 뺀다
             pair_ok[clips.index(a), clips.index(b)] = False
         self.src_ok, self.match, self.pair_ok = jnp.array(src_ok), jnp.array(match), jnp.array(pair_ok)
+        # live 매칭용: B 후보 프레임을 로봇 실제 관절각·발 접지·속도와 비교 (match 와 같은 거리식)
+        self._dst_ok, self._frame_clip, self._ref_vh = jnp.array(dst_ok), jnp.array(frame_clip), jnp.array(vh)
+
+    def _live_match(self, data: mjx.Data, clip_b: jax.Array) -> jax.Array:
+        n = self.n_ctrl
+        q = data.qpos[7:7 + n]
+        geom, dist = data._impl.contact.geom, data._impl.contact.dist
+        c = jnp.stack([((geom == f).any(1) & (dist < 1e-3)).any() for f in self._foot_ids]).astype(jnp.float32)
+        yaw = self._yaw(data.qpos[3:7])
+        cy, sy = jnp.cos(yaw), jnp.sin(yaw)
+        v = data.qvel[:2]
+        vh = jnp.array([cy * v[0] + sy * v[1], -sy * v[0] + cy * v[1]])
+        d = (((self.ref_qpos[:, 7:7 + n] - q) ** 2).sum(-1) + 0.5 * (self.ref_contact != c).sum(-1)
+             + self.switch_vel_weight * ((self._ref_vh - vh) ** 2).sum(-1))
+        ok = self._dst_ok & (self._frame_clip == clip_b)
+        return jnp.where(ok.any(), jnp.argmin(jnp.where(ok, d, jnp.inf)), self.clip_start[clip_b])
 
     def _ref(self, i: jax.Array, off: jax.Array) -> tuple[jax.Array, jax.Array]:
         """프레임 i 의 reference qpos·qvel 을 (dx, dy, dyaw) 만큼 옮긴다. off = 0 이면 원본 그대로."""
@@ -184,7 +210,10 @@ class TrackMjxEnv(MjxEnv):
 
     def _switch(self, data: mjx.Data, info: dict, due: jax.Array, clip_b: jax.Array) -> dict:
         """due 이면 목표를 clip_b 로 바꾼다: 들어갈 프레임 = match, B 를 로봇 현재 xy·yaw 에 맞춘다."""
-        nf = self.match[info["frame"], clip_b] if self.switch_entry == "match" else self.clip_start[clip_b]
+        if self.switch_entry == "live":
+            nf = self._live_match(data, clip_b)
+        else:
+            nf = self.match[info["frame"], clip_b] if self.switch_entry == "match" else self.clip_start[clip_b]
         dyaw = self._yaw(data.qpos[3:7]) - self._yaw(self.ref_qpos[nf, 3:7])
         c, s = jnp.cos(dyaw), jnp.sin(dyaw)
         dxy = data.qpos[:2] - jnp.array([[c, -s], [s, c]]) @ self.ref_qpos[nf, :2]

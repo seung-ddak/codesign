@@ -1,0 +1,37 @@
+/mnt/gstore/home/xiangyue/RL/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+squat__r00             <- runs/pipeline_v1/experts/squat__r00/wandb/offline-run-20261015_161005-x8gaqt5h/files/checkpoints/5253120
+tiltPitch__r00         <- runs/pipeline_v1/experts/tiltPitch__r00/wandb/offline-run-20261015_162816-a8ha8agf/files/checkpoints/5253120
+tiltRoll__r00          <- runs/pipeline_v1/experts/tiltRoll__r00/wandb/offline-run-20261015_164720-jaikjuaw/files/checkpoints/5253120
+trotBackwardFast__r00  <- runs/pipeline_v1/experts/trotBackwardFast__r00/wandb/offline-run-20261015_170610-6o4rz41f/files/checkpoints/5253120
+trotBackwardSlow__r00  <- runs/pipeline_v1/experts/trotBackwardSlow__r00/wandb/offline-run-20261015_173257-hqysd0ij/files/checkpoints/4672512
+trotCCWSlow__r00       <- runs/pipeline_v1/experts/trotCCWSlow__r00/wandb/offline-run-20261015_174913-rcro537k/files/checkpoints/5253120
+trotCWSlow__r00        <- runs/pipeline_v1/experts/trotCWSlow__r00/wandb/offline-run-20261015_180733-hg56hq38/files/checkpoints/5253120
+trotForwardFast__r00   <- runs/pipeline_v1/experts/trotForwardFast__r00/wandb/offline-run-20261015_182546-uf208lh7/files/checkpoints/5253120
+trotForwardSlow__r00   <- runs/pipeline_v1/experts/trotForwardSlow__r00/wandb/offline-run-20261015_184358-vrobrotx/files/checkpoints/5253120
+trotLeftSlow__r00      <- runs/pipeline_v1/experts/trotLeftSlow__r00/wandb/offline-run-20261015_190227-b1tfbr0o/files/checkpoints/5253120
+trotRightFast__r00     <- runs/pipeline_v1/experts/trotRightFast__r00/wandb/offline-run-20261015_192058-uqvfcwgf/files/checkpoints/5253120
+trotRightSlow__r00     <- runs/pipeline_v1/experts/trotRightSlow__r00/wandb/offline-run-20261015_193914-n9e79hes/files/checkpoints/5253120
+walkBackwardFast__r00  <- runs/pipeline_v1/experts/walkBackwardFast__r00/wandb/offline-run-20261015_195731-yywb500w/files/checkpoints/5253120
+walkBackwardSlow__r00  <- runs/pipeline_v1/experts/walkBackwardSlow__r00/wandb/offline-run-20261015_201550-q6rgklpu/files/checkpoints/5253120
+walkCCWSlow__r00       <- runs/pipeline_v1/experts/walkCCWSlow__r00/wandb/offline-run-20261015_203423-ji8orv4i/files/checkpoints/5253120
+walkForwardFast__r00   <- runs/pipeline_v1/experts/walkForwardFast__r00/wandb/offline-run-20261015_205247-nuzwqro2/files/checkpoints/5253120
+walkForwardSlow__r00   <- runs/pipeline_v1/experts/walkForwardSlow__r00/wandb/offline-run-20261015_211059-3tzvu60k/files/checkpoints/5253120
+walkLeftSlow__r00      <- runs/pipeline_v1/experts/walkLeftSlow__r00/wandb/offline-run-20261015_212924-yph5o0iy/files/checkpoints/5253120
+walkRightSlow__r00     <- runs/pipeline_v1/experts/walkRightSlow__r00/wandb/offline-run-20261015_214747-ni5wybgz/files/checkpoints/5253120
+/mnt/gstore/home/xiangyue/RL/codesign/code/motion_tracking/collect_rollouts.py:103: DeprecationWarning: Accessing `contact` directly from `Data` is deprecated. Access it via `data._impl.contact` instead.
+  geom, dist = data.contact.geom, data.contact.dist
+B=256 T=500 steps=107254 len=8.4±2.6s fell=36% switches/ep=4.7 -> runs/pipeline_v1/rollouts_velmatch/e000/seq_seed0.npz
+pairs=335 switches=1204 falls: after switch=76, in segment=15 -> runs/pipeline_v1/rollouts_velmatch/e000/seq_seed0_pairs.csv
+  walkBackwardFast__r00 -> walkForwardFast__r00: 100% of 4
+  trotRightFast__r00 -> walkForwardFast__r00: 100% of 3
+  trotLeftSlow__r00 -> walkForwardFast__r00: 100% of 2
+  trotCWSlow__r00 -> trotCCWSlow__r00: 100% of 5
+  squat__r00 -> trotForwardSlow__r00: 100% of 2
+  walkCCWSlow__r00 -> walkForwardFast__r00: 71% of 7
+  trotBackwardSlow__r00 -> walkForwardFast__r00: 67% of 3
+  trotBackwardFast__r00 -> walkForwardFast__r00: 67% of 6
+  tiltRoll__r00 -> walkForwardFast__r00: 67% of 3
+  tiltPitch__r00 -> trotForwardSlow__r00: 67% of 3
+runs/pipeline_v1/rollouts_velmatch/e000/seq_seed0.npz: 256 episodes, 107254 valid steps, fell=35.5%
+PASS: terminal-switch regression and supplied rollout files

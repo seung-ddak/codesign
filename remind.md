@@ -97,3 +97,8 @@
 - 수집기 수정: 마지막 전환 집계, 제한된 PD 목표 저장, 수치 오류 차단, 날짜 기반 run 선택, 기존 출력 덮어쓰기 방지. 회귀 검사·NPZ 검증 통과.
 - 19 expert smoke 8 ep 중 5 낙상. seed 0은 256 ep 중 106 낙상(41.4%), 150 완주; 유효 104,465 step, 전환 1,208회. `runs/pipeline_v1/rollouts/e000/seq_seed0.npz` 보존.
 - ROLLOUT_PLAN 분기 C에 따라 seed 1~3 중단. 전환 후 1 s 내 낙상 98, 그 외 8; pair 제외 없음. 일반화 검증이나 TT 학습 완료를 뜻하지 않는다.
+
+### 8-4. 진입 프레임 매칭 비교 (e000, seed 0, 256 ep, 2026-10-17)
+- 결론: 매칭 방식은 낙상 원인이 아니다. 전환 후 1 s 내 낙상 = 기존 8.1% / 속도 반영 표 6.3% / 실제 state 매칭 7.0% (seed 1 개, 차이 유의하지 않음).
+- 실제 state 매칭에서도 진입 속도차 median 0.19 m/s 불변 → B 클립에 맞는 속도 프레임이 없다. 낙상 = 모션 간 속도 간극 + expert 견고성 (walkForwardFast 도착 ~42% 고정).
+- 결정 (사용자): 기존 데이터 그대로 사용 (가). 비교 데이터 `rollouts_velmatch/`, `rollouts_livematch/` 보존. 옵션 `--switch-entry live`, `--match-vel-weight` (기본값 = 기존).
