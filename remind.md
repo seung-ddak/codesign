@@ -92,5 +92,3 @@
 - 구성: 무작위 모션·프레임 시작 → 1~3 s마다 무작위 다른 모션 (2발 이상 접지 프레임에서만, 진입 = 관절각·접지 최근접 프레임, B reference를 로봇 xy·yaw에 정렬, 클립 끝이면 즉시 전환) → 10 s 또는 낙상까지.
 - 환경: e000, 50 Hz 제어, kick·초기 교란 없음, obs noise 학습값, 결정적 정책, 낙상만 종료. 낙상 구간도 `fell`·`valid`로 표시해 저장.
 - 저장: `rollouts/e000/seq_seed<N>.npz` (qpos·qvel·contact·action·target_q·clip·ref_frame·switched·valid, E) + `_pairs.csv` (pair별 1 s 내 낙상).
-- 다음: 다른 PC(4070, V100보다 2.3배 빠름)에서 seed 0~3 × 256 ep. seed 0 낙상 < 20 %면 진행, pair 집중 낙상은 기록 후 사용자 결정, ≥ 20 %면 매칭·정렬 점검.
-- 보류: 전환 없는 데이터 vs 전환 포함 데이터로 학습한 TT의 전환 구간 예측 오차 비교 (6단계).
