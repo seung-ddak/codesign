@@ -86,7 +86,7 @@ a{color:var(--accent)}
   <h1>Pipeline v1 종합 보고서</h1>
   <p class="sub">A1 모션 → 형상별 리타겟 → 모션 expert PPO → rollout 수집 → TT dynamics 학습 → 보상 guidance 로 형상·행동 생성 → MJX 실행 검증. 구현 방법과 모든 run 의 결과를 이 파일 하나에 모았다. 경로 <code>codesign/runs/pipeline_v1/</code>, 정본 기록 <code>codesign/remind.md</code> §8.</p>
   <nav class="toc" aria-label="목차">
-    <a href="#sum">요약</a><a href="#term">용어</a><a href="#impl">구현</a><a href="#s1">1 리타겟</a><a href="#s2">2·3 Expert</a><a href="#s4">4 Rollout</a><a href="#s5">5 TT</a><a href="#s6">6 Task 설계</a><a href="#s7a">7-1 원형 try1</a><a href="#s7b">7-2 지그재그 try1</a><a href="#s7c">7-3 try2 (s0 생성)</a><a href="#media">궤적·영상</a><a href="#prob">문제 정리</a><a href="#next">다음 선택지</a><a href="#files">파일</a>
+    <a href="#sum">요약</a><a href="#term">용어</a><a href="#impl">구현</a><a href="#s1">1 리타겟</a><a href="#s2">2·3 Expert</a><a href="#s4">4 Rollout</a><a href="#s5">5 TT</a><a href="#s6">6 Task 설계</a><a href="#s7a">7-1 원형 try1</a><a href="#s7b">7-2 지그재그 try1</a><a href="#s7c">7-3 try2 (s0 생성)</a><a href="#d1">7-4 D1</a><a href="#media">궤적·영상</a><a href="#prob">문제 정리</a><a href="#next">다음 선택지</a><a href="#files">파일</a>
   </nav>
 </header>
 
@@ -307,6 +307,37 @@ a{color:var(--accent)}
   </ul>
 </section>
 
+<section id="d1">
+  <h2>7-4 · 진단 D1 · open-loop 민감도 (<code>diag_openloop.py</code>)</h2>
+  <p style="margin:0">질문: 생성한 형상이 제대로 움직이지 못하는 원인이 open-loop 실행 자체인가, TT 예측 오차인가. TT 를 빼고 rollout 데이터의 <b>실제 행동</b>을 MJX 에 그대로 재생해, 시작 state 에 작은 교란만 준다.</p>
+  <div class="tw" style="margin-top:10px"><table>
+    <tbody><tr><th>항목</th><th>값</th></tr>
+    <tr><td>대상</td><td>e000·e001·e002 의 10 s 혼합 episode 중 데이터에서 넘어지지 않은 것, 형상당 32 개</td></tr>
+    <tr><td>교란</td><td>none (대조군) / small: 관절 ±0.01 rad · 몸통 ±1 mm / medium: 관절 ±0.05 rad · 몸통 ±5 mm. 교란 수준당 표본 2 개</td></tr>
+    <tr><td>실행</td><td>try1·try2 와 같은 MJX 실행 (PD · 50 Hz · 낙상 기준), 재계획 없음</td></tr>
+    <tr><td>판정 (사전)</td><td>small 에서 10 s 안 낙상 ≥ 50 % → open-loop 실행 자체가 주원인</td></tr>
+  </tbody></table></div>
+  <h3>결과</h3>
+  <div class="tw"><table>
+    <tbody><tr><th>형상</th><th>교란</th><th>낙상 (10 s)</th><th>위치 차이 1 s</th><th>2 s</th><th>5 s</th><th>10 s</th><th>yaw 차이 10 s</th></tr>
+    <tr><td class="mono">e000</td><td>none</td><td class="n">0 %</td><td class="n">0.0 cm</td><td class="n">0.0</td><td class="n">0.0</td><td class="n">0.9</td><td class="n">1.0°</td></tr>
+    <tr><td></td><td>small</td><td class="n">0 %</td><td class="n">0.4</td><td class="n">0.8</td><td class="n">2.5</td><td class="n">7.7</td><td class="n">2.8°</td></tr>
+    <tr><td></td><td>medium</td><td class="n">0 %</td><td class="n">1.3</td><td class="n">1.9</td><td class="n">3.6</td><td class="n">9.3</td><td class="n">4.0°</td></tr>
+    <tr><td class="mono">e001</td><td>none</td><td class="n">6 %</td><td class="n">0.0</td><td class="n">0.0</td><td class="n">0.3</td><td class="n">5.4</td><td class="n">4.3°</td></tr>
+    <tr><td></td><td>small</td><td class="n">33 %</td><td class="n">0.7</td><td class="n">1.7</td><td class="n">6.3</td><td class="n">21.9</td><td class="n">9.8°</td></tr>
+    <tr><td></td><td>medium</td><td class="n">44 %</td><td class="n">1.7</td><td class="n">4.0</td><td class="n">11.4</td><td class="n">19.9</td><td class="n">8.0°</td></tr>
+    <tr><td class="mono">e002</td><td>none</td><td class="n">16 %</td><td class="n">0.0</td><td class="n">0.0</td><td class="n">0.4</td><td class="n">6.7</td><td class="n">3.6°</td></tr>
+    <tr><td></td><td>small</td><td class="n">36 %</td><td class="n">0.6</td><td class="n">1.9</td><td class="n">7.3</td><td class="n">17.9</td><td class="n">6.2°</td></tr>
+    <tr><td></td><td>medium</td><td class="n">44 %</td><td class="n">1.6</td><td class="n">3.5</td><td class="n">12.5</td><td class="n">22.0</td><td class="n">4.9°</td></tr>
+  </tbody></table></div>
+  <p class="note">위치·yaw 차이 = 같은 행동을 재생한 궤적과 데이터 궤적의 차이 (중앙값, 넘어지지 않은 표본만). 대조군의 작은 차이는 batch 실행의 부동소수점 차이에서 시작된다.</p>
+  <ul class="res" style="margin-top:10px">
+    <li><span class="pill p-pass">판정</span> small 교란 낙상 평균 23 % (기준 50 %) → open-loop 실행 자체는 주원인이 아니다.</li>
+    <li><span class="pill p-info">크기 비교</span> 교란으로 생기는 위치 차이는 1 s 에 0.4~0.7 cm. TT 의 32 step (0.64 s) 위치 오차는 8.4 cm 로 10 배 이상 크다 → 생성 형상이 제대로 움직이지 못하는 주원인은 TT 예측 오차다 (사용자 분석과 일치). try1 은 생성 형상이 e000 (교란에도 낙상 0 %) 인데 scale 0 에서 5/8 낙상했다.</li>
+    <li><span class="pill p-warn">형상 차이</span> e001·e002 는 실제 행동을 재생해도 10 s 동안 33~36 % 낙상 (대조군 6~16 %). 이 형상들은 긴 open-loop 실행에서 불안정하므로, TT 가 정확해져도 10 s 실행에는 재계획 (N4) 이 필요할 수 있다.</li>
+  </ul>
+</section>
+
 <section id="media">
   <h2>궤적과 MJX 실행 영상</h2>
   
@@ -331,7 +362,7 @@ a{color:var(--accent)}
     <tr><td>P4</td><td>관측 (dynamics)</td><td>TT 가 회전을 과대 예측한다</td><td>회전 window yaw 오차 19.5° vs 직진 5.8°, 예측 Δyaw 13.5° vs 실제 3.5°</td><td><span class="pill p-fail">미해결</span></td></tr>
     <tr><td>P5</td><td>최적화</td><td>guidance 가 TT 오류를 이용한다 (model exploitation)</td><td>try1 지그재그 scale 10: 예측 2.14 vs 실제 0.41 m. try2 에서 0.81 vs 0.76 m 로 감소</td><td><span class="pill p-warn">try2 에서 감소</span></td></tr>
     <tr><td>P6</td><td>관측 (데이터)</td><td>free 조건이 생성하는 s0 가 불안정한 state 다</td><td>생성 s0 높이 0.11~0.37 m, 속도 최대 1.4 m/s → scale 0 낙상 8/8</td><td><span class="pill p-fail">미해결</span></td></tr>
-    <tr><td>P7</td><td>실행 방식</td><td>open-loop 10 s 재생은 작은 오차가 쌓여 무너진다</td><td>try1 scale 0 에서도 낙상 5/8</td><td><span class="pill p-fail">미해결</span></td></tr>
+    <tr><td>P7</td><td>실행 방식</td><td>open-loop 10 s 재생은 작은 오차가 쌓여 무너진다</td><td>try1 scale 0 에서도 낙상 5/8. D1: 실제 행동 재생 + 작은 교란에서 e000 0 %, e001·e002 33~36 % 낙상 → 주원인은 아니지만 e001·e002 에서는 영향이 있다</td><td><span class="pill p-warn">부분 원인 (D1)</span></td></tr>
     <tr><td>P8</td><td>관측 (데이터)</td><td>rollout 10 s 혼합 데이터의 낙상률 41~73 %. 넘어지는 중인 state 가 학습 데이터에 많다 (P6 의 원인)</td><td>낙상 92 % 가 전환 후 1 s 안. 사용자 결정으로 그대로 사용</td><td><span class="pill p-info">수용</span></td></tr>
     <tr><td>P9</td><td>관측 (dynamics)</td><td>직진 쏠림: TT 가 직진으로 예측한 구간에서 MJX 실제 로봇은 왼쪽으로 돈다</td><td>진단 A: 직진 window 당 MJX +3.7°, TT 예측 0.2°</td><td><span class="pill p-fail">미해결</span></td></tr>
     <tr><td>P10</td><td>reward</td><td>fall 벌점의 높이 기준이 출발 높이다. s0 를 생성하면 기준도 생성값이 되어, 낮은 s0 에서는 낮게 걷는 궤적에 벌점이 거의 없다</td><td><code>task_reward.p_fall</code> = 출발 높이 × 0.6 아래만 벌점. try2 생성 s0 높이 0.11 m 사례 (코드 확인, 실험 검증 없음)</td><td><span class="pill p-fail">미해결</span></td></tr>

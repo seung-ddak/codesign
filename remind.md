@@ -123,3 +123,7 @@
 ### 8-8. h32_try5 (+free 조건, s0 도 생성) → track_try2·zigzag_try2 (2026-10-18, try4·try1 대비 mode 3 + `--free-s0` 만 변경)
 - 결론: 기준 (두 task 평균 E 거리 > 0.1) 불통과, 0.037 (scale 10). E 는 e000·e001·e002 로 나뉘지만 후보별 형상은 노이즈가 정한다 (같은 seed → scale·task 무관 같은 형상). 예측-실제 격차는 감소 (지그재그 scale 10: 2.14 vs 0.41 m → 0.81 vs 0.76 m).
 - TT 오차 try4 대비 약 10 % 증가 (32 step yaw 6.2°·위치 9.5 cm·관절 7.2°). scale 0 낙상 8/8 (3~186 step): 생성 s0 가 분포 밖 (높이 0.11~0.37 m vs 데이터 시작 0.28~0.32, 속도 최대 1.4 m/s) — free 조건이 episode 중간 window (낙상 중 포함) 의 시작 state 를 배웠기 때문.
+
+### 8-9. 진단 D1 open-loop 민감도 (2026-10-18, 데이터의 실제 행동을 MJX 에 재생, TT 무관)
+- 결론: open-loop 자체는 주원인 아님 (작은 교란 ±0.01 rad·±1 mm 에서 10 s 낙상 평균 23 %, 기준 50 %). 1 s 시점 위치 차이 0.4~0.7 cm 로 TT 32 step 오차 8.4 cm 보다 10 배 이상 작다 → 생성 실패의 주원인은 TT 예측 오차.
+- 형상 차이: e000 낙상 0 %, e001 33 %, e002 36 % (교란 없는 대조군도 6·16 %). e001·e002 는 10 s open-loop 에서 불안정 → 긴 실행엔 재계획 필요. 코드 `code/tt_dynamics/diag_openloop.py`, 결과 `runs/pipeline_v1/diag/D1_openloop/`.
