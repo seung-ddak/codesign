@@ -34,3 +34,9 @@ Checkpoint and generated sample arrays remain on the CGR PC.
   }
 }
 ```
+
+## Free-s0 circle task check (8 candidates per scale)
+
+Compared with `h32_try5` using the same `generate_task.py --free-s0 --task circle` settings. At scale 0, mean valid simulation time increased from 0.87 s to 6.04 s, but all 8 candidates still fell before the 10 s horizon. At scale 10, all 8 also fell; mean valid time changed from 6.53 s to 5.85 s. Mean path error was 0.294 m and 0.565 m at scales 0 and 10, respectively (previously 0.182 m and 0.348 m). The conditioning correction helped short-horizon survival at scale 0 but did not solve task generation.
+
+Raw results: `runs/pipeline_v1/task/track_freefix_cgr/summary.json` (local experiment artifact).
