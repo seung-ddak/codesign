@@ -101,11 +101,25 @@
 ### 8-4. 진입 프레임 매칭 비교 (e000, seed 0, 256 ep, 2026-10-17)
 - 결론: 매칭 방식은 낙상 원인이 아니다. 전환 후 1 s 내 낙상 = 기존 8.1% / 속도 반영 표 6.3% / 실제 state 매칭 7.0% (seed 1 개, 차이 유의하지 않음).
 - 실제 state 매칭에서도 진입 속도차 median 0.19 m/s 불변 → B 클립에 맞는 속도 프레임이 없다. 낙상 = 모션 간 속도 간극 + expert 견고성 (walkForwardFast 도착 ~42% 고정).
-- 결정 (사용자): 기존 데이터 그대로 사용 (가). 비교 데이터 `rollouts_velmatch/`, `rollouts_livematch/` 보존. 옵션 `--switch-entry live`, `--match-vel-weight` (기본값 = 기존).
+- 결정 (사용자): 기존 데이터 그대로 사용 (가). 비교 데이터 `rollouts_archive/velmatch/`, `rollouts_archive/livematch/` 보존. 옵션 `--switch-entry live`, `--match-vel-weight` (기본값 = 기존).
 
 ### 8-5. TT dynamics 학습 (npz 직접, e000~e002 rollout 1,680 ep, 2026-10-17)
 - 결론: 데이터에는 몸통 dynamics 정답이 충분하다 (1-step MLP 32 step 예측 yaw 4.0°·위치 2.2 cm). TT 는 아직 못 뽑아낸다 → 원인 = TT 학습 (조건 혼합 희석 + 학습량), 데이터 아님.
 - horizon: 500 step 한 번에 = 실패 (1 step 오차가 s0 유지보다 큼). 원본처럼 짧은 window 가 필요 (h8 1 step 3.7°·1 cm). window 이어 붙이기 누적 원인 = 횟수 (stride 1/4/7 비교) → h32 가 관절 최선.
 - 위치 오차의 주원인 = 몸통 yaw·속도 오차 (직진에서 없는 회전 생성). 위치 delta 표현 (C) 은 효과 없음. 조건을 dynamics 만으로 (G2) 하면 yaw 11.0°→5.9°, 위치 13.1→8.6 cm (MLP 와 격차 남음).
 - 원본 TT 확인: 4 족 학습 task = `hardware_gen` 하나 (목표 궤적 → 형상·state·제어, ε 예측, 100 단계). 5 단계는 `ctrl` task 값 (이전 기록 정정). 목표 궤적 조건은 사용자 의도와 달라 쓰지 않는다.
-- 코드 `code/tt_dynamics/` (train_tt.py, rollout_data.py, diag_mlp.py), 지표 `runs/pipeline_v1/tt/<run>/` (checkpoint·sample npz 는 로컬만). 진행 중: h32_try4 (3 조건, 100k step).
+- 코드 `code/tt_dynamics/` (train_tt.py, rollout_data.py, diag_mlp.py), 지표 `runs/pipeline_v1/tt/<run>/` (checkpoint·sample npz 는 로컬만).
+- G1 (h32_try4, 3 조건, 100k step): 32 step yaw 5.6°·위치 8.4 cm·관절 6.8° = G2 수준 이상 → 희석은 학습량으로 메워진다. 남은 격차: 속도 0.153 vs MLP 0.055 m/s, 회전 모션 yaw 15.2°.
+
+### 8-6. track_try1 진단 A (TT 예측 vs MJX, 32 step window 증분, 2026-10-18)
+- 결론: dynamics 원인 확정. scale 0 회전 window yaw 오차 19.5° vs 직진 5.8° (3.4 배, 기준 2 배). TT 는 회전 Δyaw 13.5° 예측, MJX 실제 3.5°. yaw 방향 일치 55~65%.
+- 직진 window 에서도 MJX 는 window 당 +3.7° 좌편향, TT 는 0.2° 예측. 코드 `code/tt_dynamics/diag_task.py`, 결과 `runs/pipeline_v1/task/track_try1/diag_task.json`.
+
+### 8-7. zigzag_try1 + 형상 비교 (2026-10-18, 원형 대비 보상만 변경: 진폭 0.3 m·주기 2 m·반폭 0.15 m)
+- 결론: 형상 E 가 task 에 반응하지 않는다. 원형 vs 지그재그 평균 E 거리 0.0013 (학습 형상 간 0.95~1.15), 전부 e000 근방. scale 10 예측 2.14 m vs MJX 0.41 m.
+- 원인: s0 가 E 를 결정. s0 를 e001·e002 rollout 에서 가져오면 생성 E 가 각각 e001·e002 로 거리 0.007 이내. 학습 형상 3 개 → E = 3 점 식별.
+- 보고서 `runs/pipeline_v1/report.html` (전 단계), 다음 후보 N1 s0 형상 중립화 / N2 형상 수 확대 / N3 회전 데이터 / N4 재계획.
+
+### 8-8. h32_try5 (+free 조건, s0 도 생성) → track_try2·zigzag_try2 (2026-10-18, try4·try1 대비 mode 3 + `--free-s0` 만 변경)
+- 결론: 기준 (두 task 평균 E 거리 > 0.1) 불통과, 0.037 (scale 10). E 는 e000·e001·e002 로 나뉘지만 후보별 형상은 노이즈가 정한다 (같은 seed → scale·task 무관 같은 형상). 예측-실제 격차는 감소 (지그재그 scale 10: 2.14 vs 0.41 m → 0.81 vs 0.76 m).
+- TT 오차 try4 대비 약 10 % 증가 (32 step yaw 6.2°·위치 9.5 cm·관절 7.2°). scale 0 낙상 8/8 (3~186 step): 생성 s0 가 분포 밖 (높이 0.11~0.37 m vs 데이터 시작 0.28~0.32, 속도 최대 1.4 m/s) — free 조건이 episode 중간 window (낙상 중 포함) 의 시작 state 를 배웠기 때문.

@@ -33,7 +33,7 @@ npz 키: `qpos [B,501,19]`, `qvel [B,501,18]`, `contact [B,501,4]`, `action [B,5
 1. `git pull` 후 `codesign/` 에서 env 설정:
    `export CUDA_VISIBLE_DEVICES=0 MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false WANDB_MODE=offline`
 2. **smoke** (19 expert, 8 ep) — 오류 없음 + 소요 시간 측정:
-   `../transformer-transformer/.venv/bin/python code/motion_tracking/collect_rollouts.py runs/pipeline_v1/experts/*__r00 --design e000 --episodes 8 --out runs/pipeline_v1/rollouts_smoke`
+   `../transformer-transformer/.venv/bin/python code/motion_tracking/collect_rollouts.py runs/pipeline_v1/experts/*__r00 --design e000 --episodes 8 --out runs/pipeline_v1/rollouts_archive/smoke`
 3. **본 수집** (tmux, 종료 알림): seed 0 → 1 → 2 → 3, 각 256 ep (총 1,024 ep ≈ 5,000 전환, pair 342 개당 평균 ~15 회).
    `for s in 0 1 2 3; do .../python code/motion_tracking/collect_rollouts.py runs/pipeline_v1/experts/*__r00 --design e000 --episodes 256 --seed $s || exit 1; done`
    256 ep 가 GPU 메모리를 넘으면 `--episodes 128` 로 seed 수를 2 배로.
@@ -53,7 +53,7 @@ npz 키: `qpos [B,501,19]`, `qvel [B,501,18]`, `contact [B,501,4]`, `action [B,5
 - e003 (미학습 형상) 0/19 통과 — 다형상 수집 단계에서 학습 형상 수가 핵심 변수.
 
 ## 4070 SUPER 실행 결과 (2026-10-17)
-- 19 expert smoke: 8 ep, 3 완주 / 5 낙상(62.5%), 유효 2,610 step, 전환 30회. `rollouts_smoke/e000/seq_seed0.npz`.
+- 19 expert smoke: 8 ep, 3 완주 / 5 낙상(62.5%), 유효 2,610 step, 전환 30회. `rollouts_archive/smoke/e000/seq_seed0.npz`.
 - seed 0: 256 ep, 150 완주 / 106 낙상(41.4%), 유효 104,465 step, 평균 8.16 s, 전환 1,208회 / 336 pair. 전환 후 1 s 내 낙상 98회, 그 외 8회. **분기 C: seed 1~3 중단**, 데이터 보존.
 - 전환 ≥5회·낙상 >50% pair: tiltRoll→trotCCWSlow 4/5, walkCCWSlow→walkForwardFast 6/8. pair 제외는 적용하지 않았다. 전체 표는 `rollouts/e000/seq_seed0_pairs.csv`.
 - 검증: `check_rollouts.py`로 state/action 시간축, finite 값, valid 마스크, 모션 전환 연결, PD action 변환 검사 통과. 19 expert의 eval 설정은 clips/reference 경로 외 일치; kick·초기 교란 0. 낙상 원인 확정 및 수정 후 재수집은 아직 하지 않았다.

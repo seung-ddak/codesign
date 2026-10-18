@@ -10,7 +10,7 @@ usage (codesign/ 에서):
              heading frame 선속도 3, body 각속도 3, 관절각 12, 관절속도 12, 발 접지 4
   A_t (12) = target_q (실제 PD 목표 관절각)
   위치·yaw 는 window 첫 state 기준. 낙상 이후 (valid = 0) 와 padding 은 attention·loss 에서 뺀다.
-학습 조건 (배치마다 무작위): joint = s0 만 / dynamics = E·s0·A / given_E = E·s0. 알려진 값은 매 step 원래 값으로 고정 (inpainting).
+학습 조건 (배치마다 무작위): joint = s0 만 / dynamics = E·s0·A / given_E = E·s0 / free = 없음 (--modes 에 3). 알려진 값은 매 step 원래 값으로 고정 (inpainting).
 평가: 검증 episode 에서 dynamics 조건으로 S 를 생성해 실제 MJX S 와 비교 (1·10·50 step, 전체).
   horizon < 500: 마지막 예측 state 를 다음 window 의 s0 로 두고 이어 붙인다 (window 당 H-1 step 전진).
 """
@@ -27,6 +27,7 @@ import torch
 import torch.nn as nn
 
 from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, load  # noqa: F401
+from tt_model import Net, rebase, schedule, unbase
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
 
@@ -48,7 +49,7 @@ parser.add_argument("--norm", choices=("zscore", "minmax"), default="zscore", he
 parser.add_argument("--clip", type=float, default=10.0, help="정규화 공간 x0_hat clip (TT 원본 clip_sample = 1)")
 parser.add_argument("--stride", type=int, default=0, help="평가 시 window 당 전진 step (0 = horizon-1, 겹침 없음)")
 parser.add_argument("--pose", choices=("abs", "delta"), default="abs", help="delta = S 의 위치·yaw 4 칸을 직전 step 대비 변화량 (dx, dy: 직전 heading frame, dyaw, 0) 으로")
-parser.add_argument("--modes", type=int, nargs="+", default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0)")
+parser.add_argument("--modes", type=int, nargs="+", default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음)")
 parser.add_argument("--diag", action="store_true", help="이어 붙이지 않은 단일 window 예측의 몸통 yaw·속도 오차를 모션 종류별로 (eval-only)")
 parser.add_argument("--sampler", choices=("ddpm", "ddim"), default="ddpm", help="평가 샘플링. ddim = 결정적 (eta 0)")
 args = parser.parse_args()
@@ -56,39 +57,13 @@ dev = "cuda"
 torch.manual_seed(args.seed)
 
 
-class Net(nn.Module):
-    def __init__(self, H, d, layers):
-        super().__init__()
-        self.inp = nn.Linear(2 * X_DIM, d)
-        self.inp_e = nn.Linear(2 * E_DIM, d)
-        self.pos = nn.Parameter(torch.zeros(1, H + 1, d))
-        self.temb = nn.Sequential(nn.Linear(d, d), nn.SiLU(), nn.Linear(d, d))
-        layer = nn.TransformerEncoderLayer(d, 8, 4 * d, dropout=0.0, batch_first=True, norm_first=True)
-        self.enc = nn.TransformerEncoder(layer, layers)
-        self.out, self.out_e = nn.Linear(d, X_DIM), nn.Linear(d, E_DIM)
-        self.d = d
-
-    def forward(self, x, e, kx, ke, k, pad):
-        half = self.d // 2
-        f = torch.exp(-math.log(10000) * torch.arange(half, device=x.device) / half)
-        t = self.temb(torch.cat([torch.sin(k[:, None] * f), torch.cos(k[:, None] * f)], 1))[:, None]
-        h = torch.cat([self.inp_e(torch.cat([e, ke], -1))[:, None], self.inp(torch.cat([x, kx], -1))], 1) + self.pos + t
-        h = self.enc(h, src_key_padding_mask=torch.cat([torch.zeros_like(pad[:, :1]), pad], 1))
-        return self.out(h[:, 1:]), self.out_e(h[:, 0])
-
-
-def schedule(n):
-    s = torch.arange(n + 1, dtype=torch.float64) / n
-    abar = torch.cos((s + 0.008) / 1.008 * math.pi / 2) ** 2
-    abar = abar / abar[0]
-    beta = (1 - abar[1:] / abar[:-1]).clamp(max=0.999)
-    return beta.float().to(dev), torch.cumprod(1 - beta, 0).float().to(dev)
+EP = 500  # episode 최대 step (10 s)
 
 
 def cond_masks(n, mode, M):  # M [n,H]
-    """mode: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0). known 이면 1."""
+    """mode: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음, s0 도 생성). known 이면 1."""
     kx = torch.zeros(n, args.horizon, X_DIM, device=dev)
-    kx[:, 0, :S_DIM] = 1
+    kx[:, 0, :S_DIM] = (mode != 3).float()[:, None]
     kx[:, :, S_DIM:] += (mode == 1).float()[:, None, None]
     ke = (mode >= 1).float()[:, None].expand(n, E_DIM)
     return kx * M[..., None], ke
@@ -117,28 +92,6 @@ def sample(net, x0, e0, kx, ke, pad, beta, abar):
     return torch.where(kx > 0, x0, x), torch.where(ke > 0, e0, e)
 
 
-EP = 500  # episode 최대 step (10 s)
-
-
-def rebase(x):
-    """episode 시작 기준 [B,H,X] -> 각 window 첫 state 기준 (위치·yaw 만 바뀐다)."""
-    x = x.clone()
-    c0, s0 = x[:, :1, 3], x[:, :1, 4]
-    d = x[..., 0:2] - x[:, :1, 0:2]
-    c, s = x[..., 3].clone(), x[..., 4].clone()
-    x[..., 0], x[..., 1] = c0 * d[..., 0] + s0 * d[..., 1], -s0 * d[..., 0] + c0 * d[..., 1]
-    x[..., 3], x[..., 4] = c * c0 + s * s0, s * c0 - c * s0
-    return x
-
-
-def unbase(w, start):
-    """window 기준 [B,H,X] -> episode 시작 기준. start = window 첫 state 의 episode 기준 값 [B,X]."""
-    w = w.clone()
-    c0, s0 = start[:, None, 3], start[:, None, 4]
-    px, py, c, s = w[..., 0].clone(), w[..., 1].clone(), w[..., 3].clone(), w[..., 4].clone()
-    w[..., 0], w[..., 1] = start[:, None, 0] + c0 * px - s0 * py, start[:, None, 1] + s0 * px + c0 * py
-    w[..., 3], w[..., 4] = c * c0 - s * s0, s * c0 + c * s0
-    return w
 
 
 X, E, M, src, CL = load(args.data, EP)
@@ -211,7 +164,7 @@ else:
 mu_t, sd_t = torch.tensor(mu, device=dev), torch.tensor(sd, device=dev)
 En = torch.tensor((E - emu) / esd, device=dev)
 args.out.mkdir(parents=True, exist_ok=True)
-beta, abar = schedule(args.diff_steps)
+beta, abar = schedule(args.diff_steps, dev)
 net = Net(H, args.d_model, args.layers).to(dev)
 ckpt_path = args.out / "checkpoint.pt"
 print(f"episodes={len(X)} (train {len(tr)}, val {n_val}) valid steps={int(M.sum())} horizon={H} sources={sorted(set(src))}")
