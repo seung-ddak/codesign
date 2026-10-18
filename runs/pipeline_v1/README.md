@@ -20,3 +20,4 @@
 - GPU는 RTX 4070 SUPER로 다시 인식된다. `e000` 단독 `sitDown` 131,072-step 시험 결과는 낙상으로 평가 불합격이며, 해당 `motion_eval.csv`와 A1 주황색·TT 파란색 비교 영상은 `experts/sitDown__r00/`의 최신 W&B offline run에 있다.
 - `walkBackwardSlow__r00` 공유 PPO: 초기 약 108만 스텝은 e000~e003 모두 추종 기준 실패. 이어 약 421만 스텝 학습 후 e000/e001/e002는 전 구간 추종 기준 통과(관절 1.16~1.44°, 발 0.72~1.03 cm, 접지 일치 100%). 미학습 e003은 생존했지만 관절 13.09°·발 5.34 cm로 실패. 결과 CSV·비교 영상은 `experts/walkBackwardSlow__r00/wandb/offline-run-20261015_153518-64y8170r/motion_eval/`에 있다. 이 정책은 `walkBackwardSlow` 전용이며 여러 형상에서 공유한다.
 - 이전 `walkBackwardSlow` 평가 수치는 기록되어 있으나 현재 로컬 expert checkpoint는 확인되지 않는다. 진행 중이던 `walkForwardSlow`와 `trotBackwardFast` 학습은 사용자 요청에 따라 중단했다. 이후 선정 모션의 새 expert 순차 학습을 시작했다.
+- rollout 폴더: `rollouts/` = TT 학습 정본 (e000~e002, primitive·seq seed0 + 수집 log). `rollouts_archive/` = 보존용 비교·시험 데이터 — `smoke/` (19 expert 8 ep), `primitive_smoke/`, `velmatch/`·`livematch/` (remind 8-4 진입 프레임 매칭 비교).
