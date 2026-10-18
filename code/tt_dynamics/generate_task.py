@@ -41,7 +41,7 @@ from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
 from task_reward import TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
-from tt_model import Net, schedule, unbase  # noqa: E402
+from tt_model import Net, check_free_checkpoint, condition_masks, schedule, unbase  # noqa: E402
 
 EP, FOOT_R, A = 500, 0.02, slice(S_DIM, X_DIM)
 
@@ -67,6 +67,8 @@ reward = (TrackReward(radius=args.radius, half_width=args.half_width) if args.ta
 # ---- TT ----
 ck = torch.load(args.ckpt / "checkpoint.pt", weights_only=False)
 ta = ck["args"]
+if args.free_s0:
+    check_free_checkpoint(ta)
 H = ta["horizon"]
 net = Net(H, ta["d_model"], ta["layers"]).to(dev)
 net.load_state_dict(ck["net"])
@@ -137,10 +139,8 @@ def generate(scale, n, seed):
         s = cur.clone()
         s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0  # window 기준 원점
         x0[:, 0] = (s - mu) / sd
-        kx = torch.zeros_like(x0)
-        kx[:, 0, :S_DIM] = 0 if (args.free_s0 and e_norm is None) else 1
-        kx = kx * m[..., None]
-        ke = torch.ones(n, E_DIM, device=dev) * (e_norm is not None)
+        mode = 2 if e_norm is not None else (3 if args.free_s0 else 0)
+        kx, ke = condition_masks(torch.full((n,), mode, device=dev), m)
         e0 = e_norm if e_norm is not None else torch.zeros(n, E_DIM, device=dev)
         xw, ew = ddim(x0 * m[..., None], e0, kx, ke, ~m, cur, m, scale)
         ep = unbase(xw * sd + mu, cur)

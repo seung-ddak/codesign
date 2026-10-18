@@ -46,7 +46,7 @@ def main():
             metrics[name] = json.loads((OUT / name).read_text())
             finite(metrics[name])
         assert (OUT / 'checkpoint.pt').stat().st_size > 0
-        summary = '# h32_try4_cgr complete\n\n100,000 steps; horizon 32; modes 0/1/2; diffusion 5; minmax; DDIM.\n\n'
+        summary = f'# {OUT.name} complete\n\nCommand options: `' + ' '.join(FLAGS) + '`\n\n'
         summary += 'Checkpoint and generated sample arrays remain on the CGR PC.\n\n```json\n'
         summary += json.dumps({'last_progress': progress[-1], 'window': metrics['diag_window.json']['전체'],
                                'episode': metrics['eval_dynamics_ddim.json']['all']}, ensure_ascii=False, indent=2) + '\n```\n'
@@ -64,7 +64,7 @@ def main():
         (OUT / 'completed.txt').write_text(sha + '\n')
     except Exception as error:
         (OUT / 'failed.txt').write_text(f'{type(error).__name__}: {error}\n')
-        try: notify(f'h32_try4_cgr 작업 실패: {type(error).__name__}: {error}. 로컬 로그를 확인하세요.')
+        try: notify(f'{OUT.name} 작업 실패: {type(error).__name__}: {error}. 로컬 로그를 확인하세요.')
         except Exception as notify_error: print('Failure notification also failed:', type(notify_error).__name__, file=sys.stderr)
         raise
 

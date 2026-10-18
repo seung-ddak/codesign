@@ -123,3 +123,9 @@
 ### 8-8. h32_try5 (+free 조건, s0 도 생성) → track_try2·zigzag_try2 (2026-10-18, try4·try1 대비 mode 3 + `--free-s0` 만 변경)
 - 결론: 기준 (두 task 평균 E 거리 > 0.1) 불통과, 0.037 (scale 10). E 는 e000·e001·e002 로 나뉘지만 후보별 형상은 노이즈가 정한다 (같은 seed → scale·task 무관 같은 형상). 예측-실제 격차는 감소 (지그재그 scale 10: 2.14 vs 0.41 m → 0.81 vs 0.76 m).
 - TT 오차 try4 대비 약 10 % 증가 (32 step yaw 6.2°·위치 9.5 cm·관절 7.2°). scale 0 낙상 8/8 (3~186 step): 생성 s0 가 분포 밖 (높이 0.11~0.37 m vs 데이터 시작 0.28~0.32, 속도 최대 1.4 m/s) — free 조건이 episode 중간 window (낙상 중 포함) 의 시작 state 를 배웠기 때문.
+
+
+### 8-9. CGR 코드 대조: free 조건 불일치 수정
+- `report.html`과 코드 대조에서 mode 3의 E 마스크 오류 확인: 학습에서는 정답 E가 주어지고 E loss가 0이지만, `--free-s0` 실행은 E도 숨겼다. try5/try2의 free 공동생성 해석은 재검증 필요.
+- 학습·실행이 `tt_model.condition_masks`를 공유하도록 수정. mode 0/1/2 유지, mode 3의 E·s0 모두 미지. `conditioning_version=2` 기록, 구형 checkpoint의 free 실행은 차단.
+- `h32_freefix_cgr`는 try5와 같은 100k·4조건 설정으로 오류만 바꾸는 비교 실험. 분석과 남은 병목은 `runs/pipeline_v1/ROOT_CAUSE_REVIEW.md`; 형상 3개, 첫 window에서만 E 결정, 초기 상태·dynamics 문제까지 해결됐다는 뜻은 아니다.
