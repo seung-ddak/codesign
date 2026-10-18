@@ -38,7 +38,7 @@ from omegaconf import OmegaConf  # noqa: E402
 from pd_replay import build_model  # noqa: E402
 from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
-from task_reward import TrackReward  # noqa: E402
+from task_reward import TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
 from tt_model import Net, schedule, unbase  # noqa: E402
 
@@ -50,13 +50,17 @@ parser.add_argument("--out", type=Path, required=True)
 parser.add_argument("--candidates", type=int, default=8)
 parser.add_argument("--scales", type=float, nargs="+", default=[0.0, 1.0, 5.0], help="guidance 세기 (0 = 없음)")
 parser.add_argument("--s0-motion", default="walkForwardSlow__r00")
-parser.add_argument("--radius", type=float, default=1.0)
-parser.add_argument("--half-width", type=float, default=0.3)
+parser.add_argument("--task", choices=("circle", "zigzag"), default="circle")
+parser.add_argument("--radius", type=float, default=1.0, help="circle")
+parser.add_argument("--half-width", type=float, default=0.3, help="트랙 반폭 (m)")
+parser.add_argument("--amp", type=float, default=0.3, help="zigzag 진폭 (m)")
+parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)")
 parser.add_argument("--seed", type=int, default=0)
 args = parser.parse_args()
 dev = "cuda"
 args.out.mkdir(parents=True, exist_ok=True)
-reward = TrackReward(radius=args.radius, half_width=args.half_width)
+reward = (TrackReward(radius=args.radius, half_width=args.half_width) if args.task == "circle"
+          else ZigzagReward(amp=args.amp, period=args.period, half_width=args.half_width))
 
 # ---- TT ----
 ck = torch.load(args.ckpt / "checkpoint.pt", weights_only=False)
@@ -202,7 +206,7 @@ def save_design(model, E_np, name):
 
 
 def render(model, qraw, pred_i, path, size=(640, 368)):
-    """MJX 실제 궤적 재생 영상. 바닥 점: 흰색 = 트랙 경계, 파랑 = TT 예측 경로. 카메라는 몸통을 따라간다."""
+    """MJX 실제 궤적 재생 영상. 바닥 점: 흰색 = 트랙 경계 (task 기준선), 파랑 = TT 예측 경로. 카메라는 몸통을 따라간다."""
     model.vis.global_.offwidth, model.vis.global_.offheight = size
     r = mujoco.Renderer(model, size[1], size[0])
     d = mujoco.MjData(model)
@@ -215,9 +219,7 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
     yaw0 = np.arctan2(2 * (w * z_ + x * y), 1 - 2 * (y * y + z_ * z_))
     c0, s0_ = np.cos(yaw0), np.sin(yaw0)
     to_world = lambda p: qraw[0, :2] + np.stack([c0 * p[:, 0] - s0_ * p[:, 1], s0_ * p[:, 0] + c0 * p[:, 1]], 1)  # noqa: E731
-    th = np.linspace(0, 2 * np.pi, 72, endpoint=False)
-    marks = [(to_world(np.stack([rr * np.sin(th), args.radius - rr * np.cos(th)], 1)), (1, 1, 1, 1))
-             for rr in (args.radius - args.half_width, args.radius + args.half_width)]
+    marks = [(to_world(pts[::4]), (1, 1, 1, 1)) for pts, center in reward.guide_lines() if not center]
     marks.append((to_world(pred_i[::10, :2]), (0.2, 0.4, 1, 1)))
     frames = []
     for q in qraw:
@@ -238,8 +240,7 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
     r.close()
 
 
-summary = dict(reward=reward.describe(), ckpt=str(args.ckpt), s0_motion=args.s0_motion, candidates=args.candidates, runs={})
-th = np.linspace(0, 2 * np.pi, 200)
+summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=args.s0_motion, candidates=args.candidates, runs={})
 fig, axes = plt.subplots(1, len(args.scales), figsize=(5 * len(args.scales), 5), squeeze=False)
 for si, scale in enumerate(args.scales):
     traj, E = generate(scale, args.candidates, args.seed)
@@ -261,18 +262,17 @@ for si, scale in enumerate(args.scales):
     res = []
     for i in range(args.candidates):
         res.append(dict(E=E[i].cpu().numpy().round(3).tolist(),
-                        pred_total=float(p_total[i]), pred_laps=float(p_terms["r_progress"][i] / (2 * np.pi)),
-                        mjx_total=float(r_total[i]), mjx_laps=float(r_terms["r_progress"][i] / (2 * np.pi)),
+                        pred_total=float(p_total[i]), pred_progress=float(p_terms["r_progress"][i] * reward.unit_scale),
+                        mjx_total=float(r_total[i]), mjx_progress=float(r_terms["r_progress"][i] * reward.unit_scale),
                         mjx_fell_step=int(rows[i]), mjx_valid_s=float(L[i] * 0.02), path_err_m=path_err[i],
                         pred_terms={k: float(v[i]) for k, v in p_terms.items()}, mjx_terms={k: float(v[i]) for k, v in r_terms.items()}))
-        print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_laps']:.2f} 바퀴 (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_laps']:.2f} 바퀴 "
+        print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_progress']:.2f} {reward.unit} "
               f"(R {r_total[i]:.2f}), 낙상 {rows[i]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
     summary["runs"][f"scale_{scale:g}"] = res
     np.savez_compressed(args.out / f"scale_{scale:g}.npz", pred=pred, mjx=mj, mjx_mask=mm, E=E.cpu().numpy())
     ax = axes[0, si]
-    ax.plot(args.radius * np.sin(th), args.radius * (1 - np.cos(th)), "k-", lw=1)
-    for r in (args.radius - args.half_width, args.radius + args.half_width):
-        ax.plot(r * np.sin(th), args.radius - r * np.cos(th), "k:", lw=0.7)
+    for pts, center in reward.guide_lines():
+        ax.plot(pts[:, 0], pts[:, 1], "k-" if center else "k:", lw=1 if center else 0.7)
     for i in range(args.candidates):
         c = plt.cm.tab10(i % 10)
         ax.plot(pred[i, :, 0], pred[i, :, 1], "--", color=c, lw=1)

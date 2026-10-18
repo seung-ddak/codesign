@@ -7,6 +7,7 @@ traj = 토큰 [B,T,54] (episode 시작 기준, rollout_data 의 S 42 + A 12) 와
 
 import math
 
+import numpy as np
 import torch
 
 POS, Z, COS, SIN, GRAV, Q, A = slice(0, 2), 2, 3, 4, slice(5, 8), slice(14, 26), slice(42, 54)
@@ -63,6 +64,50 @@ class TrackReward:
                     rewards=self.rewards, penalties=self.penalties, min_height_frac=self.min_height_frac,
                     laps_per_rad=1 / (2 * math.pi))
 
+    # 진행량 표시 단위: r_progress · unit_scale = unit
+    unit, unit_scale = "바퀴", 1 / (2 * math.pi)
+
+    def guide_lines(self):
+        """그림·영상용 기준선 [(N,2) s0 frame, 실선 여부]: 중심선 + 폭 경계 2 개."""
+        th = np.linspace(0, 2 * np.pi, 120)
+        return [(np.stack([r * np.sin(th), self.radius - r * np.cos(th)], 1), r == self.radius)
+                for r in (self.radius, self.radius - self.half_width, self.radius + self.half_width)]
+
+
+class ZigzagReward(TrackReward):
+    """+x 로 빠르게 전진하면서 y 는 삼각파 중심선 (진폭 amp, 주기 period m) 을 따른다. 출발 = 원점, +x 방향.
+
+    중심선 y_ref(x) = amp · (2/π) · asin(sin(2π x / period)) — x = 0 에서 0, period/4 마다 꺾임. 꺾임에서도 미분 가능.
+    progress = +x 이동 거리 (m). lane = 중심선에서 y 방향 거리가 half_width 를 넘은 거리² 평균. fall·action_rate 는 원형 트랙과 같다.
+    """
+
+    unit, unit_scale = "m", 1.0
+
+    def __init__(self, amp=0.3, period=2.0, half_width=0.15, **kw):
+        super().__init__(half_width=half_width, **kw)
+        self.amp, self.period = amp, period
+
+    def y_ref(self, px):
+        return self.amp * (2 / math.pi) * torch.asin(torch.sin(2 * math.pi * px / self.period).clamp(-1 + 1e-6, 1 - 1e-6))
+
+    def r_progress(self, x, m):
+        dx = x[:, 1:, 0] - x[:, :-1, 0]
+        return (dx * (m[:, 1:] & m[:, :-1])).sum(1)
+
+    def p_lane(self, x, m):
+        out = torch.relu((x[..., 1] - self.y_ref(x[..., 0])).abs() - self.half_width) ** 2
+        return (out * m).sum(1) / m.sum(1).clamp(min=1)
+
+    def describe(self):
+        return dict(task="zigzag", amp=self.amp, period=self.period, half_width=self.half_width,
+                    rewards=self.rewards, penalties=self.penalties, min_height_frac=self.min_height_frac, unit=self.unit)
+
+    def guide_lines(self, length=6.0):
+        px = torch.linspace(0, length, 300)
+        y = self.y_ref(px).numpy()
+        px = px.numpy()
+        return [(np.stack([px, y + o], 1), o == 0) for o in (0.0, -self.half_width, self.half_width)]
+
 
 if __name__ == "__main__":
     # 점검: 반지름 1 m 원을 반시계로 반 바퀴 돌면 progress = π, lane = 0
@@ -76,3 +121,14 @@ if __name__ == "__main__":
     x[0, :, 0], x[0, :, 1] = 1.5 * torch.sin(th), 1 - 1.5 * torch.cos(th)  # 반지름 1.5 m: 폭 0.3 m 초과분 0.2 m
     assert abs(TrackReward()(x, m)[1]["p_lane"].item() - 0.04) < 1e-4
     print("ok", {k: round(v.item(), 4) for k, v in t.items()}, "total", round(total.item(), 4))
+    # 점검: 중심선을 따라 4 m 전진하면 progress = 4, lane = 0. 중심선 +0.25 m 평행이동 = 폭 0.15 초과분 0.1 m
+    zz = ZigzagReward()
+    px = torch.linspace(0, 4, 400)
+    x = torch.zeros(1, 400, 54)
+    x[0, :, 0], x[0, :, 1], x[0, :, 2], x[0, :, 7] = px, zz.y_ref(px), 0.3, -1.0
+    m = torch.ones(1, 400, dtype=torch.bool)
+    t = zz.terms(x, m)
+    assert abs(t["r_progress"].item() - 4) < 1e-4 and t["p_lane"].item() < 1e-9, t
+    x[0, :, 1] += 0.25
+    assert abs(zz.terms(x, m)["p_lane"].item() - 0.01) < 1e-4
+    print("zigzag ok")
