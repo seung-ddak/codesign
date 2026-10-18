@@ -5,6 +5,8 @@ cd "$(dirname "$0")/../.."
 selection=runs/pipeline_v1/experts/selection.csv
 root=${EXPERT_ROOT:-runs/pipeline_v1/experts}
 read -ra designs <<< "${EXPERT_DESIGNS:-e000 e001 e002}"
+steps=${EXPERT_STEPS:-5242880}
+[[ $steps =~ ^[0-9]+$ && $steps -gt 0 ]] || { echo "Invalid EXPERT_STEPS: $steps" >&2; exit 1; }
 python=../transformer-transformer/.venv/bin/python
 export MUJOCO_GL=egl WANDB_MODE=offline XLA_PYTHON_CLIENT_PREALLOCATE=false PYTHONUNBUFFERED=1
 
@@ -30,14 +32,14 @@ for motion in "${motions[@]}"; do
     ckpt=$(find "$run/wandb" -path '*/files/checkpoints/*/_CHECKPOINT_METADATA' -printf '%h\n' | sort -t/ -k9,9nr | head -n 1)
     [[ -n "$ckpt" ]] || { echo "No checkpoint to resume: $motion" >&2; exit 1; }
     step=${ckpt##*/}
-    remaining=$((5242880 - step))
+    remaining=$((steps - step))
     [[ $remaining -gt 0 ]] || { echo "No steps remaining: $motion" >&2; exit 1; }
     overrides+=("restore_ckpt=$PWD/$ckpt" "train.num_timesteps=$remaining" "hydra.run.dir=$run/resume")
     log="$run/resume.log"
     echo "Resuming $motion from $step ($remaining steps remaining)"
   else
     mkdir -p "$run"
-    overrides+=("train.num_timesteps=5242880" "hydra.run.dir=$run")
+    overrides+=("train.num_timesteps=$steps" "hydra.run.dir=$run")
   fi
   echo "Training $motion"
   WANDB_DIR="$PWD/$run" "$python" code/motion_tracking/train_rl_procedural.py \
