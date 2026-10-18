@@ -10,7 +10,7 @@ usage (codesign/ 에서):
              heading frame 선속도 3, body 각속도 3, 관절각 12, 관절속도 12, 발 접지 4
   A_t (12) = target_q (실제 PD 목표 관절각)
   위치·yaw 는 window 첫 state 기준. 낙상 이후 (valid = 0) 와 padding 은 attention·loss 에서 뺀다.
-학습 조건 (배치마다 무작위): joint = s0 만 / dynamics = E·s0·A / given_E = E·s0. 알려진 값은 매 step 원래 값으로 고정 (inpainting).
+학습 조건 (배치마다 무작위): joint = s0 만 / dynamics = E·s0·A / given_E = E·s0 / free = 없음 (--modes 에 3). 알려진 값은 매 step 원래 값으로 고정 (inpainting).
 평가: 검증 episode 에서 dynamics 조건으로 S 를 생성해 실제 MJX S 와 비교 (1·10·50 step, 전체).
   horizon < 500: 마지막 예측 state 를 다음 window 의 s0 로 두고 이어 붙인다 (window 당 H-1 step 전진).
 """
@@ -49,7 +49,7 @@ parser.add_argument("--norm", choices=("zscore", "minmax"), default="zscore", he
 parser.add_argument("--clip", type=float, default=10.0, help="정규화 공간 x0_hat clip (TT 원본 clip_sample = 1)")
 parser.add_argument("--stride", type=int, default=0, help="평가 시 window 당 전진 step (0 = horizon-1, 겹침 없음)")
 parser.add_argument("--pose", choices=("abs", "delta"), default="abs", help="delta = S 의 위치·yaw 4 칸을 직전 step 대비 변화량 (dx, dy: 직전 heading frame, dyaw, 0) 으로")
-parser.add_argument("--modes", type=int, nargs="+", default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0)")
+parser.add_argument("--modes", type=int, nargs="+", default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음)")
 parser.add_argument("--diag", action="store_true", help="이어 붙이지 않은 단일 window 예측의 몸통 yaw·속도 오차를 모션 종류별로 (eval-only)")
 parser.add_argument("--sampler", choices=("ddpm", "ddim"), default="ddpm", help="평가 샘플링. ddim = 결정적 (eta 0)")
 args = parser.parse_args()
@@ -61,9 +61,9 @@ EP = 500  # episode 최대 step (10 s)
 
 
 def cond_masks(n, mode, M):  # M [n,H]
-    """mode: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0). known 이면 1."""
+    """mode: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음, s0 도 생성). known 이면 1."""
     kx = torch.zeros(n, args.horizon, X_DIM, device=dev)
-    kx[:, 0, :S_DIM] = 1
+    kx[:, 0, :S_DIM] = (mode != 3).float()[:, None]
     kx[:, :, S_DIM:] += (mode == 1).float()[:, None, None]
     ke = (mode >= 1).float()[:, None].expand(n, E_DIM)
     return kx * M[..., None], ke

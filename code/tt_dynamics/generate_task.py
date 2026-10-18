@@ -1,10 +1,11 @@
 """7 단계: 학습한 TT 로 복합 task 의 형상 E·state S·action A 를 reward guidance 로 생성하고, E·A 를 MJX 에서 open-loop 실행한다.
 
 생성: window (H step) 를 이어 붙여 10 s (500 step). 첫 window 는 E 도 노이즈에서 생성 (joint 조건), 이후 window 는 그 E 고정 (given_E 조건).
+  --free-s0: 첫 window 를 free 조건 (mode 3) 으로 s0 까지 노이즈에서 생성한다 (TT 를 --modes 0 1 2 3 으로 학습해야 한다).
   매 디노이징 step 에서 보상 R(x0_hat) 의 gradient 를 ε 에 반영한다 (classifier guidance: ε' = ε - scale·√(1-ᾱ)·∇R).
   gradient 는 network 를 거쳐 S·A 와 E 모두에 전달된다. scale 0 = guidance 없음 (비교 기준).
 실행: 생성한 E 로 MJX 모델을 만들고 (pd_replay.build_model), 생성한 target_q 를 50 Hz 로 그대로 넣는다 (재계획 없음).
-  초기 state = 데이터의 실제 state (--s0-motion 의 primitive 시작), 몸통 높이만 E 의 발이 바닥에 닿게 맞춘다.
+  초기 state = 데이터의 실제 state (--s0-motion 의 primitive 시작), --free-s0 이면 생성한 s0. 몸통 높이만 E 의 발이 바닥에 닿게 맞춘다.
 보상 = task_reward.TrackReward (TT 예측 궤적·MJX 실제 궤적에 같은 class).
 
 usage (codesign/ 에서):
@@ -56,6 +57,7 @@ parser.add_argument("--half-width", type=float, default=0.3, help="트랙 반폭
 parser.add_argument("--amp", type=float, default=0.3, help="zigzag 진폭 (m)")
 parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)")
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--free-s0", action="store_true", help="s0 도 생성 (free 조건)")
 args = parser.parse_args()
 dev = "cuda"
 args.out.mkdir(parents=True, exist_ok=True)
@@ -79,6 +81,19 @@ z = np.load(CODESIGN / "runs/pipeline_v1/rollouts/e000/primitive_seed0.npz")
 b0 = int(np.where(z["motions"][z["clip"][:, 0]] == args.s0_motion)[0][0])
 qpos0, qvel0 = z["qpos"][b0, 0], z["qvel"][b0, 0]
 S0 = torch.tensor(features(z["qpos"][b0, :1], z["qvel"][b0, :1], z["contact"][b0, :1])[0], device=dev)
+
+
+def s0_to_q(s):
+    """S 토큰 하나 [42] -> MJX qpos [19], qvel [18] (xy 0, yaw 0). features() 의 역."""
+    g = s[5:8] / np.linalg.norm(s[5:8])  # body frame 중력 = (sinθ, -sinφ·cosθ, -cosφ·cosθ)
+    th, ph = np.arcsin(np.clip(g[0], -1, 1)), np.arctan2(-g[1], -g[2])
+    ch, sh, cp, sp = np.cos(th / 2), np.sin(th / 2), np.cos(ph / 2), np.sin(ph / 2)
+    q = np.concatenate([[0, 0, s[2]], [ch * cp, ch * sp, sh * cp, -sh * sp], s[14:26]])  # q_y(θ)·q_x(φ)
+    return q, np.concatenate([s[8:14], s[26:38]])
+
+
+_q, _v = s0_to_q(S0.cpu().numpy())  # 자체 점검: 데이터 s0 왕복 (xy·yaw 는 기준 원점이라 이미 0)
+assert np.allclose(features(_q[None], _v[None], np.zeros((1, 4)))[0, 2:38], S0.cpu().numpy()[2:38], atol=1e-4)
 
 
 def ddim(x0, e0, kx, ke, pad, cur, m, scale):
@@ -109,6 +124,9 @@ def generate(scale, n, seed):
     torch.manual_seed(seed)
     traj = torch.zeros(n, EP, X_DIM, device=dev)
     traj[:, 0, :S_DIM] = S0
+    if args.free_s0:
+        traj[:, 0, :S_DIM] = 0
+        traj[:, 0, 3] = 1  # 위치 0, yaw 0 (window 기준 원점). 나머지는 첫 window 에서 생성
     cur = traj[:, 0].clone()
     e_norm = None
     t0 = 0
@@ -120,14 +138,16 @@ def generate(scale, n, seed):
         s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0  # window 기준 원점
         x0[:, 0] = (s - mu) / sd
         kx = torch.zeros_like(x0)
-        kx[:, 0, :S_DIM] = 1
+        kx[:, 0, :S_DIM] = 0 if (args.free_s0 and e_norm is None) else 1
         kx = kx * m[..., None]
         ke = torch.ones(n, E_DIM, device=dev) * (e_norm is not None)
         e0 = e_norm if e_norm is not None else torch.zeros(n, E_DIM, device=dev)
         xw, ew = ddim(x0 * m[..., None], e0, kx, ke, ~m, cur, m, scale)
+        ep = unbase(xw * sd + mu, cur)
         if e_norm is None:
             e_norm = ew
-        ep = unbase(xw * sd + mu, cur)
+            traj[:, 0, 5:S_DIM] = ep[:, 0, 5:S_DIM]  # free-s0: 생성한 s0 (위치·yaw 는 원점 유지). 아니면 S0 그대로
+            traj[:, 0, 2] = ep[:, 0, 2]
         traj[:, t0 + 1:t0 + w, :S_DIM] = ep[:, 1:w, :S_DIM]
         traj[:, t0:t0 + w, A] = ep[:, :w, A]
         cur = ep[:, w - 1].clone()
@@ -146,19 +166,19 @@ ecfg["clips"] = [args.s0_motion]
 jit_step = None
 
 
-def execute(E_np, tq):
-    """E [13], target_q [EP,12] -> MJX 궤적 토큰 [EP,X], mask [EP], 낙상 step (없으면 -1)."""
+def execute(E_np, tq, s0):
+    """E [13], target_q [EP,12], s0 [42] (free-s0 일 때만 사용) -> MJX 궤적 토큰 [EP,X], mask [EP], 낙상 step (없으면 -1)."""
     global jit_step
     env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
                                                      torque_limit=cfg.get("torque_limit"), uniforms=E_np), **ecfg)
     if jit_step is None:
         jit_step = jax.jit(lambda model, d, c: step(model, d, c, env.n_substeps))
-    q = qpos0.copy()
+    q, qv = s0_to_q(s0) if args.free_s0 else (qpos0.copy(), qvel0)
     d = mujoco.MjData(env.mj_model)
     d.qpos[:] = q
     mujoco.mj_kinematics(env.mj_model, d)
     q[2] -= d.geom_xpos[np.asarray(env._foot_ids), 2].min() - FOOT_R  # 발이 바닥에 닿게
-    data = mjx.forward(env.mjx_model, make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(qvel0), impl=env.impl,
+    data = mjx.forward(env.mjx_model, make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(qv), impl=env.impl,
                                                nconmax=env._nconmax, njmax=env._njmax))
     off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
     feet = np.asarray(env._foot_ids)
@@ -240,7 +260,7 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
     r.close()
 
 
-summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=args.s0_motion, candidates=args.candidates, runs={})
+summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if args.free_s0 else args.s0_motion, candidates=args.candidates, runs={})
 fig, axes = plt.subplots(1, len(args.scales), figsize=(5 * len(args.scales), 5), squeeze=False)
 for si, scale in enumerate(args.scales):
     traj, E = generate(scale, args.candidates, args.seed)
@@ -251,7 +271,7 @@ for si, scale in enumerate(args.scales):
     mj = np.zeros_like(pred)
     mm = np.zeros_like(pm)
     for i in range(args.candidates):
-        mj[i], mm[i], fell, qraw, model = execute(E[i].cpu().numpy(), pred[i, :, A])
+        mj[i], mm[i], fell, qraw, model = execute(E[i].cpu().numpy(), pred[i, :, A], pred[i, 0, :S_DIM])
         name = f"scale_{scale:g}_cand{i}"
         save_design(model, E[i].cpu().numpy(), name)
         render(model, qraw, pred[i], args.out / "videos" / f"{name}.mp4")
