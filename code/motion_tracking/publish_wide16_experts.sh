@@ -23,7 +23,7 @@ while true; do
     [[ ! -f $root/$motion/resume.log ]] || git add -- "$root/$motion/resume.log"
     git add -f -- "$latest/files/config.pkl" "$latest/files/checkpoints/$step" "$latest/motion_eval"
     if ! git diff --cached --quiet; then
-      git commit -m "Record multi6 expert $motion evaluation"
+      git commit -m "Record wide16 expert $motion evaluation"
     fi
     git push origin "HEAD:$branch" || { echo "Push failed; retrying $motion" >&2; continue; }
     echo "$motion" >> "$published"
