@@ -58,6 +58,7 @@ parser.add_argument("--amp", type=float, default=0.3, help="zigzag 진폭 (m)")
 parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)")
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--free-s0", action="store_true", help="s0 도 생성 (free 조건)")
+parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
 args = parser.parse_args()
 dev = "cuda"
 args.out.mkdir(parents=True, exist_ok=True)
@@ -110,6 +111,8 @@ def ddim(x0, e0, kx, ke, pad, cur, m, scale):
                 x0h = torch.where(kx > 0, x0, ((xr - (1 - ab).sqrt() * ex) / ab.sqrt()).clamp(-CLIP, CLIP))
                 R, _ = reward(unbase(x0h * sd + mu, cur), m)
                 gx, ge = torch.autograd.grad(R.sum(), [xr, er])
+                if args.no_guide_s:
+                    gx[..., :S_DIM] = 0
                 ex, ee = ex - scale * (1 - ab).sqrt() * gx, ee - scale * (1 - ab).sqrt() * ge
         ex, ee = ex.detach(), ee.detach()
         x0h = ((x - (1 - ab).sqrt() * ex) / ab.sqrt()).clamp(-CLIP, CLIP)
