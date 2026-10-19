@@ -27,7 +27,7 @@ import torch
 import torch.nn as nn
 
 from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, load  # noqa: F401
-from tt_model import Net, rebase, schedule, unbase
+from tt_model import CONDITIONING_VERSION, Net, condition_masks, rebase, schedule, unbase
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
 
@@ -49,24 +49,17 @@ parser.add_argument("--norm", choices=("zscore", "minmax"), default="zscore", he
 parser.add_argument("--clip", type=float, default=10.0, help="정규화 공간 x0_hat clip (TT 원본 clip_sample = 1)")
 parser.add_argument("--stride", type=int, default=0, help="평가 시 window 당 전진 step (0 = horizon-1, 겹침 없음)")
 parser.add_argument("--pose", choices=("abs", "delta"), default="abs", help="delta = S 의 위치·yaw 4 칸을 직전 step 대비 변화량 (dx, dy: 직전 heading frame, dyaw, 0) 으로")
-parser.add_argument("--modes", type=int, nargs="+", default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음)")
+parser.add_argument("--modes", type=int, nargs="+", choices=(0, 1, 2, 3), default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음)")
 parser.add_argument("--diag", action="store_true", help="이어 붙이지 않은 단일 window 예측의 몸통 yaw·속도 오차를 모션 종류별로 (eval-only)")
 parser.add_argument("--sampler", choices=("ddpm", "ddim"), default="ddpm", help="평가 샘플링. ddim = 결정적 (eta 0)")
 args = parser.parse_args()
+args.conditioning_version = CONDITIONING_VERSION
 dev = "cuda"
 torch.manual_seed(args.seed)
 
 
 EP = 500  # episode 최대 step (10 s)
 
-
-def cond_masks(n, mode, M):  # M [n,H]
-    """mode: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음, s0 도 생성). known 이면 1."""
-    kx = torch.zeros(n, args.horizon, X_DIM, device=dev)
-    kx[:, 0, :S_DIM] = (mode != 3).float()[:, None]
-    kx[:, :, S_DIM:] += (mode == 1).float()[:, None, None]
-    ke = (mode >= 1).float()[:, None].expand(n, E_DIM)
-    return kx * M[..., None], ke
 
 
 @torch.no_grad()
@@ -184,7 +177,7 @@ if not args.eval_only:
         n = len(idx)
         modes = torch.tensor(args.modes, device=dev)
         mode = modes[torch.randint(0, len(modes), (n,), device=dev, generator=gen)]
-        kx, ke = cond_masks(n, mode, m)
+        kx, ke = condition_masks(mode, m)
         k = torch.randint(0, args.diff_steps, (n,), device=dev, generator=gen)
         ab = abar[k]
         nx, ne = torch.randn(x0.shape, device=dev, generator=gen), torch.randn(e0.shape, device=dev, generator=gen)
@@ -229,7 +222,7 @@ if args.diag:
         if Dt is not None:
             x = set_delta(x, Dt[idx[:, None], tt])
         m = torch.ones(len(idx), H, dtype=torch.bool, device=dev)
-        kx, ke = cond_masks(len(idx), torch.ones(len(idx), dtype=torch.long, device=dev), m)
+        kx, ke = condition_masks(torch.ones(len(idx), dtype=torch.long, device=dev), m)
         px, _ = sample(net, (x - mu_t) / sd_t, En[idx], kx, ke, ~m, beta, abar)
         pw = px * sd_t + mu_t
         start = torch.zeros(len(idx), X_DIM, device=dev)
@@ -287,7 +280,7 @@ while t0 < EP - 1 and bool(mask_t[:, t0].any()):
         xw = set_delta(xw, Dt[ev[:, None], t.clamp(max=EP - 1)])
         xw[:, 0, [0, 1, 3]] = cur_d
     xw = (xw - mu_t) / sd_t * m[..., None]
-    kx, ke = cond_masks(len(ev), torch.ones(len(ev), dtype=torch.long, device=dev), m)
+    kx, ke = condition_masks(torch.ones(len(ev), dtype=torch.long, device=dev), m)
     px, _ = sample(net, xw, En[ev], kx, ke, ~m, beta, abar)
     pw = px * sd_t + mu_t
     ep = integrate(pw, cur) if Dt is not None else unbase(pw, cur)

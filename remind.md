@@ -131,3 +131,14 @@
 ### 8-10. 진단 D2 데이터 분포 밖 여부 (2026-10-18, 생성 step 의 학습 데이터 최근접 거리)
 - 결론: 새로운 물리 영역 아님. 생성 step 중 데이터 p99 거리 초과 0.07 % (데이터 자신 1 %, 기준 3 %), scale 10 도 0 %. 초과 비율과 예측-실제 차이 상관 −0.09 → TT 가 데이터 범위 안에서 틀린다 (TT 학습 문제, P4·P13).
 - 단, 생성 step 의 최근접 거리 중앙값 0.21~0.32 = 데이터 (0.055) 의 4~6 배 → 데이터가 드문 사이 영역. step 단위 검사라 전이 (s, a → s') 의 오류는 못 본다 → D3. 코드 `code/tt_dynamics/diag_ood.py`, 결과 `runs/pipeline_v1/diag/D2_ood/`.
+
+### 8-11. CGR 코드 대조: free 조건 불일치 수정
+- `report.html`과 코드 대조에서 mode 3의 E 마스크 오류 확인: 학습에서는 정답 E가 주어지고 E loss가 0이지만, `--free-s0` 실행은 E도 숨겼다. try5/try2의 free 공동생성 해석은 재검증 필요.
+- 학습·실행이 `tt_model.condition_masks`를 공유하도록 수정. mode 0/1/2 유지, mode 3의 E·s0 모두 미지. `conditioning_version=2` 기록, 구형 checkpoint의 free 실행은 차단.
+- `h32_freefix_cgr`는 try5와 같은 100k·4조건 설정으로 오류만 바꾸는 비교 실험. 분석과 남은 병목은 `runs/pipeline_v1/ROOT_CAUSE_REVIEW.md`; 형상 3개, 첫 window에서만 E 결정, 초기 상태·dynamics 문제까지 해결됐다는 뜻은 아니다.
+- 결과 (h32_freefix_cgr): 32 step yaw 6.17°·위치 10.4 cm (try5 와 동급). free-s0 원형 scale 0 유효 0.87 → 6.04 s 로 늘었지만 8/8 낙상 → 버그는 주원인 아님.
+
+### 8-12. S 직접 guidance 끄기 → track_try3·zigzag_try3 (2026-10-19, try1 대비 `--no-guide-s` 만 변경, h32_try4·s0 고정·scale 1/3/10)
+- 결론: 판정 B. 생성 S 와 (생성 E·A 로 TT 재예측한 S) 의 불일치 10~11.5 → 7.0~7.6 cm (= seed 흔들림 6.3~7.1 cm) 로 직접 경로 몫 제거 확인. 원형 경로 차 0.36~0.86 → 0.26~0.43 m.
+- 그러나 MJX reward 6 중 5 하락, TT 예측 reward 도 하락: 직접 경로가 S→A 를 끌어주던 통로였고, 남은 ∂R/∂A 는 TT 의 A→S 가 느슨해 (같은 입력 seed 흔들림 6 cm) 약하다. on·off 모두 실제 진행 ≈ 0, E 거리 0.001.
+- 코드 `generate_task.py --no-guide-s`, `diag_consistency.py`. 보고서 `runs/pipeline_v1/report.html` 7-6 (질문→답 형식).

@@ -5,7 +5,25 @@ import math
 import torch
 import torch.nn as nn
 
-from rollout_data import E_DIM, X_DIM
+from rollout_data import E_DIM, S_DIM, X_DIM
+
+
+CONDITIONING_VERSION = 2
+
+
+def condition_masks(mode, valid):
+    """Known-value masks: 0=s0, 1=E+s0+A, 2=E+s0, 3=nothing."""
+    n, horizon = valid.shape
+    kx = torch.zeros(n, horizon, X_DIM, device=valid.device)
+    kx[:, 0, :S_DIM] = (mode != 3).float()[:, None]
+    kx[:, :, S_DIM:] = (mode == 1).float()[:, None, None]
+    ke = ((mode == 1) | (mode == 2)).float()[:, None].expand(n, E_DIM)
+    return kx * valid[..., None], ke
+
+
+def check_free_checkpoint(config):
+    if 3 not in config.get("modes", []) or config.get("conditioning_version", 1) < CONDITIONING_VERSION:
+        raise ValueError("--free-s0 requires a checkpoint trained with corrected mode 3 masks (conditioning_version >= 2)")
 
 
 class Net(nn.Module):
