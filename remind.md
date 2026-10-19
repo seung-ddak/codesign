@@ -141,4 +141,4 @@
 ### 8-12. S 직접 guidance 끄기 → track_try3·zigzag_try3 (2026-10-19, try1 대비 `--no-guide-s` 만 변경, h32_try4·s0 고정·scale 1/3/10)
 - 결론: 판정 B. 생성 S 와 (생성 E·A 로 TT 재예측한 S) 의 불일치 10~11.5 → 7.0~7.6 cm (= seed 흔들림 6.3~7.1 cm) 로 직접 경로 몫 제거 확인. 원형 경로 차 0.36~0.86 → 0.26~0.43 m.
 - 그러나 MJX reward 6 중 5 하락, TT 예측 reward 도 하락: 직접 경로가 S→A 를 끌어주던 통로였고, 남은 ∂R/∂A 는 TT 의 A→S 가 느슨해 (같은 입력 seed 흔들림 6 cm) 약하다. on·off 모두 실제 진행 ≈ 0, E 거리 0.001.
-- 코드 `generate_task.py --no-guide-s`, `diag_consistency.py`. 보고서 `runs/pipeline_v1/report.html` 7-6 (질문→답 형식).
+- 코드 `generate_task.py --no-guide-s`, `diag_consistency.py`. 보고서 7-6. 병합 코드 재실행: TT 생성 비트 동일, MJX 는 GPU 실행 간 미세 차이 (평균 0.002, 낙상 ±1 step) → 후보 1 개 수준 reward 차이는 판정 근거 아님.
