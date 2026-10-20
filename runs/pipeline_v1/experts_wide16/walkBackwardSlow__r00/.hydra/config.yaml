@@ -1,0 +1,236 @@
+env:
+  _target_: track_env.TrackMjxEnv
+  reference_dir: ${hydra:runtime.cwd}/runs/pipeline_v1/retargeting/e000
+  clips:
+  - walkBackwardSlow__r00
+  clip_boost: null
+  switch_prob: 0.0
+  switch_wait:
+  - 1.0
+  - 3.0
+  switch_window: 25
+  switch_min_remain: 50
+  switch_entry: match
+  switch_at: time
+  switch_ramp: true
+  switch_exclude: []
+  switch_forbid: []
+  max_episode_length: 1000
+  n_ctrl: 12
+  ctrl_dt: 0.02
+  sim_dt: 0.005
+  impratio: 1
+  solver_iterations: 5
+  solver_ls_iterations: 7
+  impl: jax
+  action_scale: 0.25
+  obs_time_indices:
+  - 0
+  - 2
+  - 4
+  - 6
+  - 8
+  clip_actions:
+  - -10.0
+  - 10.0
+  w_pose: 5.0
+  w_vel: 0.5
+  w_ee: 2.0
+  w_root_pose: 1.5
+  w_root_vel: 1.0
+  k_pose: 5.0
+  k_vel: 0.1
+  k_ee: 40.0
+  k_root_pos: 20.0
+  k_root_orn: 10.0
+  k_root_linvel: 2.0
+  k_root_angvel: 0.2
+  penalty_action_rate: -0.002
+  penalty_torque: -5.0e-05
+  penalty_joint_vel: -0.002
+  penalty_joint_acc: -5.0e-07
+  penalty_joint_pos_limit: -1.0
+  penalty_termination: -100.0
+  reward_nan_to_num: -10.0
+  reward_clip_positive: false
+  kick_wait_times:
+  - 1.0
+  - 3.0
+  kick_durations:
+  - 0.05
+  - 0.2
+  velocity_kick:
+  - 0.5
+  - 2.0
+  soft_joint_pos_limit_factor: 0.95
+  reset_qvel: 0.5
+  reset_qpos: 0.01
+  min_start_margin: 10
+  termination_fellover_threshold: 0.5
+  termination_pos_err_threshold: 0.5
+  termination_orn_err_threshold: 1.0
+  termination_pose_consecutive_steps: 25
+  obs_noise:
+    qpos: 0.001
+    qvel: 0.01
+    lin_vel: 0.02
+    ang_vel: 0.005
+    gravity: 0.005
+eval_env:
+  _target_: track_env.TrackMjxEnv
+  reference_dir: ${hydra:runtime.cwd}/runs/pipeline_v1/retargeting/e000
+  clips:
+  - walkBackwardSlow__r00
+  clip_boost: null
+  switch_prob: 0.0
+  switch_wait:
+  - 1.0
+  - 3.0
+  switch_window: 25
+  switch_min_remain: 50
+  switch_entry: match
+  switch_at: time
+  switch_ramp: true
+  switch_exclude: []
+  switch_forbid: []
+  max_episode_length: 1000
+  n_ctrl: 12
+  ctrl_dt: 0.02
+  sim_dt: 0.005
+  impratio: 1
+  solver_iterations: 5
+  solver_ls_iterations: 7
+  impl: jax
+  action_scale: 0.25
+  obs_time_indices:
+  - 0
+  - 2
+  - 4
+  - 6
+  - 8
+  clip_actions:
+  - -10.0
+  - 10.0
+  w_pose: 5.0
+  w_vel: 0.5
+  w_ee: 2.0
+  w_root_pose: 1.5
+  w_root_vel: 1.0
+  k_pose: 5.0
+  k_vel: 0.1
+  k_ee: 40.0
+  k_root_pos: 20.0
+  k_root_orn: 10.0
+  k_root_linvel: 2.0
+  k_root_angvel: 0.2
+  penalty_action_rate: -0.002
+  penalty_torque: -5.0e-05
+  penalty_joint_vel: -0.002
+  penalty_joint_acc: -5.0e-07
+  penalty_joint_pos_limit: -1.0
+  penalty_termination: -100.0
+  reward_nan_to_num: -10.0
+  reward_clip_positive: false
+  kick_wait_times:
+  - 1.0
+  - 3.0
+  kick_durations:
+  - 0.05
+  - 0.2
+  velocity_kick:
+  - 0.0
+  - 0.0
+  soft_joint_pos_limit_factor: 0.95
+  reset_qvel: 0.0
+  reset_qpos: 0.0
+  min_start_margin: 10
+  termination_fellover_threshold: 0.5
+  termination_pos_err_threshold: 100
+  termination_orn_err_threshold: 100
+  termination_pose_consecutive_steps: ${.max_episode_length}
+  obs_noise:
+    qpos: 0.001
+    qvel: 0.01
+    lin_vel: 0.02
+    ang_vel: 0.005
+    gravity: 0.005
+kp: null
+restore_ckpt: null
+tau_scale: null
+torque_limit: 33.5
+choice: '00000011'
+multi_design: true
+train_designs:
+- e000
+- e001
+- e002
+- e004
+- e005
+- e006
+- e007
+- e008
+- e009
+- e010
+- e011
+- e012
+- e013
+- e014
+- e015
+- e016
+wandb:
+  tags: null
+observe_domain_randomized_attrs: false
+seed: 0
+render_on_checkpoint: false
+render_final: false
+full_reset: true
+extra_obs_attrs:
+- body_mass
+- body_pos
+- body_quat
+- body_inertia
+- body_mass
+- geom_size
+train:
+  _convert_: all
+  _target_: t2.mjx_env.train.train
+  num_timesteps: 14000000
+  num_evals: 10
+  num_eval_envs: 4
+  reward_scaling: 1.0
+  clipping_epsilon: 0.2
+  episode_length: ${env.max_episode_length}
+  normalize_observations: true
+  action_repeat: 1
+  unroll_length: 24
+  num_minibatches: 4
+  num_updates_per_batch: 8
+  discounting: 0.99
+  learning_rate: 0.001
+  entropy_cost: 0.01
+  gae_lambda: 0.95
+  num_envs: 32
+  batch_size: 32
+  max_grad_norm: 1.0
+  deterministic_eval: true
+  log_training_metrics: false
+  training_metrics_steps: null
+  seed: ${seed}
+  network_factory:
+    _partial_: true
+    _target_: brax.training.agents.ppo.networks.make_ppo_networks
+    state_dependent_std: false
+    init_noise_std: 1.0
+    noise_std_type: scalar
+    distribution_type: normal
+    activation:
+      _target_: flax.linen.elu
+      _partial_: true
+    policy_hidden_layer_sizes:
+    - 256
+    - 128
+    - 64
+    value_hidden_layer_sizes:
+    - 256
+    - 128
+    - 64

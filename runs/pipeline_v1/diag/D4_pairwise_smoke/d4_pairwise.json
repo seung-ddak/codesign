@@ -1,0 +1,176 @@
+{
+  "experiment": "D4 pairwise morphology sensitivity",
+  "checkpoint": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/pipeline_v1/tt/h32_multishape_B/checkpoint.pt",
+  "checkpoint_sha256": "818b46d4842dee1dae2504adcce8922772d3daecbd1b4405203b827dbc4a4379",
+  "checkpoint_config": {
+    "horizon": 32,
+    "modes": [
+      1
+    ],
+    "diff_steps": 5,
+    "sampler": "ddim",
+    "norm": "minmax",
+    "clip": 1.0
+  },
+  "source_split": "test episodes only",
+  "states": 32,
+  "executed_controls": 31,
+  "same_qpos_qvel_A_within_pair": true,
+  "additional_training": false,
+  "morphologies": {
+    "e000": [
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5
+    ],
+    "e001": [
+      0.2808896601200104,
+      0.5875203609466553,
+      0.47489890456199646,
+      0.41277948021888733,
+      0.0045272777788341045,
+      0.7650887966156006,
+      0.021810024976730347,
+      0.8848673701286316,
+      0.7976983785629272,
+      0.8744169473648071,
+      0.9170491695404053,
+      0.5831192135810852,
+      0.9052907228469849
+    ],
+    "e002": [
+      0.4509081244468689,
+      0.6632139682769775,
+      0.23489493131637573,
+      0.3553687334060669,
+      0.5047616958618164,
+      0.7990209460258484,
+      0.04100446403026581,
+      0.5091708898544312,
+      0.035835642367601395,
+      0.8653645515441895,
+      0.8532170653343201,
+      0.4233805239200592,
+      0.2655588388442993
+    ]
+  },
+  "seed": 20261020,
+  "tt_seeds_per_pair": 2,
+  "pairs": {
+    "e000_e001": {
+      "status": "insufficient pairwise-valid contact-matched starts",
+      "selection": {
+        "e000": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e000:valid": 61,
+            "e000:joint_limit_violation": 3,
+            "e000:severe": 0,
+            "e000:action_in_range": 64,
+            "e001:valid": 0,
+            "e001:joint_limit_violation": 3,
+            "e001:severe": 0,
+            "e001:action_in_range": 64
+          }
+        },
+        "e001": {
+          "audited": 64,
+          "valid_contact_matched": 1,
+          "selected": 1,
+          "rejections": {
+            "e000:valid": 64,
+            "e000:joint_limit_violation": 0,
+            "e000:severe": 0,
+            "e000:action_in_range": 64,
+            "e001:valid": 64,
+            "e001:joint_limit_violation": 0,
+            "e001:severe": 0,
+            "e001:action_in_range": 64
+          }
+        }
+      }
+    },
+    "e000_e002": {
+      "status": "insufficient pairwise-valid contact-matched starts",
+      "selection": {
+        "e000": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e000:valid": 61,
+            "e000:joint_limit_violation": 3,
+            "e000:severe": 0,
+            "e000:action_in_range": 64,
+            "e002:valid": 0,
+            "e002:joint_limit_violation": 3,
+            "e002:severe": 0,
+            "e002:action_in_range": 64
+          }
+        },
+        "e002": {
+          "audited": 64,
+          "valid_contact_matched": 1,
+          "selected": 1,
+          "rejections": {
+            "e000:valid": 64,
+            "e000:joint_limit_violation": 0,
+            "e000:severe": 0,
+            "e000:action_in_range": 64,
+            "e002:valid": 63,
+            "e002:joint_limit_violation": 0,
+            "e002:severe": 0,
+            "e002:action_in_range": 64
+          }
+        }
+      }
+    },
+    "e001_e002": {
+      "status": "insufficient pairwise-valid contact-matched starts",
+      "selection": {
+        "e001": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e001:valid": 60,
+            "e001:joint_limit_violation": 1,
+            "e001:severe": 0,
+            "e001:action_in_range": 64,
+            "e002:valid": 61,
+            "e002:joint_limit_violation": 1,
+            "e002:severe": 0,
+            "e002:action_in_range": 64
+          }
+        },
+        "e002": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e001:valid": 1,
+            "e001:joint_limit_violation": 0,
+            "e001:severe": 0,
+            "e001:action_in_range": 64,
+            "e002:valid": 63,
+            "e002:joint_limit_violation": 0,
+            "e002:severe": 0,
+            "e002:action_in_range": 64
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,712 @@
+{
+  "experiment": "D4 pairwise morphology sensitivity",
+  "checkpoint": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/pipeline_v1/tt/h32_multishape_B/checkpoint.pt",
+  "checkpoint_sha256": "818b46d4842dee1dae2504adcce8922772d3daecbd1b4405203b827dbc4a4379",
+  "checkpoint_config": {
+    "horizon": 32,
+    "modes": [
+      1
+    ],
+    "diff_steps": 5,
+    "sampler": "ddim",
+    "norm": "minmax",
+    "clip": 1.0
+  },
+  "source_split": "test episodes only",
+  "states": 32,
+  "executed_controls": 31,
+  "same_qpos_qvel_A_within_pair": true,
+  "additional_training": false,
+  "morphologies": {
+    "e000": [
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5
+    ],
+    "e001": [
+      0.2808896601200104,
+      0.5875203609466553,
+      0.47489890456199646,
+      0.41277948021888733,
+      0.0045272777788341045,
+      0.7650887966156006,
+      0.021810024976730347,
+      0.8848673701286316,
+      0.7976983785629272,
+      0.8744169473648071,
+      0.9170491695404053,
+      0.5831192135810852,
+      0.9052907228469849
+    ],
+    "e002": [
+      0.4509081244468689,
+      0.6632139682769775,
+      0.23489493131637573,
+      0.3553687334060669,
+      0.5047616958618164,
+      0.7990209460258484,
+      0.04100446403026581,
+      0.5091708898544312,
+      0.035835642367601395,
+      0.8653645515441895,
+      0.8532170653343201,
+      0.4233805239200592,
+      0.2655588388442993
+    ]
+  },
+  "seed": 20261020,
+  "tt_seeds_per_pair": 2,
+  "pairs": {
+    "e000_e001": {
+      "status": "complete",
+      "pair": [
+        "e000",
+        "e001"
+      ],
+      "groups": 1,
+      "source_counts": {
+        "e000": 0,
+        "e001": 1
+      },
+      "selection": {
+        "e000": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e000:valid": 61,
+            "e000:joint_limit_violation": 3,
+            "e000:severe": 1,
+            "e000:action_in_range": 64,
+            "e001:valid": 0,
+            "e001:joint_limit_violation": 3,
+            "e001:severe": 63,
+            "e001:action_in_range": 64
+          }
+        },
+        "e001": {
+          "audited": 64,
+          "valid_contact_matched": 1,
+          "selected": 1,
+          "rejections": {
+            "e000:valid": 64,
+            "e000:joint_limit_violation": 0,
+            "e000:severe": 0,
+            "e000:action_in_range": 64,
+            "e001:valid": 64,
+            "e001:joint_limit_violation": 0,
+            "e001:severe": 0,
+            "e001:action_in_range": 64
+          }
+        }
+      },
+      "mjx_contact_matched": 1,
+      "mjx_verified_kept": 1,
+      "initial_contact_matched_groups": 1,
+      "shared_qpos_qvel_action": true,
+      "states": 32,
+      "executed_controls": 31,
+      "control_period_s": 0.02,
+      "tt_seeds": [
+        20261020,
+        20261021
+      ],
+      "metrics": {
+        "dx_m": {
+          "n": 1,
+          "mjx_rms": 0.03888107091188431,
+          "tt_rms": 0.07076160609722137,
+          "mae": 0.03188053518533707,
+          "rmse": 0.03188053518533707,
+          "slope": 1.819950028063464,
+          "sign_agreement": 1.0,
+          "correlation": null
+        },
+        "dy_m": {
+          "n": 1,
+          "mjx_rms": 0.13898727297782898,
+          "tt_rms": 0.015932772308588028,
+          "mae": 0.12305450066924095,
+          "rmse": 0.12305450066924095,
+          "slope": 0.11463475732148222,
+          "sign_agreement": 1.0,
+          "correlation": null
+        },
+        "yaw_deg": {
+          "n": 1,
+          "mjx_rms": 1.85833740234375,
+          "tt_rms": 4.518829345703125,
+          "mae": 2.660491943359375,
+          "rmse": 2.660491943359375,
+          "slope": 2.431651722665616,
+          "sign_agreement": 1.0,
+          "correlation": null
+        },
+        "height_m": {
+          "n": 1,
+          "mjx_rms": 0.044987648725509644,
+          "tt_rms": 0.04428894817829132,
+          "mae": 0.08927659690380096,
+          "rmse": 0.08927659690380096,
+          "slope": -0.9844690583524065,
+          "sign_agreement": 0.0,
+          "correlation": null
+        },
+        "joint_rad": {
+          "n": 12,
+          "mjx_rms": 0.3636959739217605,
+          "tt_rms": 0.07199085696048341,
+          "mae": 0.23583665986855826,
+          "rmse": 0.35614972509432286,
+          "slope": 0.04012412546403374,
+          "sign_agreement": 0.75,
+          "correlation": 0.1523711350601527
+        }
+      },
+      "metrics_by_source_shape": {
+        "e000": {
+          "dx_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "dy_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "yaw_deg": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "height_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "joint_rad": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          }
+        },
+        "e001": {
+          "dx_m": {
+            "n": 1,
+            "mjx_rms": 0.03888107091188431,
+            "tt_rms": 0.07076160609722137,
+            "mae": 0.03188053518533707,
+            "rmse": 0.03188053518533707,
+            "slope": 1.819950028063464,
+            "sign_agreement": 1.0,
+            "correlation": null
+          },
+          "dy_m": {
+            "n": 1,
+            "mjx_rms": 0.13898727297782898,
+            "tt_rms": 0.015932772308588028,
+            "mae": 0.12305450066924095,
+            "rmse": 0.12305450066924095,
+            "slope": 0.11463475732148222,
+            "sign_agreement": 1.0,
+            "correlation": null
+          },
+          "yaw_deg": {
+            "n": 1,
+            "mjx_rms": 1.85833740234375,
+            "tt_rms": 4.518829345703125,
+            "mae": 2.660491943359375,
+            "rmse": 2.660491943359375,
+            "slope": 2.431651722665616,
+            "sign_agreement": 1.0,
+            "correlation": null
+          },
+          "height_m": {
+            "n": 1,
+            "mjx_rms": 0.044987648725509644,
+            "tt_rms": 0.04428894817829132,
+            "mae": 0.08927659690380096,
+            "rmse": 0.08927659690380096,
+            "slope": -0.9844690583524065,
+            "sign_agreement": 0.0,
+            "correlation": null
+          },
+          "joint_rad": {
+            "n": 12,
+            "mjx_rms": 0.3636959739217605,
+            "tt_rms": 0.07199085696048341,
+            "mae": 0.23583665986855826,
+            "rmse": 0.35614972509432286,
+            "slope": 0.04012412546403374,
+            "sign_agreement": 0.75,
+            "correlation": 0.1523711350601527
+          }
+        }
+      },
+      "absolute_state_error": {
+        "e000": {
+          "position_xy": {
+            "mae": 0.05684642121195793,
+            "rmse": 0.09808937460184097
+          },
+          "height": {
+            "mae": 0.05406397581100464,
+            "rmse": 0.08761053532361984
+          },
+          "orientation_sincos": {
+            "mae": 0.04784736782312393,
+            "rmse": 0.07466436922550201
+          },
+          "gravity": {
+            "mae": 0.09911629557609558,
+            "rmse": 0.12285720556974411
+          },
+          "linear_velocity": {
+            "mae": 0.4173833429813385,
+            "rmse": 0.7549503445625305
+          },
+          "angular_velocity": {
+            "mae": 1.5493215322494507,
+            "rmse": 2.2981650829315186
+          },
+          "joint_position": {
+            "mae": 0.28006577491760254,
+            "rmse": 0.4833175539970398
+          },
+          "joint_velocity": {
+            "mae": 8.630784034729004,
+            "rmse": 16.344444274902344
+          },
+          "contact": {
+            "mae": 0.1455661952495575,
+            "rmse": 0.25601863861083984
+          },
+          "survival": {
+            "survived": 1,
+            "total": 1,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        },
+        "e001": {
+          "position_xy": {
+            "mae": 0.06391742080450058,
+            "rmse": 0.11593756079673767
+          },
+          "height": {
+            "mae": 0.06002387776970863,
+            "rmse": 0.0834556370973587
+          },
+          "orientation_sincos": {
+            "mae": 0.06873860955238342,
+            "rmse": 0.11079511791467667
+          },
+          "gravity": {
+            "mae": 0.12206282466650009,
+            "rmse": 0.1753346174955368
+          },
+          "linear_velocity": {
+            "mae": 0.4340808391571045,
+            "rmse": 0.7630480527877808
+          },
+          "angular_velocity": {
+            "mae": 1.4024367332458496,
+            "rmse": 2.3126776218414307
+          },
+          "joint_position": {
+            "mae": 0.3002399206161499,
+            "rmse": 0.5134199857711792
+          },
+          "joint_velocity": {
+            "mae": 8.235458374023438,
+            "rmse": 15.786664009094238
+          },
+          "contact": {
+            "mae": 0.10570566356182098,
+            "rmse": 0.215337872505188
+          },
+          "survival": {
+            "survived": 1,
+            "total": 1,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        }
+      }
+    },
+    "e000_e002": {
+      "status": "complete",
+      "pair": [
+        "e000",
+        "e002"
+      ],
+      "groups": 1,
+      "source_counts": {
+        "e000": 0,
+        "e002": 1
+      },
+      "selection": {
+        "e000": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e000:valid": 61,
+            "e000:joint_limit_violation": 3,
+            "e000:severe": 0,
+            "e000:action_in_range": 64,
+            "e002:valid": 0,
+            "e002:joint_limit_violation": 3,
+            "e002:severe": 63,
+            "e002:action_in_range": 64
+          }
+        },
+        "e002": {
+          "audited": 64,
+          "valid_contact_matched": 1,
+          "selected": 1,
+          "rejections": {
+            "e000:valid": 64,
+            "e000:joint_limit_violation": 0,
+            "e000:severe": 0,
+            "e000:action_in_range": 64,
+            "e002:valid": 63,
+            "e002:joint_limit_violation": 0,
+            "e002:severe": 1,
+            "e002:action_in_range": 64
+          }
+        }
+      },
+      "mjx_contact_matched": 1,
+      "mjx_verified_kept": 1,
+      "initial_contact_matched_groups": 1,
+      "shared_qpos_qvel_action": true,
+      "states": 32,
+      "executed_controls": 31,
+      "control_period_s": 0.02,
+      "tt_seeds": [
+        20262020,
+        20262021
+      ],
+      "metrics": {
+        "dx_m": {
+          "n": 1,
+          "mjx_rms": 0.23554939031600952,
+          "tt_rms": 0.10822558403015137,
+          "mae": 0.12732380628585815,
+          "rmse": 0.12732380628585815,
+          "slope": 0.45946025962944564,
+          "sign_agreement": 1.0,
+          "correlation": null
+        },
+        "dy_m": {
+          "n": 1,
+          "mjx_rms": 0.1131768673658371,
+          "tt_rms": 0.00909462571144104,
+          "mae": 0.10408224165439606,
+          "rmse": 0.10408224165439606,
+          "slope": 0.08035763776747093,
+          "sign_agreement": 1.0,
+          "correlation": null
+        },
+        "yaw_deg": {
+          "n": 1,
+          "mjx_rms": 3.3484344482421875,
+          "tt_rms": 3.4194183349609375,
+          "mae": 0.07098388671875,
+          "rmse": 0.07098388671875,
+          "slope": 1.0211991268803289,
+          "sign_agreement": 1.0,
+          "correlation": null
+        },
+        "height_m": {
+          "n": 1,
+          "mjx_rms": 0.05299052596092224,
+          "tt_rms": 0.015908271074295044,
+          "mae": 0.0370822548866272,
+          "rmse": 0.0370822548866272,
+          "slope": 0.30020972213083086,
+          "sign_agreement": 1.0,
+          "correlation": null
+        },
+        "joint_rad": {
+          "n": 12,
+          "mjx_rms": 0.07188513575953827,
+          "tt_rms": 0.02347580115716832,
+          "mae": 0.047652866380910076,
+          "rmse": 0.06881456150728059,
+          "slope": 0.09512794324835315,
+          "sign_agreement": 0.8333333333333334,
+          "correlation": 0.33591650940980516
+        }
+      },
+      "metrics_by_source_shape": {
+        "e000": {
+          "dx_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "dy_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "yaw_deg": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "height_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "joint_rad": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          }
+        },
+        "e002": {
+          "dx_m": {
+            "n": 1,
+            "mjx_rms": 0.23554939031600952,
+            "tt_rms": 0.10822558403015137,
+            "mae": 0.12732380628585815,
+            "rmse": 0.12732380628585815,
+            "slope": 0.45946025962944564,
+            "sign_agreement": 1.0,
+            "correlation": null
+          },
+          "dy_m": {
+            "n": 1,
+            "mjx_rms": 0.1131768673658371,
+            "tt_rms": 0.00909462571144104,
+            "mae": 0.10408224165439606,
+            "rmse": 0.10408224165439606,
+            "slope": 0.08035763776747093,
+            "sign_agreement": 1.0,
+            "correlation": null
+          },
+          "yaw_deg": {
+            "n": 1,
+            "mjx_rms": 3.3484344482421875,
+            "tt_rms": 3.4194183349609375,
+            "mae": 0.07098388671875,
+            "rmse": 0.07098388671875,
+            "slope": 1.0211991268803289,
+            "sign_agreement": 1.0,
+            "correlation": null
+          },
+          "height_m": {
+            "n": 1,
+            "mjx_rms": 0.05299052596092224,
+            "tt_rms": 0.015908271074295044,
+            "mae": 0.0370822548866272,
+            "rmse": 0.0370822548866272,
+            "slope": 0.30020972213083086,
+            "sign_agreement": 1.0,
+            "correlation": null
+          },
+          "joint_rad": {
+            "n": 12,
+            "mjx_rms": 0.07188513575953827,
+            "tt_rms": 0.02347580115716832,
+            "mae": 0.047652866380910076,
+            "rmse": 0.06881456150728059,
+            "slope": 0.09512794324835315,
+            "sign_agreement": 0.8333333333333334,
+            "correlation": 0.33591650940980516
+          }
+        }
+      },
+      "absolute_state_error": {
+        "e000": {
+          "position_xy": {
+            "mae": 0.045675523579120636,
+            "rmse": 0.06698954850435257
+          },
+          "height": {
+            "mae": 0.011213605292141438,
+            "rmse": 0.01572425849735737
+          },
+          "orientation_sincos": {
+            "mae": 0.0693771094083786,
+            "rmse": 0.10253366082906723
+          },
+          "gravity": {
+            "mae": 0.03676694259047508,
+            "rmse": 0.05677897855639458
+          },
+          "linear_velocity": {
+            "mae": 0.14880934357643127,
+            "rmse": 0.20126375555992126
+          },
+          "angular_velocity": {
+            "mae": 0.7850505709648132,
+            "rmse": 1.0496686697006226
+          },
+          "joint_position": {
+            "mae": 0.09171709418296814,
+            "rmse": 0.12562493979930878
+          },
+          "joint_velocity": {
+            "mae": 2.742682456970215,
+            "rmse": 3.585118293762207
+          },
+          "contact": {
+            "mae": 0.21785962581634521,
+            "rmse": 0.38756075501441956
+          },
+          "survival": {
+            "survived": 1,
+            "total": 1,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        },
+        "e002": {
+          "position_xy": {
+            "mae": 0.03347066044807434,
+            "rmse": 0.04204283654689789
+          },
+          "height": {
+            "mae": 0.017102453857660294,
+            "rmse": 0.01963302493095398
+          },
+          "orientation_sincos": {
+            "mae": 0.09690253436565399,
+            "rmse": 0.13123849034309387
+          },
+          "gravity": {
+            "mae": 0.04979896917939186,
+            "rmse": 0.06338398158550262
+          },
+          "linear_velocity": {
+            "mae": 0.14208881556987762,
+            "rmse": 0.1803237348794937
+          },
+          "angular_velocity": {
+            "mae": 0.6903168559074402,
+            "rmse": 0.8544378876686096
+          },
+          "joint_position": {
+            "mae": 0.08503345400094986,
+            "rmse": 0.11190813779830933
+          },
+          "joint_velocity": {
+            "mae": 2.30531644821167,
+            "rmse": 3.1366918087005615
+          },
+          "contact": {
+            "mae": 0.2292858064174652,
+            "rmse": 0.3986035883426666
+          },
+          "survival": {
+            "survived": 1,
+            "total": 1,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        }
+      }
+    },
+    "e001_e002": {
+      "status": "insufficient pairwise-valid contact-matched starts",
+      "selection": {
+        "e001": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e001:valid": 60,
+            "e001:joint_limit_violation": 1,
+            "e001:severe": 4,
+            "e001:action_in_range": 64,
+            "e002:valid": 61,
+            "e002:joint_limit_violation": 1,
+            "e002:severe": 3,
+            "e002:action_in_range": 64
+          }
+        },
+        "e002": {
+          "audited": 64,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e001:valid": 1,
+            "e001:joint_limit_violation": 0,
+            "e001:severe": 63,
+            "e001:action_in_range": 64,
+            "e002:valid": 63,
+            "e002:joint_limit_violation": 0,
+            "e002:severe": 1,
+            "e002:action_in_range": 64
+          }
+        }
+      }
+    }
+  }
+}

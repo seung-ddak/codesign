@@ -6,6 +6,7 @@ selection=runs/pipeline_v1/experts/selection.csv
 root=${EXPERT_ROOT:-runs/pipeline_v1/experts}
 read -ra designs <<< "${EXPERT_DESIGNS:-e000 e001 e002}"
 steps=${EXPERT_STEPS:-5242880}
+lr=${EXPERT_LR:-1e-3}
 [[ $steps =~ ^[0-9]+$ && $steps -gt 0 ]] || { echo "Invalid EXPERT_STEPS: $steps" >&2; exit 1; }
 python=../transformer-transformer/.venv/bin/python
 export MUJOCO_GL=egl WANDB_MODE=offline XLA_PYTHON_CLIENT_PREALLOCATE=false PYTHONUNBUFFERED=1
@@ -45,10 +46,14 @@ for motion in "${motions[@]}"; do
   WANDB_DIR="$PWD/$run" "$python" code/motion_tracking/train_rl_procedural.py \
     "env.clips=[$motion]" "eval_env.clips=[$motion]" \
     "train_designs=[$(IFS=,; echo "${designs[*]}")]" \
-    train.num_envs=32 train.batch_size=32 \
+    train.num_envs=32 train.batch_size=32 "train.learning_rate=$lr" \
     train.num_eval_envs=4 train.num_evals=10 render_final=false "${overrides[@]}" >"$log" 2>&1
   latest=$(find "$run/wandb" -maxdepth 1 -type d -name 'offline-run-*' -printf '%T@ %p\n' | sort -nr | head -n 1 | cut -d' ' -f2-)
   [[ -n "$latest" && -d "$latest/files/checkpoints" ]] || { echo "Missing checkpoint: $motion" >&2; exit 1; }
-  bash code/motion_tracking/eval_multi_designs.sh "$latest" >"$run/eval.log" 2>&1
+  checkpoint=$("$python" code/motion_tracking/select_expert_checkpoint.py "$latest" \
+    >"$run/checkpoint_selection.log" 2>&1 && tail -n 1 "$run/checkpoint_selection.log")
+  [[ -n "$checkpoint" && -f "$checkpoint/_CHECKPOINT_METADATA" ]] || { echo "No selected checkpoint: $motion" >&2; exit 1; }
+  EVAL_CHECKPOINT="$checkpoint" EVAL_DESIGNS="${designs[*]} e003" \
+    bash code/motion_tracking/eval_multi_designs.sh "$latest" >"$run/eval.log" 2>&1
   echo "Completed $motion: $latest/motion_eval/summary.csv"
 done

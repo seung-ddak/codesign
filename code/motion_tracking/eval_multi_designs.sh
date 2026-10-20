@@ -3,7 +3,11 @@ set -e
 run="$1"
 read -ra designs <<< "${EVAL_DESIGNS:-e000 e001 e002 e003}"
 for design in "${designs[@]}"; do
-  ../transformer-transformer/.venv/bin/python code/motion_tracking/eval_motions.py "$run" --design "$design"
+  if [[ -n ${EVAL_CHECKPOINT:-} ]]; then
+    ../transformer-transformer/.venv/bin/python code/motion_tracking/eval_motions.py "$run" --design "$design" --checkpoint "$EVAL_CHECKPOINT"
+  else
+    ../transformer-transformer/.venv/bin/python code/motion_tracking/eval_motions.py "$run" --design "$design"
+  fi
 done
 ../transformer-transformer/.venv/bin/python - "$run" "${designs[@]}" <<'PY'
 import csv

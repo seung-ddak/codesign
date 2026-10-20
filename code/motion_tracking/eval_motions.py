@@ -37,9 +37,12 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("run", type=Path)
 parser.add_argument("clips", nargs="*")
 parser.add_argument("--design", default="e000", help="TT morphology to evaluate")
+parser.add_argument("--checkpoint", type=Path, help="evaluate this checkpoint instead of the latest")
+parser.add_argument("--output", type=Path, help="evaluation output directory")
+parser.add_argument("--no-render", action="store_true", help="skip videos and frame traces during checkpoint screening")
 args = parser.parse_args()
 run = args.run
-ckpt = sorted(glob.glob(str(run / "files/checkpoints/*")), key=lambda p: int(os.path.basename(p)))[-1]
+ckpt = args.checkpoint or sorted(glob.glob(str(run / "files/checkpoints/*")), key=lambda p: int(os.path.basename(p)))[-1]
 cfg, policy = load_run(ckpt)
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
@@ -59,7 +62,7 @@ reset_with_traj, step, policy = jax.jit(env.reset_with_traj), jax.jit(env.step),
 m = env.mj_model
 d = mujoco.MjData(m)
 m.vis.global_.offwidth, m.vis.global_.offheight = 768, 432
-renderer = mujoco.Renderer(m, 432, 768)
+renderer = None if args.no_render else mujoco.Renderer(m, 432, 768)
 m_ref = build_model()  # 레퍼런스 모션 = A1
 d_ref = mujoco.MjData(m_ref)
 vopt, pert = mujoco.MjvOption(), mujoco.MjvPerturb()  # A1 고스트용
@@ -91,8 +94,10 @@ def render(qpos, ref_qpos, a1_qpos):
     return renderer.render()
 
 feet = np.array(env._foot_ids)
-out = run / "motion_eval" / args.design
-(out / "videos").mkdir(parents=True, exist_ok=True)
+out = (args.output or run / "motion_eval") / args.design
+out.mkdir(parents=True, exist_ok=True)
+if not args.no_render:
+    (out / "videos").mkdir(exist_ok=True)
 
 rows = []
 only = args.clips  # 모션 이름을 주면 그 모션만
@@ -127,7 +132,8 @@ for ci, name in enumerate(ecfg["clips"]):
         log["sim_foot_z"].append(np.asarray(s.data.geom_xpos[feet, 2]) - FOOT_R)
         log["ref_foot_z"].append(a1["fix_foot_pos"][i - start, :, 2] if "fix_foot_pos" in a1.files else np.full(4, np.nan))
         log["sim_foot_dist"].append([dist[(geom == f).any(1)].min(initial=1.0) for f in feet])
-        frames.append(render(qpos, np.asarray(env.ref_qpos[i]), a1_qpos[i - start]))
+        if not args.no_render:
+            frames.append(render(qpos, np.asarray(env.ref_qpos[i]), a1_qpos[i - start]))
         if float(s.info["done/fellover"]) > 0:
             fell = True
             break
@@ -157,8 +163,9 @@ for ci, name in enumerate(ecfg["clips"]):
     r["pass_contact"] = int(r["contact_agree"] > PASS["contact_agree"])
     r["pass_all"] = int(r["survived"] and all(r[k] for k in r if k.startswith("pass_") and k != "pass_all"))
     rows.append(r)
-    imageio.mimsave(out / "videos" / f"{name}.mp4", frames, fps=round(1 / env.dt))
-    np.savez(out / f"{name}_frames.npz", **{k: np.array(v) for k, v in log.items()})
+    if not args.no_render:
+        imageio.mimsave(out / "videos" / f"{name}.mp4", frames, fps=round(1 / env.dt))
+        np.savez(out / f"{name}_frames.npz", **{k: np.array(v) for k, v in log.items()})
     print(f"{name:18s} surv={r['survived']} joint={r['joint_rms_deg']:5.2f}° foot={r['foot_err_cm']:5.2f}cm "
           f"orn={r['orn_err_deg']:5.2f}° end={r['end_pos_err_cm']:5.1f}/{r['end_pos_tol_cm']:4.1f}cm "
           f"contact={r['contact_agree']:.2f} ref_infeasible={inv_bad:.2f} pass={r['pass_all']}")
@@ -167,5 +174,6 @@ with open(out / "motion_eval.csv", "w", newline="") as f:
     w = csv.DictWriter(f, fieldnames=rows[0].keys())
     w.writeheader()
     w.writerows(rows)
-renderer.close()
+if renderer is not None:
+    renderer.close()
 print("->", out, f"pass {sum(r['pass_all'] for r in rows)}/{len(rows)}")
