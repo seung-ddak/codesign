@@ -45,6 +45,6 @@ def load(paths, H):
             m[:L] = True
             X.append(x), M.append(m), E.append(d["E"].astype(np.float32)), src.append(f"{Path(p).parent.name}/{Path(p).stem}")
             cl = np.full(H, "", dtype=object)  # step 별 모션 이름 (진단용)
-            cl[:L] = d["motions"][d["clip"][b, :L]]
+            cl[:L] = d["motions"][d["clip"][b, :L]] if "motions" in d else d["variant"][b]
             CL.append(cl)
     return np.stack(X), np.stack(E), np.stack(M), np.array(src), np.stack(CL)

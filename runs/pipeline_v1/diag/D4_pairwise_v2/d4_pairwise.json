@@ -1,0 +1,1007 @@
+{
+  "experiment": "D4 pairwise morphology sensitivity",
+  "checkpoint": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/pipeline_v1/tt/h32_multishape_B/checkpoint.pt",
+  "checkpoint_sha256": "818b46d4842dee1dae2504adcce8922772d3daecbd1b4405203b827dbc4a4379",
+  "checkpoint_config": {
+    "horizon": 32,
+    "modes": [
+      1
+    ],
+    "diff_steps": 5,
+    "sampler": "ddim",
+    "norm": "minmax",
+    "clip": 1.0
+  },
+  "source_split": "test episodes only",
+  "states": 32,
+  "executed_controls": 31,
+  "same_qpos_qvel_A_within_pair": true,
+  "additional_training": false,
+  "morphologies": {
+    "e000": [
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5
+    ],
+    "e001": [
+      0.2808896601200104,
+      0.5875203609466553,
+      0.47489890456199646,
+      0.41277948021888733,
+      0.0045272777788341045,
+      0.7650887966156006,
+      0.021810024976730347,
+      0.8848673701286316,
+      0.7976983785629272,
+      0.8744169473648071,
+      0.9170491695404053,
+      0.5831192135810852,
+      0.9052907228469849
+    ],
+    "e002": [
+      0.4509081244468689,
+      0.6632139682769775,
+      0.23489493131637573,
+      0.3553687334060669,
+      0.5047616958618164,
+      0.7990209460258484,
+      0.04100446403026581,
+      0.5091708898544312,
+      0.035835642367601395,
+      0.8653645515441895,
+      0.8532170653343201,
+      0.4233805239200592,
+      0.2655588388442993
+    ]
+  },
+  "seed": 20261020,
+  "tt_seeds_per_pair": 8,
+  "pairs": {
+    "e000_e001": {
+      "status": "complete",
+      "pair": [
+        "e000",
+        "e001"
+      ],
+      "groups": 15,
+      "source_counts": {
+        "e000": 6,
+        "e001": 9
+      },
+      "selection": {
+        "e000": {
+          "audited": 993,
+          "valid_contact_matched": 6,
+          "selected": 6,
+          "rejections": {
+            "e000:valid": 953,
+            "e000:joint_limit_violation": 35,
+            "e000:severe": 11,
+            "e000:action_in_range": 993,
+            "e001:valid": 7,
+            "e001:joint_limit_violation": 35,
+            "e001:severe": 968,
+            "e001:action_in_range": 993
+          }
+        },
+        "e001": {
+          "audited": 876,
+          "valid_contact_matched": 9,
+          "selected": 9,
+          "rejections": {
+            "e000:valid": 871,
+            "e000:joint_limit_violation": 5,
+            "e000:severe": 1,
+            "e000:action_in_range": 876,
+            "e001:valid": 859,
+            "e001:joint_limit_violation": 5,
+            "e001:severe": 13,
+            "e001:action_in_range": 876
+          }
+        }
+      },
+      "mjx_contact_matched": 15,
+      "mjx_verified_kept": 15,
+      "initial_contact_matched_groups": 15,
+      "shared_qpos_qvel_action": true,
+      "states": 32,
+      "executed_controls": 31,
+      "control_period_s": 0.02,
+      "tt_seeds": [
+        20261020,
+        20261021,
+        20261022,
+        20261023,
+        20261024,
+        20261025,
+        20261026,
+        20261027
+      ],
+      "metrics": {
+        "dx_m": {
+          "n": 15,
+          "mjx_rms": 0.10552841459109376,
+          "tt_rms": 0.05031607945556755,
+          "mae": 0.06397034972906113,
+          "rmse": 0.10055602433364584,
+          "slope": 0.15967858543753316,
+          "sign_agreement": 0.6666666666666666,
+          "correlation": 0.6153431707748689
+        },
+        "dy_m": {
+          "n": 15,
+          "mjx_rms": 0.11313536729860423,
+          "tt_rms": 0.029547121327487477,
+          "mae": 0.0839957866507272,
+          "rmse": 0.1135999696277092,
+          "slope": 0.029988825171911707,
+          "sign_agreement": 0.5333333333333333,
+          "correlation": 0.024283792143040193
+        },
+        "yaw_deg": {
+          "n": 15,
+          "mjx_rms": 43.98708281893788,
+          "tt_rms": 4.382917142382829,
+          "mae": 31.183071899414063,
+          "rmse": 43.932907816183224,
+          "slope": 0.0061950181422053795,
+          "sign_agreement": 0.6,
+          "correlation": 0.07602912413147701
+        },
+        "height_m": {
+          "n": 15,
+          "mjx_rms": 0.06497376608760104,
+          "tt_rms": 0.042431130394559285,
+          "mae": 0.04838540405035019,
+          "rmse": 0.056057383671540756,
+          "slope": 0.3410516714493443,
+          "sign_agreement": 0.6666666666666666,
+          "correlation": 0.15012902607354253
+        },
+        "joint_rad": {
+          "n": 180,
+          "mjx_rms": 0.31670377452323484,
+          "tt_rms": 0.06097245985996254,
+          "mae": 0.1778481118277543,
+          "rmse": 0.32524217030541686,
+          "slope": -0.008791252077347196,
+          "sign_agreement": 0.5666666666666667,
+          "correlation": -0.05440567395377536
+        }
+      },
+      "metrics_by_source_shape": {
+        "e000": {
+          "dx_m": {
+            "n": 6,
+            "mjx_rms": 0.10288206098753161,
+            "tt_rms": 0.03892995669790697,
+            "mae": 0.05933686283727487,
+            "rmse": 0.0756392565574516,
+            "slope": 0.3013288867920976,
+            "sign_agreement": 0.8333333333333334,
+            "correlation": 0.8934475365886353
+          },
+          "dy_m": {
+            "n": 6,
+            "mjx_rms": 0.11209643987003327,
+            "tt_rms": 0.03517356411907056,
+            "mae": 0.07856856845319271,
+            "rmse": 0.10328059061707462,
+            "slope": 0.12478147058038111,
+            "sign_agreement": 0.6666666666666666,
+            "correlation": 0.6225508300838223
+          },
+          "yaw_deg": {
+            "n": 6,
+            "mjx_rms": 59.79073170138424,
+            "tt_rms": 5.466338539573932,
+            "mae": 44.76081085205078,
+            "rmse": 59.81375454161081,
+            "slope": 0.003794089664807209,
+            "sign_agreement": 0.5,
+            "correlation": 0.14093481986568632
+          },
+          "height_m": {
+            "n": 6,
+            "mjx_rms": 0.07413201677735913,
+            "tt_rms": 0.0395177873677741,
+            "mae": 0.04886217539509138,
+            "rmse": 0.0582232366577049,
+            "slope": 0.33365743175902124,
+            "sign_agreement": 1.0,
+            "correlation": 0.06256300538157837
+          },
+          "joint_rad": {
+            "n": 72,
+            "mjx_rms": 0.4034420056149539,
+            "tt_rms": 0.06304941319605961,
+            "mae": 0.22184360606802833,
+            "rmse": 0.4176429372056299,
+            "slope": -0.0236074133340576,
+            "sign_agreement": 0.5277777777777778,
+            "correlation": -0.15190464146830676
+          }
+        },
+        "e001": {
+          "dx_m": {
+            "n": 9,
+            "mjx_rms": 0.10725638207035283,
+            "tt_rms": 0.05664937834873127,
+            "mae": 0.06705934099025196,
+            "rmse": 0.11418548635709053,
+            "slope": 0.07279069195899657,
+            "sign_agreement": 0.5555555555555556,
+            "correlation": 0.49454475663213693
+          },
+          "dy_m": {
+            "n": 9,
+            "mjx_rms": 0.11382271742477196,
+            "tt_rms": 0.02510513007354997,
+            "mae": 0.08761393211575018,
+            "rmse": 0.11998750587826319,
+            "slope": -0.031303927263415604,
+            "sign_agreement": 0.4444444444444444,
+            "correlation": -0.3984362052273331
+          },
+          "yaw_deg": {
+            "n": 9,
+            "mjx_rms": 29.008355576894697,
+            "tt_rms": 3.4779351789293877,
+            "mae": 22.131245930989582,
+            "rmse": 28.839391355101608,
+            "slope": 0.012995027019773146,
+            "sign_agreement": 0.6666666666666666,
+            "correlation": 0.09511252125972489
+          },
+          "height_m": {
+            "n": 9,
+            "mjx_rms": 0.058071334222299854,
+            "tt_rms": 0.04426696697655883,
+            "mae": 0.0480675564871894,
+            "rmse": 0.05456574244796638,
+            "slope": 0.34908490304098927,
+            "sign_agreement": 0.4444444444444444,
+            "correlation": 0.30507710244931674
+          },
+          "joint_rad": {
+            "n": 108,
+            "mjx_rms": 0.24219516936903515,
+            "tt_rms": 0.05954759244542359,
+            "mae": 0.1485177823342383,
+            "rmse": 0.2449905445314148,
+            "slope": 0.01861664481274386,
+            "sign_agreement": 0.5925925925925926,
+            "correlation": 0.05882198845473152
+          }
+        }
+      },
+      "absolute_state_error": {
+        "e000": {
+          "position_xy": {
+            "mae": 0.05269806832075119,
+            "rmse": 0.08725187182426453
+          },
+          "height": {
+            "mae": 0.05285058915615082,
+            "rmse": 0.07287660986185074
+          },
+          "orientation_sincos": {
+            "mae": 0.22223085165023804,
+            "rmse": 0.3795035183429718
+          },
+          "gravity": {
+            "mae": 0.16627798974514008,
+            "rmse": 0.24502752721309662
+          },
+          "linear_velocity": {
+            "mae": 0.31689754128456116,
+            "rmse": 0.5013424754142761
+          },
+          "angular_velocity": {
+            "mae": 1.7341586351394653,
+            "rmse": 2.9436144828796387
+          },
+          "joint_position": {
+            "mae": 0.22132758796215057,
+            "rmse": 0.3913577198982239
+          },
+          "joint_velocity": {
+            "mae": 6.7313761711120605,
+            "rmse": 13.049054145812988
+          },
+          "contact": {
+            "mae": 0.2097638100385666,
+            "rmse": 0.33592185378074646
+          },
+          "survival": {
+            "survived": 15,
+            "total": 15,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        },
+        "e001": {
+          "position_xy": {
+            "mae": 0.051605843007564545,
+            "rmse": 0.0864267572760582
+          },
+          "height": {
+            "mae": 0.04613806679844856,
+            "rmse": 0.06984415650367737
+          },
+          "orientation_sincos": {
+            "mae": 0.2615291178226471,
+            "rmse": 0.4950917065143585
+          },
+          "gravity": {
+            "mae": 0.14653372764587402,
+            "rmse": 0.22326700389385223
+          },
+          "linear_velocity": {
+            "mae": 0.31024399399757385,
+            "rmse": 0.5187767148017883
+          },
+          "angular_velocity": {
+            "mae": 1.616732120513916,
+            "rmse": 2.994387149810791
+          },
+          "joint_position": {
+            "mae": 0.22048071026802063,
+            "rmse": 0.39963477849960327
+          },
+          "joint_velocity": {
+            "mae": 6.091999530792236,
+            "rmse": 11.914168357849121
+          },
+          "contact": {
+            "mae": 0.17899636924266815,
+            "rmse": 0.2957727015018463
+          },
+          "survival": {
+            "survived": 15,
+            "total": 15,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        }
+      },
+      "source_strata_warning": [
+        "e000"
+      ]
+    },
+    "e000_e002": {
+      "status": "complete",
+      "pair": [
+        "e000",
+        "e002"
+      ],
+      "groups": 21,
+      "source_counts": {
+        "e000": 7,
+        "e002": 14
+      },
+      "selection": {
+        "e000": {
+          "audited": 993,
+          "valid_contact_matched": 7,
+          "selected": 7,
+          "rejections": {
+            "e000:valid": 953,
+            "e000:joint_limit_violation": 35,
+            "e000:severe": 11,
+            "e000:action_in_range": 993,
+            "e002:valid": 10,
+            "e002:joint_limit_violation": 35,
+            "e002:severe": 962,
+            "e002:action_in_range": 993
+          }
+        },
+        "e002": {
+          "audited": 784,
+          "valid_contact_matched": 14,
+          "selected": 14,
+          "rejections": {
+            "e000:valid": 783,
+            "e000:joint_limit_violation": 0,
+            "e000:severe": 1,
+            "e000:action_in_range": 784,
+            "e002:valid": 775,
+            "e002:joint_limit_violation": 0,
+            "e002:severe": 9,
+            "e002:action_in_range": 784
+          }
+        }
+      },
+      "mjx_contact_matched": 21,
+      "mjx_verified_kept": 21,
+      "initial_contact_matched_groups": 21,
+      "shared_qpos_qvel_action": true,
+      "states": 32,
+      "executed_controls": 31,
+      "control_period_s": 0.02,
+      "tt_seeds": [
+        20262020,
+        20262021,
+        20262022,
+        20262023,
+        20262024,
+        20262025,
+        20262026,
+        20262027
+      ],
+      "metrics": {
+        "dx_m": {
+          "n": 21,
+          "mjx_rms": 0.14176327996000057,
+          "tt_rms": 0.16419998990054072,
+          "mae": 0.11830723170368444,
+          "rmse": 0.14974516773781463,
+          "slope": 0.6129039250684252,
+          "sign_agreement": 0.8095238095238095,
+          "correlation": 0.3063612450905625
+        },
+        "dy_m": {
+          "n": 21,
+          "mjx_rms": 0.12269672246364265,
+          "tt_rms": 0.0258159456079017,
+          "mae": 0.10102678347556364,
+          "rmse": 0.1309065998889008,
+          "slope": -0.04701552651547142,
+          "sign_agreement": 0.3333333333333333,
+          "correlation": -0.17565600678857207
+        },
+        "yaw_deg": {
+          "n": 21,
+          "mjx_rms": 26.590854192656042,
+          "tt_rms": 5.250142114283827,
+          "mae": 19.72204081217448,
+          "rmse": 27.113299384084016,
+          "slope": -0.0003489627012392369,
+          "sign_agreement": 0.5714285714285714,
+          "correlation": 0.01950644653757915
+        },
+        "height_m": {
+          "n": 21,
+          "mjx_rms": 0.052555402572717375,
+          "tt_rms": 0.03539590642271046,
+          "mae": 0.028342997034390766,
+          "rmse": 0.037345234835124856,
+          "slope": 0.4743315057235492,
+          "sign_agreement": 0.8095238095238095,
+          "correlation": -0.17000187104483308
+        },
+        "joint_rad": {
+          "n": 252,
+          "mjx_rms": 0.21791870243704684,
+          "tt_rms": 0.03757507729863842,
+          "mae": 0.12670750756348884,
+          "rmse": 0.22010850371615323,
+          "slope": 0.0047663467724639984,
+          "sign_agreement": 0.5119047619047619,
+          "correlation": 0.027816102036742382
+        }
+      },
+      "metrics_by_source_shape": {
+        "e000": {
+          "dx_m": {
+            "n": 7,
+            "mjx_rms": 0.1408058779992064,
+            "tt_rms": 0.1681567374463757,
+            "mae": 0.11749364994466305,
+            "rmse": 0.15601611318063635,
+            "slope": 0.5992535600122822,
+            "sign_agreement": 0.7142857142857143,
+            "correlation": 0.3886659552917575
+          },
+          "dy_m": {
+            "n": 7,
+            "mjx_rms": 0.12474480825709608,
+            "tt_rms": 0.020234885290101454,
+            "mae": 0.11111552454531193,
+            "rmse": 0.13697183360330867,
+            "slope": -0.08966382355938976,
+            "sign_agreement": 0.14285714285714285,
+            "correlation": -0.5390873449860445
+          },
+          "yaw_deg": {
+            "n": 7,
+            "mjx_rms": 38.838147062120356,
+            "tt_rms": 7.071169831094854,
+            "mae": 31.088245936802455,
+            "rmse": 39.83909722719789,
+            "slope": -0.00953013991692985,
+            "sign_agreement": 0.7142857142857143,
+            "correlation": 0.13435048322382634
+          },
+          "height_m": {
+            "n": 7,
+            "mjx_rms": 0.05360194414512735,
+            "tt_rms": 0.02961567413962454,
+            "mae": 0.046416476368904114,
+            "rmse": 0.056145941698789135,
+            "slope": 0.10404712064212085,
+            "sign_agreement": 0.5714285714285714,
+            "correlation": -0.5760551976639483
+          },
+          "joint_rad": {
+            "n": 84,
+            "mjx_rms": 0.3314271685212977,
+            "tt_rms": 0.04926373706825701,
+            "mae": 0.19864412627759434,
+            "rmse": 0.3362303146094629,
+            "slope": -0.0035502206100277334,
+            "sign_agreement": 0.39285714285714285,
+            "correlation": -0.02357785284742594
+          }
+        },
+        "e002": {
+          "dx_m": {
+            "n": 14,
+            "mjx_rms": 0.1422395643903712,
+            "tt_rms": 0.1621854212027143,
+            "mae": 0.11871402258319515,
+            "rmse": 0.14650907516342732,
+            "slope": 0.6195922137986657,
+            "sign_agreement": 0.8571428571428571,
+            "correlation": 0.27404415381944036
+          },
+          "dy_m": {
+            "n": 14,
+            "mjx_rms": 0.12165975078648812,
+            "tt_rms": 0.028195199593076592,
+            "mae": 0.0959824129406895,
+            "rmse": 0.12776605668714558,
+            "slope": -0.02459618703063544,
+            "sign_agreement": 0.42857142857142855,
+            "correlation": -0.06374989687425854
+          },
+          "yaw_deg": {
+            "n": 14,
+            "mjx_rms": 17.50455530521116,
+            "tt_rms": 4.04292801570495,
+            "mae": 14.038938249860491,
+            "rmse": 17.581799432862177,
+            "slope": 0.02224972465715688,
+            "sign_agreement": 0.5,
+            "correlation": 0.10619254632287588
+          },
+          "height_m": {
+            "n": 14,
+            "mjx_rms": 0.05202423763306778,
+            "tt_rms": 0.037957360417390736,
+            "mae": 0.019306257367134094,
+            "rmse": 0.022711593134653065,
+            "slope": 0.6708733544230299,
+            "sign_agreement": 0.9285714285714286,
+            "correlation": 0.3515937343955193
+          },
+          "joint_rad": {
+            "n": 168,
+            "mjx_rms": 0.12771396670195048,
+            "tt_rms": 0.030072774332156285,
+            "mae": 0.09073919820643607,
+            "rmse": 0.12706776885212304,
+            "slope": 0.03276992578218409,
+            "sign_agreement": 0.5714285714285714,
+            "correlation": 0.14241739547086515
+          }
+        }
+      },
+      "absolute_state_error": {
+        "e000": {
+          "position_xy": {
+            "mae": 0.05438661575317383,
+            "rmse": 0.0906672403216362
+          },
+          "height": {
+            "mae": 0.03580393269658089,
+            "rmse": 0.05700646713376045
+          },
+          "orientation_sincos": {
+            "mae": 0.20961150527000427,
+            "rmse": 0.3495565950870514
+          },
+          "gravity": {
+            "mae": 0.11522464454174042,
+            "rmse": 0.20667581260204315
+          },
+          "linear_velocity": {
+            "mae": 0.2638181746006012,
+            "rmse": 0.39108702540397644
+          },
+          "angular_velocity": {
+            "mae": 1.4067482948303223,
+            "rmse": 2.5090246200561523
+          },
+          "joint_position": {
+            "mae": 0.16513091325759888,
+            "rmse": 0.29221293330192566
+          },
+          "joint_velocity": {
+            "mae": 4.795433044433594,
+            "rmse": 9.830172538757324
+          },
+          "contact": {
+            "mae": 0.30314990878105164,
+            "rmse": 0.41545742750167847
+          },
+          "survival": {
+            "survived": 21,
+            "total": 21,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        },
+        "e002": {
+          "position_xy": {
+            "mae": 0.052774686366319656,
+            "rmse": 0.08737194538116455
+          },
+          "height": {
+            "mae": 0.03658835217356682,
+            "rmse": 0.059848397970199585
+          },
+          "orientation_sincos": {
+            "mae": 0.21114040911197662,
+            "rmse": 0.3284419775009155
+          },
+          "gravity": {
+            "mae": 0.14284318685531616,
+            "rmse": 0.2754470407962799
+          },
+          "linear_velocity": {
+            "mae": 0.2590722441673279,
+            "rmse": 0.4060058295726776
+          },
+          "angular_velocity": {
+            "mae": 1.4359229803085327,
+            "rmse": 2.7851881980895996
+          },
+          "joint_position": {
+            "mae": 0.15525312721729279,
+            "rmse": 0.29173704981803894
+          },
+          "joint_velocity": {
+            "mae": 4.3264384269714355,
+            "rmse": 9.147839546203613
+          },
+          "contact": {
+            "mae": 0.26770827174186707,
+            "rmse": 0.3762895464897156
+          },
+          "survival": {
+            "survived": 16,
+            "total": 21,
+            "falls": 5,
+            "numerical_failures": 0
+          }
+        }
+      },
+      "source_strata_warning": [
+        "e000"
+      ]
+    },
+    "e001_e002": {
+      "status": "complete",
+      "pair": [
+        "e001",
+        "e002"
+      ],
+      "groups": 18,
+      "source_counts": {
+        "e001": 18,
+        "e002": 0
+      },
+      "selection": {
+        "e001": {
+          "audited": 876,
+          "valid_contact_matched": 18,
+          "selected": 18,
+          "rejections": {
+            "e001:valid": 859,
+            "e001:joint_limit_violation": 5,
+            "e001:severe": 13,
+            "e001:action_in_range": 876,
+            "e002:valid": 835,
+            "e002:joint_limit_violation": 5,
+            "e002:severe": 38,
+            "e002:action_in_range": 876
+          }
+        },
+        "e002": {
+          "audited": 784,
+          "valid_contact_matched": 0,
+          "selected": 0,
+          "rejections": {
+            "e001:valid": 2,
+            "e001:joint_limit_violation": 0,
+            "e001:severe": 782,
+            "e001:action_in_range": 784,
+            "e002:valid": 775,
+            "e002:joint_limit_violation": 0,
+            "e002:severe": 9,
+            "e002:action_in_range": 784
+          }
+        }
+      },
+      "mjx_contact_matched": 18,
+      "mjx_verified_kept": 18,
+      "initial_contact_matched_groups": 18,
+      "shared_qpos_qvel_action": true,
+      "states": 32,
+      "executed_controls": 31,
+      "control_period_s": 0.02,
+      "tt_seeds": [
+        20263020,
+        20263021,
+        20263022,
+        20263023,
+        20263024,
+        20263025,
+        20263026,
+        20263027
+      ],
+      "metrics": {
+        "dx_m": {
+          "n": 18,
+          "mjx_rms": 0.16541594656819264,
+          "tt_rms": 0.10750374331357482,
+          "mae": 0.16646587323500878,
+          "rmse": 0.20393726692723538,
+          "slope": -0.048806303226817095,
+          "sign_agreement": 0.4444444444444444,
+          "correlation": 0.3260566644067285
+        },
+        "dy_m": {
+          "n": 18,
+          "mjx_rms": 0.09768654530337473,
+          "tt_rms": 0.034626235543962935,
+          "mae": 0.06666305925076206,
+          "rmse": 0.08999996596180622,
+          "slope": 0.13841230508057412,
+          "sign_agreement": 0.5555555555555556,
+          "correlation": 0.007629954021830347
+        },
+        "yaw_deg": {
+          "n": 18,
+          "mjx_rms": 30.753619747576643,
+          "tt_rms": 7.746979627271063,
+          "mae": 24.367469787597656,
+          "rmse": 33.365598680081554,
+          "slope": -0.05681118851567468,
+          "sign_agreement": 0.5,
+          "correlation": -0.20146932584920493
+        },
+        "height_m": {
+          "n": 18,
+          "mjx_rms": 0.04498349268203845,
+          "tt_rms": 0.021700263181365097,
+          "mae": 0.029054651657740276,
+          "rmse": 0.03524542870907437,
+          "slope": 0.3094061645374458,
+          "sign_agreement": 0.6111111111111112,
+          "correlation": 0.3822777461750062
+        },
+        "joint_rad": {
+          "n": 216,
+          "mjx_rms": 0.21104679141885108,
+          "tt_rms": 0.06642000220342863,
+          "mae": 0.15269168783669118,
+          "rmse": 0.22332022785069272,
+          "slope": -0.010322674676651494,
+          "sign_agreement": 0.4722222222222222,
+          "correlation": -0.061080799945157235
+        }
+      },
+      "metrics_by_source_shape": {
+        "e001": {
+          "dx_m": {
+            "n": 18,
+            "mjx_rms": 0.16541594656819264,
+            "tt_rms": 0.10750374331357482,
+            "mae": 0.16646587323500878,
+            "rmse": 0.20393726692723538,
+            "slope": -0.048806303226817095,
+            "sign_agreement": 0.4444444444444444,
+            "correlation": 0.3260566644067285
+          },
+          "dy_m": {
+            "n": 18,
+            "mjx_rms": 0.09768654530337473,
+            "tt_rms": 0.034626235543962935,
+            "mae": 0.06666305925076206,
+            "rmse": 0.08999996596180622,
+            "slope": 0.13841230508057412,
+            "sign_agreement": 0.5555555555555556,
+            "correlation": 0.007629954021830347
+          },
+          "yaw_deg": {
+            "n": 18,
+            "mjx_rms": 30.753619747576643,
+            "tt_rms": 7.746979627271063,
+            "mae": 24.367469787597656,
+            "rmse": 33.365598680081554,
+            "slope": -0.05681118851567468,
+            "sign_agreement": 0.5,
+            "correlation": -0.20146932584920493
+          },
+          "height_m": {
+            "n": 18,
+            "mjx_rms": 0.04498349268203845,
+            "tt_rms": 0.021700263181365097,
+            "mae": 0.029054651657740276,
+            "rmse": 0.03524542870907437,
+            "slope": 0.3094061645374458,
+            "sign_agreement": 0.6111111111111112,
+            "correlation": 0.3822777461750062
+          },
+          "joint_rad": {
+            "n": 216,
+            "mjx_rms": 0.21104679141885108,
+            "tt_rms": 0.06642000220342863,
+            "mae": 0.15269168783669118,
+            "rmse": 0.22332022785069272,
+            "slope": -0.010322674676651494,
+            "sign_agreement": 0.4722222222222222,
+            "correlation": -0.061080799945157235
+          }
+        },
+        "e002": {
+          "dx_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "dy_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "yaw_deg": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "height_m": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          },
+          "joint_rad": {
+            "n": 0,
+            "mjx_rms": null,
+            "tt_rms": null,
+            "mae": null,
+            "rmse": null,
+            "slope": null,
+            "sign_agreement": null,
+            "correlation": null
+          }
+        }
+      },
+      "absolute_state_error": {
+        "e001": {
+          "position_xy": {
+            "mae": 0.041236478835344315,
+            "rmse": 0.0732937678694725
+          },
+          "height": {
+            "mae": 0.027357768267393112,
+            "rmse": 0.046812642365694046
+          },
+          "orientation_sincos": {
+            "mae": 0.08369990438222885,
+            "rmse": 0.1254926472902298
+          },
+          "gravity": {
+            "mae": 0.07221079617738724,
+            "rmse": 0.10889343917369843
+          },
+          "linear_velocity": {
+            "mae": 0.20310983061790466,
+            "rmse": 0.3538423478603363
+          },
+          "angular_velocity": {
+            "mae": 0.8005856871604919,
+            "rmse": 1.4049841165542603
+          },
+          "joint_position": {
+            "mae": 0.129869744181633,
+            "rmse": 0.25398606061935425
+          },
+          "joint_velocity": {
+            "mae": 3.42445707321167,
+            "rmse": 7.7408366203308105
+          },
+          "contact": {
+            "mae": 0.2155231386423111,
+            "rmse": 0.32148510217666626
+          },
+          "survival": {
+            "survived": 18,
+            "total": 18,
+            "falls": 0,
+            "numerical_failures": 0
+          }
+        },
+        "e002": {
+          "position_xy": {
+            "mae": 0.06254702061414719,
+            "rmse": 0.10757440328598022
+          },
+          "height": {
+            "mae": 0.026623087003827095,
+            "rmse": 0.043085791170597076
+          },
+          "orientation_sincos": {
+            "mae": 0.17089563608169556,
+            "rmse": 0.28070706129074097
+          },
+          "gravity": {
+            "mae": 0.14241661131381989,
+            "rmse": 0.2102857232093811
+          },
+          "linear_velocity": {
+            "mae": 0.2605452239513397,
+            "rmse": 0.4165506660938263
+          },
+          "angular_velocity": {
+            "mae": 1.4202966690063477,
+            "rmse": 2.068983793258667
+          },
+          "joint_position": {
+            "mae": 0.15300309658050537,
+            "rmse": 0.26304927468299866
+          },
+          "joint_velocity": {
+            "mae": 4.1858696937561035,
+            "rmse": 8.373491287231445
+          },
+          "contact": {
+            "mae": 0.24541892111301422,
+            "rmse": 0.3749832212924957
+          },
+          "survival": {
+            "survived": 17,
+            "total": 18,
+            "falls": 1,
+            "numerical_failures": 0
+          }
+        }
+      },
+      "source_strata_warning": [
+        "e002"
+      ]
+    }
+  }
+}

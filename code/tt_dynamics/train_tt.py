@@ -42,6 +42,8 @@ parser.add_argument("--d-model", type=int, default=256)
 parser.add_argument("--layers", type=int, default=6)
 parser.add_argument("--diff-steps", type=int, default=100)
 parser.add_argument("--val-frac", type=float, default=0.1)
+parser.add_argument("--split-key", help="NPZ row key with fixed train/val/test labels; test rows are excluded from training")
+parser.add_argument("--norm-from", type=Path, help="reuse another checkpoint's train-only x normalization")
 parser.add_argument("--eval-episodes", type=int, default=64)
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--eval-only", action="store_true")
@@ -90,9 +92,35 @@ def sample(net, x0, e0, kx, ke, pad, beta, abar):
 X, E, M, src, CL = load(args.data, EP)
 H = args.horizon
 rng = np.random.default_rng(args.seed)
-perm = rng.permutation(len(X))
-n_val = max(1, int(len(X) * args.val_frac))
-val, tr = perm[:n_val], perm[n_val:]
+# Counterfactual variants from one physical s0 must stay in the same split.
+groups = []
+for path in args.data:
+    with np.load(path) as z:
+        if "group_id" in z:
+            valid_rows = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
+            groups.extend([f"{path}:{int(z['group_id'][b])}" for b in valid_rows])
+        else:
+            groups.extend([f"{path}:{b}" for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2])
+assert len(groups) == len(X)
+unique, inverse = np.unique(groups, return_inverse=True)
+if args.split_key:
+    labels = []
+    for path in args.data:
+        with np.load(path) as z:
+            if args.split_key not in z:
+                raise KeyError(f"{args.split_key} missing in {path}")
+            labels.extend(z[args.split_key][b] for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2)
+    labels = np.asarray(labels)
+    assert len(labels) == len(X) and set(labels) <= {"train", "val", "test"}
+    tr, val = np.flatnonzero(labels == "train"), np.flatnonzero(labels == "val")
+else:
+    assert len(unique) >= 2, "at least two independent starts are needed for train/validation"
+    perm = rng.permutation(len(unique))
+    n_val_groups = min(len(unique) - 1, max(1, int(len(unique) * args.val_frac)))
+    val, tr = np.where(np.isin(inverse, perm[:n_val_groups]))[0], np.where(np.isin(inverse, perm[n_val_groups:]))[0]
+assert len(tr) and len(val), "train and val must both be nonempty"
+n_val = len(val)
+assert not np.intersect1d(inverse[val], inverse[tr]).size
 Xt, Mt = torch.tensor(X, device=dev), torch.tensor(M, device=dev)
 Lt = Mt.sum(1)
 
@@ -145,15 +173,20 @@ def window(idx, gen=None):
 
 g = torch.Generator(device=dev).manual_seed(args.seed)
 trt = torch.tensor(tr, device=dev)
-xs, ms = zip(*[window(trt[torch.randint(0, len(tr), (2048,), device=dev, generator=g)], g) for _ in range(10)])
-flat = torch.cat([x[m] for x, m in zip(xs, ms)]).cpu().numpy()
-if args.norm == "minmax":
-    lo, hi = flat.min(0), flat.max(0)
-    mu, sd = (hi + lo) / 2, (hi - lo) / 2 + 1e-3
-    emu, esd = 0.5, 0.5  # uniforms [0,1] -> [-1,1]
+if args.norm_from:
+    norm_ck = torch.load(args.norm_from, map_location="cpu", weights_only=False)
+    if norm_ck["args"]["norm"] != args.norm or norm_ck["args"]["horizon"] != H:
+        raise ValueError("normalization checkpoint has different norm or horizon")
+    mu, sd = norm_ck["mu"], norm_ck["sd"]
 else:
-    mu, sd = flat.mean(0), flat.std(0) + 1e-3
-    emu, esd = 0.5, 0.25
+    xs, ms = zip(*[window(trt[torch.randint(0, len(tr), (2048,), device=dev, generator=g)], g) for _ in range(10)])
+    flat = torch.cat([x[m] for x, m in zip(xs, ms)]).cpu().numpy()
+    if args.norm == "minmax":
+        lo, hi = flat.min(0), flat.max(0)
+        mu, sd = (hi + lo) / 2, (hi - lo) / 2 + 1e-3
+    else:
+        mu, sd = flat.mean(0), flat.std(0) + 1e-3
+emu, esd = (0.5, 0.5) if args.norm == "minmax" else (0.5, 0.25)
 mu_t, sd_t = torch.tensor(mu, device=dev), torch.tensor(sd, device=dev)
 En = torch.tensor((E - emu) / esd, device=dev)
 args.out.mkdir(parents=True, exist_ok=True)

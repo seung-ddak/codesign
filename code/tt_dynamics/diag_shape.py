@@ -49,12 +49,13 @@ parser.add_argument("--tt-seeds", type=int, default=4)
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--vary", choices=("E", "A"), default="E", help="A = D5: 원 형상 E 고정, A 만 바꿈 (다른 window 의 A / 상수 offset)")
 parser.add_argument("--offset", type=float, default=0.1, help="--vary A 의 관절별 상수 offset 최대 (rad)")
+parser.add_argument("--manifests", type=Path, nargs=3, help="e000/e001/e002 split manifests; sample only Test source episodes")
 args = parser.parse_args()
 args.out.mkdir(parents=True, exist_ok=True)
-dev = "cuda"
+dev = "cuda" if torch.cuda.is_available() else "cpu"
 
 # ---- TT ----
-ck = torch.load(args.ckpt / "checkpoint.pt", weights_only=False)
+ck = torch.load(args.ckpt / "checkpoint.pt", map_location=dev, weights_only=False)
 ta = ck["args"]
 H = ta["horizon"]
 net = Net(H, ta["d_model"], ta["layers"]).to(dev)
@@ -91,7 +92,11 @@ Es = [D[n]["E"].astype(np.float32) for n in SHAPES]
 W = []  # (원 형상, qpos0, qvel0, target_q [H,12])
 for si, n in enumerate(SHAPES):
     v = D[n]["valid"]
-    ok = [(b, t) for b in range(len(v)) for t in range(0, v.shape[1] - H, 8) if v[b, t:t + H].all()]
+    allowed = (set(int(k) for k, split in json.loads(args.manifests[si].read_text())["episodes"].items() if split == "test")
+               if args.manifests else set(range(len(v))))
+    ok = [(b, t) for b in allowed for t in range(0, v.shape[1] - H, 8) if v[b, t:t + H].all()]
+    if len(ok) < args.windows:
+        raise ValueError(f"{n}: only {len(ok)} valid windows for {args.windows} requested")
     for j in rng.choice(len(ok), args.windows, replace=False):
         b, t = ok[j]
         W.append((si, D[n]["qpos"][b, t], D[n]["qvel"][b, t], D[n]["target_q"][b, t:t + H]))
@@ -116,15 +121,26 @@ def mjx_run(E, W, TQ):
                                                      torque_limit=cfg.get("torque_limit"), uniforms=E), **ecfg)
     feet = np.asarray(env._foot_ids)
     d = mujoco.MjData(env.mj_model)
-    datas = []
+    datas, initial_bad = [], []
+    floor = mujoco.mj_name2id(env.mj_model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
     for _, q, qv, _ in W:
         q = q.copy()
         d.qpos[:] = q
         mujoco.mj_kinematics(env.mj_model, d)
         q[2] -= d.geom_xpos[feet, 2].min() - FOOT_R
-        datas.append(mjx.forward(env.mjx_model, make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(qv), impl=env.impl,
-                                                           nconmax=env._nconmax, njmax=env._njmax)))
+        d.qpos[:] = q
+        d.qvel[:] = qv
+        mujoco.mj_forward(env.mj_model, d)
+        nonfoot_floor = any(floor in (c.geom1, c.geom2) and
+                            (c.geom2 if c.geom1 == floor else c.geom1) not in feet and c.dist < -0.005
+                            for c in d.contact[:d.ncon])
+        joint_bad = ((q[7:19] < env.mj_model.jnt_range[1:, 0] - 1e-3) |
+                     (q[7:19] > env.mj_model.jnt_range[1:, 1] + 1e-3)).any()
+        initial_bad.append(bool(nonfoot_floor or joint_bad or not np.isfinite(q).all() or not np.isfinite(qv).all()))
+        datas.append(make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(qv), impl=env.impl,
+                               nconmax=env._nconmax, njmax=env._njmax))
     data = jax.tree.map(lambda *a: jnp.stack(a), *datas)
+    data = jax.jit(jax.vmap(lambda dd: mjx.forward(env.mjx_model, dd)))(data)
     vstep = jax.jit(jax.vmap(lambda dd, c: step(env.mjx_model, dd, c, env.n_substeps)))
     off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
     qs, vs, cs = [], [], []
@@ -140,7 +156,7 @@ def mjx_run(E, W, TQ):
     qs, vs, cs = np.stack(qs, 1), np.stack(vs, 1), np.stack(cs, 1)
     x = np.concatenate([np.stack([features(qs[i], vs[i], cs[i]) for i in range(NW)]), TQ], -1)
     up = 1 - 2 * (qs[..., 4] ** 2 + qs[..., 5] ** 2)  # 몸통 z 축의 world z 성분
-    return x, (up < env.termination_fellover_threshold).any(1)
+    return x, (up < env.termination_fellover_threshold).any(1), np.asarray(initial_bad)
 
 
 def metrics(x):
@@ -150,13 +166,13 @@ def metrics(x):
                 gx=x[:, :, 5].mean(1), gy=x[:, :, 6].mean(1))
 
 
-M_mjx, M_tt, fell = [], [], []
+M_mjx, M_tt, fell, initial_bad = [], [], [], []
 if args.vary == "E":
     VARIANTS = SHAPES
     for si, E in enumerate(Es):
-        xm, f = mjx_run(E, W, TQ)
+        xm, f, bad = mjx_run(E, W, TQ)
         xt = np.mean([tt_dynamics(xm, E, args.seed + k) for k in range(args.tt_seeds)], 0)  # s0·A 는 MJX 와 같은 값
-        M_mjx.append(metrics(xm)), M_tt.append(metrics(xt)), fell.append(f)
+        M_mjx.append(metrics(xm)), M_tt.append(metrics(xt)), fell.append(f), initial_bad.append(bad)
         print(SHAPES[si], "MJX 낙상", int(f.sum()), "/", NW, flush=True)
 else:  # D5: 같은 s0·E (원 형상), A = 원래 / 같은 형상 다른 window 의 A / 원래 + 관절별 상수 offset
     VARIANTS = ["orig", "swap", "offset"]
@@ -165,19 +181,22 @@ else:  # D5: 같은 s0·E (원 형상), A = 원래 / 같은 형상 다른 window
     swap[np.concatenate([np.where(src == i)[0] for i in range(3)])] = perm
     TQs = [TQ, TQ[swap], TQ + rng.uniform(-args.offset, args.offset, (NW, 1, TQ.shape[-1])).astype(np.float32)]
     for vi, tq in enumerate(TQs):
-        xm, xt, f = np.zeros((NW, H, TQ.shape[-1] + S_DIM), np.float32), None, np.zeros(NW, bool)
+        xm, xt, f, bad = np.zeros((NW, H, TQ.shape[-1] + S_DIM), np.float32), None, np.zeros(NW, bool), np.zeros(NW, bool)
         xt = np.zeros_like(xm)
         for si, E in enumerate(Es):
             idx = np.where(src == si)[0]
-            xm[idx], f[idx] = mjx_run(E, [W[i] for i in idx], tq[idx])
+            xm[idx], f[idx], bad[idx] = mjx_run(E, [W[i] for i in idx], tq[idx])
             xt[idx] = np.mean([tt_dynamics(xm[idx], E, args.seed + k) for k in range(args.tt_seeds)], 0)
-        M_mjx.append(metrics(xm)), M_tt.append(metrics(xt)), fell.append(f)
+        M_mjx.append(metrics(xm)), M_tt.append(metrics(xt)), fell.append(f), initial_bad.append(bad)
         print(VARIANTS[vi], "MJX 낙상", int(f.sum()), "/", NW, flush=True)
 SHAPES_OUT = VARIANTS
 
-keep = ~np.any(fell, 0)
+keep = ~np.any(fell, 0) & ~np.any(initial_bad, 0)
 res = dict(ckpt=str(args.ckpt), windows=NW, kept=int(keep.sum()), tt_seeds=args.tt_seeds,
-           fell={SHAPES_OUT[i]: int(fell[i].sum()) for i in range(3)}, pairs={}, abs_err={})
+           fell={SHAPES_OUT[i]: int(fell[i].sum()) for i in range(3)},
+           initial_bad={SHAPES_OUT[i]: int(initial_bad[i].sum()) for i in range(3)}, pairs={}, abs_err={})
+if not keep.any():
+    raise ValueError("no physically valid windows survive all variants")
 for a, b in PAIRS:
     key = f"{SHAPES_OUT[a]}-{SHAPES_OUT[b]}"
     res["pairs"][key] = {}

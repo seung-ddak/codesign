@@ -167,3 +167,17 @@
 - 원인: `generate_task.py` 는 10 s 를 TT 상상으로 한 번에 생성 후 MJX open-loop 실행 → window 16 개에 TT 오차 누적 (실제 진행 ≈ 0).
 - 계획 `--replan K` (K=16): E 는 첫 생성으로 고정, K step 실행 → MJX 실제 state 를 s0 로 mode 2 + guidance 재생성 반복. 단변수 = track_try4ctrl 대비 실행 방식만. 통과: scale 10 MJX 진행 ≥ TT 예측의 50 %, 낙상 ≤ 2/8. A 통과 → 형상 문제로 / B 미달 → 반사실 데이터 / C 무변화 → 실행기 (expert) 검토.
 - GPU 0 은 HBM_paper2 A14 큐 (10-20 01:30 전후 종료 예상), 실험은 GPU 1 (P620).
+
+### 8-19. action 반사실 A/B 다형상 평가 (2026-10-20)
+- 결론: B는 학습 형상 e000/e001/e002의 held-out episode에서 관절 ΔMAE 6/6, yaw 5/6, 측면 위치 3/3 개선; 전진 위치는 3/3 소폭 악화. 결과 `runs/pipeline_v1/action_ablation/multishape_test_e{000,001,002}.json`.
+- 단, B는 A보다 전체/학습 trajectory가 3배 (전체 1,728/576, train 1,200/400 episode)라 pairing 단독 효과는 분리 불가. 미학습 형상 일반화·복합 task 성공은 미검증. 상세표 `runs/pipeline_v1/action_ablation/README.md`.
+
+### 8-20. D4 다중 형상 민감도 (frozen h32_multishape_B, 2026-10-20)
+- 같은 held-out `qpos/qvel/A`를 e000/e001/e002에 그대로 적용, 추가 학습 없이 32 state·31 control MJX와 TT seed 8개를 평가. 유효 시작 199개 (source e000/e001/e002 = 6/192/1), 공통 초기 접촉까지 일치한 시작은 13개뿐.
+- 판정: TT가 형상 변화에 일부 반응하지만 yaw·joint 변화 slope는 약 −0.024~0.065, 측면도 약함. e002−e000 전진 slope 0.70, 높이는 0.16~0.54로 일부 반응. 전체 요약은 source 불균형이 심해 대표성 제한.
+- 원인/제약: 768개 held-out 후보/source를 audit했으나 초기 충돌·관절 한계·유한성·공통 action 조건을 모두 통과한 시작은 e000-source 6개, e001-source 718개, e002-source 1개뿐. 자세/높이를 보정하지 않는 조건에서 balanced physics-valid 공통 시작이 부족하다. `runs/pipeline_v1/diag/D4_morphology_v3/README.md` 및 JSON·NPZ·figure1~5 참조. 균형 있는 판정 전에는 임의 보정하지 말고 공통 유효 시작 확보 방안을 사용자와 결정한다.
+
+### 8-21. D4 pairwise 재평가 (frozen h32_multishape_B, 2026-10-20)
+- 세 형상 공통 교집합 대신 각 pair를 독립 audit했다. 같은 qpos/qvel/A와 두 형상 모두 유효·초기 4발 접촉 일치 조건으로 e000↔e001 15개(6/9), e000↔e002 21개(7/14), e001↔e002 18개(18/0; source e002는 0개)를 확보. 모든 후보를 검사했고 추가 학습 없음.
+- 결과: 세 pair 모두 yaw TT RMS ≪ MJX (4.38/43.99°, 5.25/26.59°, 7.75/30.75°), yaw slope ≈0.006/−0.0003/−0.057. 관절 slope도 약 0.005~−0.010으로 거의 무반응. 높이는 부분 반응(기울기 0.31~0.47); 전진은 e000↔e002만 slope 0.61, 나머지는 약함/반대. 형상 민감도는 여전히 부족하다는 증거.
+- 제약: 표본은 작고 source 편중, 특히 e001↔e002는 e001-source만 포함하므로 전체 source 분포 일반화는 주장하지 않는다. `runs/pipeline_v1/diag/D4_pairwise_v2/README.md`, pair별 `data.npz`·그림 참조.
