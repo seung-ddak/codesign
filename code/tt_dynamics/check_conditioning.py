@@ -29,4 +29,15 @@ for config in ({'modes': [0,1,2,3]}, {'modes': [0,1,2], 'conditioning_version': 
     except ValueError: pass
     else: raise AssertionError('Invalid free checkpoint accepted')
 check_free_checkpoint({'modes': [0,1,2,3], 'conditioning_version': CONDITIONING_VERSION})
-print('PASS: all modes, padding, training/generation agreement, free E gradient, legacy checkpoint rejection')
+# mode 4: s0 의 형상 무관 칸만 앎 (높이 2·관절각 14:26 모름), E·A 모름, 학습·생성 같은 함수
+from tt_model import REST_KNOWN, check_rest_checkpoint, rest_s0
+k4, e4 = condition_masks(torch.tensor([4]), valid[:1])
+assert not k4[0, 0, 2] and not k4[0, 0, 14:26].any() and k4[0, 0, [0, 1, 3, 4, 5, 6, 7]].all() and k4[0, 0, 26:S_DIM].all()
+assert not k4[0, 1:].any() and not k4[0, :, S_DIM:].any() and not e4.any()
+mixed, _ = condition_masks(torch.tensor([0, 4]), valid[:2])
+torch.testing.assert_close(mixed[1], k4[0]); assert mixed[0, 0, :S_DIM].all()
+r = rest_s0(); assert r[3] == 1 and r[7] == -1 and r[38:42].eq(1).all() and r[8:14].eq(0).all() and r[26:38].eq(0).all()
+try: check_rest_checkpoint({'modes': [0, 1, 2]})
+except ValueError: pass
+else: raise AssertionError('rest without mode 4 accepted')
+print('PASS: all modes, padding, training/generation agreement, free E gradient, legacy checkpoint rejection, mode 4 rest mask')

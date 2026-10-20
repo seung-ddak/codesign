@@ -124,8 +124,46 @@
 - 결론: 기준 (두 task 평균 E 거리 > 0.1) 불통과, 0.037 (scale 10). E 는 e000·e001·e002 로 나뉘지만 후보별 형상은 노이즈가 정한다 (같은 seed → scale·task 무관 같은 형상). 예측-실제 격차는 감소 (지그재그 scale 10: 2.14 vs 0.41 m → 0.81 vs 0.76 m).
 - TT 오차 try4 대비 약 10 % 증가 (32 step yaw 6.2°·위치 9.5 cm·관절 7.2°). scale 0 낙상 8/8 (3~186 step): 생성 s0 가 분포 밖 (높이 0.11~0.37 m vs 데이터 시작 0.28~0.32, 속도 최대 1.4 m/s) — free 조건이 episode 중간 window (낙상 중 포함) 의 시작 state 를 배웠기 때문.
 
+### 8-9. 진단 D1 open-loop 민감도 (2026-10-18, 데이터의 실제 행동을 MJX 에 재생, TT 무관)
+- 결론: open-loop 자체는 주원인 아님 (작은 교란 ±0.01 rad·±1 mm 에서 10 s 낙상 평균 23 %, 기준 50 %). 1 s 시점 위치 차이 0.4~0.7 cm 로 TT 32 step 오차 8.4 cm 보다 10 배 이상 작다 → 생성 실패의 주원인은 TT 예측 오차.
+- 형상 차이: e000 낙상 0 %, e001 33 %, e002 36 % (교란 없는 대조군도 6·16 %). e001·e002 는 10 s open-loop 에서 불안정 → 긴 실행엔 재계획 필요. 코드 `code/tt_dynamics/diag_openloop.py`, 결과 `runs/pipeline_v1/diag/D1_openloop/`.
 
-### 8-9. CGR 코드 대조: free 조건 불일치 수정
+### 8-10. 진단 D2 데이터 분포 밖 여부 (2026-10-18, 생성 step 의 학습 데이터 최근접 거리)
+- 결론: 새로운 물리 영역 아님. 생성 step 중 데이터 p99 거리 초과 0.07 % (데이터 자신 1 %, 기준 3 %), scale 10 도 0 %. 초과 비율과 예측-실제 차이 상관 −0.09 → TT 가 데이터 범위 안에서 틀린다 (TT 학습 문제, P4·P13).
+- 단, 생성 step 의 최근접 거리 중앙값 0.21~0.32 = 데이터 (0.055) 의 4~6 배 → 데이터가 드문 사이 영역. step 단위 검사라 전이 (s, a → s') 의 오류는 못 본다 → D3. 코드 `code/tt_dynamics/diag_ood.py`, 결과 `runs/pipeline_v1/diag/D2_ood/`.
+
+### 8-11. CGR 코드 대조: free 조건 불일치 수정
 - `report.html`과 코드 대조에서 mode 3의 E 마스크 오류 확인: 학습에서는 정답 E가 주어지고 E loss가 0이지만, `--free-s0` 실행은 E도 숨겼다. try5/try2의 free 공동생성 해석은 재검증 필요.
 - 학습·실행이 `tt_model.condition_masks`를 공유하도록 수정. mode 0/1/2 유지, mode 3의 E·s0 모두 미지. `conditioning_version=2` 기록, 구형 checkpoint의 free 실행은 차단.
 - `h32_freefix_cgr`는 try5와 같은 100k·4조건 설정으로 오류만 바꾸는 비교 실험. 분석과 남은 병목은 `runs/pipeline_v1/ROOT_CAUSE_REVIEW.md`; 형상 3개, 첫 window에서만 E 결정, 초기 상태·dynamics 문제까지 해결됐다는 뜻은 아니다.
+- 결과 (h32_freefix_cgr): 32 step yaw 6.17°·위치 10.4 cm (try5 와 동급). free-s0 원형 scale 0 유효 0.87 → 6.04 s 로 늘었지만 8/8 낙상 → 버그는 주원인 아님.
+
+### 8-12. S 직접 guidance 끄기 → track_try3·zigzag_try3 (2026-10-19, try1 대비 `--no-guide-s` 만 변경, h32_try4·s0 고정·scale 1/3/10)
+- 결론: 판정 B. 생성 S 와 (생성 E·A 로 TT 재예측한 S) 의 불일치 10~11.5 → 7.0~7.6 cm (= seed 흔들림 6.3~7.1 cm) 로 직접 경로 몫 제거 확인. 원형 경로 차 0.36~0.86 → 0.26~0.43 m.
+- 그러나 MJX reward 6 중 5 하락, TT 예측 reward 도 하락: 직접 경로가 S→A 를 끌어주던 통로였고, 남은 ∂R/∂A 는 TT 의 A→S 가 느슨해 (같은 입력 seed 흔들림 6 cm) 약하다. on·off 모두 실제 진행 ≈ 0, E 거리 0.001.
+- 코드 `generate_task.py --no-guide-s`, `diag_consistency.py`. 보고서 7-6. 병합 코드 재실행: TT 생성 비트 동일, MJX 는 GPU 실행 간 미세 차이 (평균 0.002, 낙상 ±1 step) → 후보 1 개 수준 reward 차이는 판정 근거 아님.
+
+### 8-13. 진단 D3 생성 궤적 전이 오차 (2026-10-19, 생성 E·s0·A 를 window 단위로 MJX 재실행)
+- 결론: 생성 궤적의 전이 오차 = 평소 TT 오차의 0.7~1.4 배 (위치), yaw 1~2.6 배. 생성이 특별히 나쁜 게 아니라 TT 의 A→S 정확도 자체가 주원인 (속도 오차 0.172 ≈ 가만히 있음 기준 0.180).
+- 코드 `code/tt_dynamics/diag_transition.py`, 결과 `runs/pipeline_v1/diag/D3_transition/`.
+
+### 8-14. s0 A안: mode 4 (rest-s0) → h32_try6 · track_try4 · zigzag_try4 (`--half-width 0.15`) · track_try4ctrl (2026-10-19)
+- 결론: s0 해제가 E 고정 장벽이었다 (ctrl = try6 + s0 고정 → E std 0.002 로 다시 0.5). 단 생성 E 는 전부 학습 3 점 (e000·e001·e002) 중 하나와 거리 0.01 이내, 형상은 seed 가 정한다.
+- 기준: s0 높이 범위 안 4~5/8 (미달), scale 0 낙상 4/8 (통과), E 거리 0.12 (후보 1 개 탓, 사실상 미달). h32_try6 diag_window 정지 yaw 6.14° (try4 4.51°). scale 10 track R: try1 −0.95, ctrl +0.34, try4 +0.19.
+
+### 8-15. 진단 D4 형상 민감도 (2026-10-19, 같은 s0·A 에 E 만 교체, TT vs MJX Δ)
+- 결론: 판정 B. 높이 Δ 만 맞고 (r 0.47~0.68, 기울기 ≈ 1), 전진·yaw·pitch Δ 는 TT 가 거의 0 (기울기 0.01~0.27). 다른 형상 E 를 넣으면 오차 2 배 (전진 6.2 → 12.4 cm). ckpt try4·try6 동일.
+- 코드 `code/tt_dynamics/diag_shape.py`, 결과 `runs/pipeline_v1/diag/d4_try1{,_ckpt4}/`.
+
+### 8-16. guidance gradient 진단 (2026-10-19, h32_try6, generate_task 첫 window 재현 PASS)
+- 결론: diff_steps 5 에서 ᾱ = [0.899, 0.648, 0.341, 0.094, 0.0001], 첫 step 은 clamp 포화로 무의미. 형상은 k=3 에서 결정 (최종과 7/8 일치), 이후 network 가 학습점 쪽으로 0.1~0.3 당기고 guidance (0.09 → 0.007) 는 그보다 작다.
+- token 당 |∇S| > |∇E| > |∇A| ("A 가 E 를 가림" 기각). guidance = 학습 분포 × exp(R) 이므로 step 을 늘려도 3 점 사이 형상은 안 나온다 → 형상 수 확대 필수. 코드 `diag_grad.py`, 결과 `tt/h32_try6/diag_grad.json`.
+
+### 8-17. 진단 D5 행동 민감도 (2026-10-19, `diag_shape.py --vary A --offset 0.1`, 175 window)
+- 결론: 가설 확인, TT 가 A 를 거의 무시. offset A 에 TT 반응 = MJX 실제 Δ 의 6~10 % (기울기 0.01~0.04), swap A 24~33 % (yaw 상관 0.02). 높이만 0.66.
+- 원인 가설: 데이터 A = π(S) 라 A 가 중복 정보. E 도 같은 구조 (D4). 해결 후보 = 반사실 쌍 데이터 (같은 s0 에 A offset·swap·E swap 을 MJX open-loop 32 step, diag_shape mjx_run 재사용). 결과 `runs/pipeline_v1/diag/d5_try1/`.
+
+### 8-18. 다음 계획: 재계획 실행 (2026-10-19, 사용자 우선순위 = 지금 나온 E 로 복합 작업부터 성공)
+- 원인: `generate_task.py` 는 10 s 를 TT 상상으로 한 번에 생성 후 MJX open-loop 실행 → window 16 개에 TT 오차 누적 (실제 진행 ≈ 0).
+- 계획 `--replan K` (K=16): E 는 첫 생성으로 고정, K step 실행 → MJX 실제 state 를 s0 로 mode 2 + guidance 재생성 반복. 단변수 = track_try4ctrl 대비 실행 방식만. 통과: scale 10 MJX 진행 ≥ TT 예측의 50 %, 낙상 ≤ 2/8. A 통과 → 형상 문제로 / B 미달 → 반사실 데이터 / C 무변화 → 실행기 (expert) 검토.
+- GPU 0 은 HBM_paper2 A14 큐 (10-20 01:30 전후 종료 예상), 실험은 GPU 1 (P620).

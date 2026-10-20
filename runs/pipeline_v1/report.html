@@ -79,6 +79,7 @@ img.paths{width:100%;border:1px solid var(--line);border-radius:4px;background:#
 img.paths[hidden]{display:none}
 a{color:var(--accent)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.qa{border-left:3px solid var(--accent);background:var(--soft);padding:8px 12px;margin:8px 0;border-radius:0 4px 4px 0;line-height:1.6}.qa .q{font-weight:700;color:var(--accent)}.qa .a{margin-top:4px}
 </style>
 <div class="wrap">
 <header>
@@ -86,7 +87,7 @@ a{color:var(--accent)}
   <h1>Pipeline v1 종합 보고서</h1>
   <p class="sub">A1 모션 → 형상별 리타겟 → 모션 expert PPO → rollout 수집 → TT dynamics 학습 → 보상 guidance 로 형상·행동 생성 → MJX 실행 검증. 구현 방법과 모든 run 의 결과를 이 파일 하나에 모았다. 경로 <code>codesign/runs/pipeline_v1/</code>, 정본 기록 <code>codesign/remind.md</code> §8.</p>
   <nav class="toc" aria-label="목차">
-    <a href="#sum">요약</a><a href="#term">용어</a><a href="#impl">구현</a><a href="#s1">1 리타겟</a><a href="#s2">2·3 Expert</a><a href="#s4">4 Rollout</a><a href="#s5">5 TT</a><a href="#s6">6 Task 설계</a><a href="#s7a">7-1 원형 try1</a><a href="#s7b">7-2 지그재그 try1</a><a href="#s7c">7-3 try2 (s0 생성)</a><a href="#media">궤적·영상</a><a href="#prob">문제 정리</a><a href="#next">다음 선택지</a><a href="#files">파일</a>
+    <a href="#sum">요약</a><a href="#term">용어</a><a href="#impl">구현</a><a href="#s1">1 리타겟</a><a href="#s2">2·3 Expert</a><a href="#s4">4 Rollout</a><a href="#s5">5 TT</a><a href="#s6">6 Task 설계</a><a href="#s7a">7-1 원형 try1</a><a href="#s7b">7-2 지그재그 try1</a><a href="#s7c">7-3 try2 (s0 생성)</a><a href="#d1">7-4 D1</a><a href="#d2">7-5 D2</a><a href="#orig">원본 TT 대조</a><a href="#noguide">7-6 S guidance off</a><a href="#media">궤적·영상</a><a href="#prob">문제 정리</a><a href="#next">다음 선택지</a><a href="#files">파일</a>
   </nav>
 </header>
 
@@ -115,6 +116,11 @@ a{color:var(--accent)}
     <tr><td>guidance · <b>scale</b></td><td>디노이징 매 step 에서 보상 gradient ∇R 를 노이즈 예측에 반영한다. scale = 그 세기. 0 = 보상 미사용 (기준), 10 = 강하게 (아래 6 절 식)</td></tr>
     <tr><td>open-loop 실행</td><td>생성한 A 를 MJX 에 그대로 넣는다. 실행 중 실제 state 를 보고 다시 생성하지 않는다 (재계획 없음)</td></tr>
     <tr><td>hold 기준선</td><td>"s0 에서 아무것도 안 변한다" 고 예측했을 때의 오차. 모델 오차가 이보다 크면 아무것도 배우지 못한 것</td></tr>
+    <tr><td>s0 (다시 정리)</td><td>로봇이 출발할 때 (t = 0) 의 상태. 데이터의 출발 = 각 모션 참조의 첫 프레임이라 모션마다 다르다 (walkForwardSlow · squat ≈ 정지, walkForwardFast 0.83 m/s). s0 에는 형상 정보가 들어 있다: 출발 높이 e000 0.291 · e001 0.345 · e002 0.352 m (형상 안 편차 ±0.01) → e000 의 s0 로 고정하면 형상도 e000 에 묶인다. free 조건이면 s0 도 TT 가 만드는데, 학습을 episode 중간 window (넘어지는 중 포함) 로 해서 높이 0.11 m 로 주저앉거나 1.4 m/s 로 이미 달리는 자세로 출발 → 바로 낙상 (7-3)</td></tr>
+    <tr><td>dense · sparse</td><td>dense = 연속된 step 을 빠짐없이 (우리: 32 step = 0.62 s 를 촘촘히, 그 뒤는 못 봄). sparse = 띄엄띄엄 몇 시점만 (원본 TT: 500 step 중 8 개, 간격 약 71 step = 1.4 s, 대신 10 s 전체를 봄). sparse 는 중간 동작이 없어 A 를 그대로 실행할 수 없고, 생성 S 를 참조 모션 삼아 expert 가 따라가야 한다</td></tr>
+    <tr><td>inpainting (고정)</td><td>알고 있는 값 (예: s0) 을 디노이징 매 step 마다 원래 값으로 덮어써서 고정하는 것. 원본 TT 는 참조 모션을 고정하고, 우리는 reward 가 과제를 정하므로 참조 모션 고정은 필요 없다. 다만 s0 는 "로봇이 서서 출발한다" 는 물리적 사실이라 고정 후보 (미결 안건)</td></tr>
+    <tr><td>guidance 의 직접 · 간접 경로</td><td>R 은 S (몸통 위치·yaw) 로 계산된다. ∂R/∂S 가 S 토큰을 곧바로 옮기는 것이 직접 경로 (신경망을 안 거침), E·A 를 바꾸면 TT 가 "그 E·A 면 S 는 이렇다" 고 다시 예측해서 S 가 따라오는 것이 간접 경로 (dynamics 를 거침). 직접 경로만 있으면 S 는 물리와 상관없이 움직일 수 있다</td></tr>
+    <tr><td>seed 흔들림</td><td>같은 입력 (E·s0·A) 을 주고 diffusion 시작 노이즈만 바꿔 생성했을 때 S 가 달라지는 양. 물리는 결정적이라 TT 가 dynamics 를 제대로 배웠다면 0 에 가까워야 한다</td></tr>
     <tr><td>model exploitation</td><td>guidance 가 TT 의 예측 오류를 이용해 예측 보상만 높이고 실제 보상은 높이지 못하는 현상</td></tr>
   </tbody></table></div>
 </section>
@@ -177,11 +183,11 @@ a{color:var(--accent)}
     <tr><td>모델</td><td>Transformer encoder d_model 256 · 6 layer · 8 head (4.93 M), batch 32, lr 2e-4 (cosine → 0), seed 0</td></tr>
     <tr><td>토큰</td><td>E 토큰 1 개 + step 토큰 H 개 ([S_t, A_t] 54 차원). 각 토큰에 "알려진 값 여부" 마스크를 붙여 입력. 위치·yaw 는 window 첫 state 기준</td></tr>
     <tr><td>학습</td><td>ε 예측 diffusion. 배치마다 조건 (mode) 을 무작위로 골라 알려진 값은 원래 값으로 고정 (inpainting), 나머지만 loss</td></tr>
-    <tr><td>평가 ① episode</td><td>val 64 ep 의 실제 s0 에서 dynamics 조건으로 window 를 이어 붙여 500 step 생성 → step t 의 관절 RMSE · 위치 오차</td></tr>
-    <tr><td>평가 ② 32 step window</td><td>val 의 1,344 window 하나씩, 모션 종류별 (정지 / 직진·횡이동 / 회전) yaw · 위치 · 관절 · 속도 오차</td></tr>
+    <tr><td>평가 1 · episode</td><td>val 64 ep 의 실제 s0 에서 dynamics 조건으로 window 를 이어 붙여 500 step 생성 → step t 의 관절 RMSE · 위치 오차</td></tr>
+    <tr><td>평가 2 · 32 step window</td><td>val 의 1,344 window 하나씩, 모션 종류별 (정지 / 직진·횡이동 / 회전) yaw · 위치 · 관절 · 속도 오차</td></tr>
   </tbody></table></div>
   <h3>run 별 변경과 결과</h3>
-  <div class="steps" id="steps"><div class="step"><div class="k">1. h500_try1<small>10-17 08:45</small></div><div><p><b>변경</b> horizon 500 한 번에, 100 diffusion step, zscore</p><p><b>결과</b> episode 관절 40.0° · 위치 438 cm. hold (21.4° · 75.6 cm) 보다 나쁨 <span class="pill p-fail">실패</span></p></div></div><div class="step"><div class="k">2. h500_try2<small>10-17 09:48</small></div><div><p><b>변경</b> TT 원본 설정: 5 step DDIM, minmax [−1,1], clip 1</p><p><b>결과</b> 관절 14.9° 로 hold 보다 좋아졌지만 위치 297 cm. 1 step 오차부터 hold 보다 커서 500 step 한 번 생성은 실패 <span class="pill p-fail">실패</span></p></div></div><div class="step"><div class="k">3. h8_try1<small>10-17 10:30</small></div><div><p><b>변경</b> 짧은 window (8 step) 이어 붙이기</p><p><b>결과</b> 1 step 관절 3.7° · 위치 0.7 cm. stride 1 / 4 / 7 비교 (위치 133 / 67 / 63 cm) → 누적 오차는 이어 붙인 횟수에 비례 <span class="pill p-warn">부분</span></p></div></div><div class="step"><div class="k">4. h32_try1<small>10-17 10:57</small></div><div><p><b>변경</b> window 32 step</p><p><b>결과</b> 관절 13.4° · 위치 107 cm. 32 step window yaw 11.0° · 위치 13.1 cm <span class="pill p-warn">부분</span></p></div></div><div class="step"><div class="k">5. h32_try2<small>10-17 11:21</small></div><div><p><b>변경</b> 위치·yaw 를 직전 step 대비 변화량으로 표현</p><p><b>결과</b> yaw 9.7° · 위치 13.8 cm. 효과 없음 → 위치 오차 원인은 표현이 아니라 yaw·속도 오차 <span class="pill p-fail">실패</span></p></div></div><div class="step"><div class="k">6. mlp_try1<small>10-17 12:17</small></div><div><p><b>변경</b> 진단: 1-step MLP (E · s · a → 다음 s)</p><p><b>결과</b> 32 step yaw 4.0° · 위치 2.2 cm → 데이터에 dynamics 정답은 충분, TT 학습 쪽 문제. 단 장기 rollout 에서 발산 (t250 관절 388°) <span class="pill p-info">진단</span></p></div></div><div class="step"><div class="k">7. h32_try3<small>10-17 12:25</small></div><div><p><b>변경</b> 학습 조건을 dynamics 하나로 (G2)</p><p><b>결과</b> yaw 11.0→5.9° · 위치 13.1→8.6 cm. 조건 혼합이 학습을 희석했음을 확인 <span class="pill p-pass">통과</span></p></div></div><div class="step"><div class="k">8. h32_try4<small>10-17 13:47</small></div><div><p><b>변경</b> 조건 3 종 혼합 유지 + 100k step (G1)</p><p><b>결과</b> yaw 5.6° · 위치 8.4 cm · 관절 6.8°. 희석은 학습량으로 메워진다. 남은 격차: 속도 0.153 vs MLP 0.055 m/s, 회전 yaw 15.2° <span class="pill p-pass">통과</span></p></div></div><div class="step"><div class="k">9. h32_try5<small>10-18 10:26</small></div><div><p><b>변경</b> try4 + 조건 3 (free, s0 도 생성)</p><p><b>결과</b> yaw 6.2° · 위치 9.5 cm · 관절 7.2° (try4 대비 약 10 % 증가, 기준 ① 통과). 회전 yaw 16.0° <span class="pill p-pass">통과</span></p></div></div></div>
+  <div class="steps" id="steps"><div class="step"><div class="k">1. h500_try1<small>10-17 08:45</small></div><div><p><b>변경</b> horizon 500 한 번에, 100 diffusion step, zscore</p><p><b>결과</b> episode 관절 40.0° · 위치 438 cm. hold (21.4° · 75.6 cm) 보다 나쁨 <span class="pill p-fail">실패</span></p></div></div><div class="step"><div class="k">2. h500_try2<small>10-17 09:48</small></div><div><p><b>변경</b> TT 원본 설정: 5 step DDIM, minmax [−1,1], clip 1</p><p><b>결과</b> 관절 14.9° 로 hold 보다 좋아졌지만 위치 297 cm. 1 step 오차부터 hold 보다 커서 500 step 한 번 생성은 실패 <span class="pill p-fail">실패</span></p></div></div><div class="step"><div class="k">3. h8_try1<small>10-17 10:30</small></div><div><p><b>변경</b> 짧은 window (8 step) 이어 붙이기</p><p><b>결과</b> 1 step 관절 3.7° · 위치 0.7 cm. stride 1 / 4 / 7 비교 (위치 133 / 67 / 63 cm) → 누적 오차는 이어 붙인 횟수에 비례 <span class="pill p-warn">부분</span></p></div></div><div class="step"><div class="k">4. h32_try1<small>10-17 10:57</small></div><div><p><b>변경</b> window 32 step</p><p><b>결과</b> 관절 13.4° · 위치 107 cm. 32 step window yaw 11.0° · 위치 13.1 cm <span class="pill p-warn">부분</span></p></div></div><div class="step"><div class="k">5. h32_try2<small>10-17 11:21</small></div><div><p><b>변경</b> 위치·yaw 를 직전 step 대비 변화량으로 표현</p><p><b>결과</b> yaw 9.7° · 위치 13.8 cm. 효과 없음 → 위치 오차 원인은 표현이 아니라 yaw·속도 오차 <span class="pill p-fail">실패</span></p></div></div><div class="step"><div class="k">6. mlp_try1<small>10-17 12:17</small></div><div><p><b>변경</b> 진단: 1-step MLP (E · s · a → 다음 s)</p><p><b>결과</b> 32 step yaw 4.0° · 위치 2.2 cm → 데이터에 dynamics 정답은 충분, TT 학습 쪽 문제. 단 장기 rollout 에서 발산 (t250 관절 388°) <span class="pill p-info">진단</span></p></div></div><div class="step"><div class="k">7. h32_try3<small>10-17 12:25</small></div><div><p><b>변경</b> 학습 조건을 dynamics 하나로 (G2)</p><p><b>결과</b> yaw 11.0→5.9° · 위치 13.1→8.6 cm. 조건 혼합이 학습을 희석했음을 확인 <span class="pill p-pass">통과</span></p></div></div><div class="step"><div class="k">8. h32_try4<small>10-17 13:47</small></div><div><p><b>변경</b> 조건 3 종 혼합 유지 + 100k step (G1)</p><p><b>결과</b> yaw 5.6° · 위치 8.4 cm · 관절 6.8°. 희석은 학습량으로 메워진다. 남은 격차: 속도 0.153 vs MLP 0.055 m/s, 회전 yaw 15.2° <span class="pill p-pass">통과</span></p></div></div><div class="step"><div class="k">9. h32_try5<small>10-18 10:26</small></div><div><p><b>변경</b> try4 + 조건 3 (free, s0 도 생성)</p><p><b>결과</b> yaw 6.2° · 위치 9.5 cm · 관절 7.2° (try4 대비 약 10 % 증가, 기준 (1) 통과). 회전 yaw 16.0° <span class="pill p-pass">통과</span></p></div></div></div>
   <h3>요약 표</h3>
   <div class="tw"><table id="tbTT"><tbody><tr><th>run</th><th>변경</th><th>episode 관절 (°)</th><th>episode 위치 (cm)</th><th>32 step yaw (°)</th><th>32 step 위치 (cm)</th></tr><tr><td class="mono">h500_try1</td><td>500 step 한 번, 100 단계, zscore</td><td class="n">40</td><td class="n">438</td><td class="n">–</td><td class="n">–</td></tr><tr><td class="mono">h500_try2</td><td>TT 원본 설정 (5 단계 DDIM, minmax)</td><td class="n">14.9</td><td class="n">297</td><td class="n">–</td><td class="n">–</td></tr><tr><td class="mono">h8_try1</td><td>8 step window 이어 붙이기</td><td class="n">17.8</td><td class="n">63</td><td class="n">–</td><td class="n">–</td></tr><tr><td class="mono">h32_try1</td><td>32 step window</td><td class="n">13.4</td><td class="n">107</td><td class="n">11</td><td class="n">13.1</td></tr><tr><td class="mono">h32_try2</td><td>위치·yaw delta 표현</td><td class="n">12.8</td><td class="n">141</td><td class="n">9.7</td><td class="n">13.8</td></tr><tr><td class="mono">mlp_try1</td><td>진단: 1-step MLP</td><td class="n">–</td><td class="n">–</td><td class="n">4</td><td class="n">2.2</td></tr><tr><td class="mono">h32_try3</td><td>dynamics 조건만 (G2)</td><td class="n">10.4</td><td class="n">57</td><td class="n">5.9</td><td class="n">8.6</td></tr><tr><td class="mono">h32_try4</td><td>조건 3 종 + 100k step (G1) · task try1 에 사용</td><td class="n">8.8</td><td class="n">61</td><td class="n">5.6</td><td class="n">8.4</td></tr><tr><td class="mono">h32_try5</td><td>try4 + free 조건 (mode 3) · task try2 에 사용</td><td class="n">9.7</td><td class="n">70</td><td class="n">6.2</td><td class="n">9.5</td></tr><tr><td>hold 기준선</td><td>s0 유지</td><td class="n">21.4</td><td class="n">75.6</td><td class="n">8.4</td><td class="n">26.5</td></tr></tbody></table></div>
   <h3>A. 검증 loss</h3>
@@ -284,7 +290,7 @@ a{color:var(--accent)}
     <tr><td>첫 window</td><td>s0 = e000 데이터 고정, E·S·A 생성</td><td>s0 포함 E·S·A 전부 노이즈에서 생성</td></tr>
     <tr><td>MJX 초기 자세</td><td>데이터 qpos·qvel</td><td>생성 s0 에서 변환</td></tr>
     <tr><td colspan="3">같은 조건: 보상 (원형·지그재그 각각 try1 과 동일), scale 0/1/3/10, 후보 8, seed 0, open-loop 10 s</td></tr>
-    <tr><td>통과 기준 (사전)</td><td colspan="2">① TT 32 step 오차 ≈ try4 ② 두 task 평균 E 거리 &gt; 0.1 또는 서로 다른 형상 선택</td></tr>
+    <tr><td>통과 기준 (사전)</td><td colspan="2">(1) TT 32 step 오차 ≈ try4 (2) 두 task 평균 E 거리 &gt; 0.1 또는 서로 다른 형상 선택</td></tr>
   </tbody></table></div>
   <h3>TT 오차 (32 step window)</h3>
   <div class="tw"><table id="tbT5"><tbody><tr><th>32 step 오차</th><th>h32_try4</th><th>h32_try5</th><th>변화</th></tr><tr><td>전체 yaw (°)</td><td class="n">5.6</td><td class="n">6.2</td><td class="n">12%</td></tr><tr><td>전체 위치 (cm)</td><td class="n">8.4</td><td class="n">9.5</td><td class="n">13%</td></tr><tr><td>전체 관절 (°)</td><td class="n">6.8</td><td class="n">7.2</td><td class="n">7%</td></tr><tr><td>회전 모션 yaw (°)</td><td class="n">15.2</td><td class="n">16.0</td><td class="n">5%</td></tr><tr><td>직진 yaw (°)</td><td class="n">4.1</td><td class="n">4.6</td><td class="n">13%</td></tr></tbody></table></div>
@@ -301,9 +307,171 @@ a{color:var(--accent)}
   <h3>생성 s0 점검 (scale 0, 두 task 공통)</h3>
   <div class="tw"><table id="tbS0"><tbody><tr><th>후보</th><th>몸통 높이 (m)</th><th>기울기 (°)</th><th>수평 속도 (m/s)</th><th>접지 발 수</th><th>MJX 낙상 step</th></tr><tr><td class="mono">cand0</td><td class="n">0.107</td><td class="n">18.9</td><td class="n">0.57</td><td class="n">1</td><td class="n">11</td></tr><tr><td class="mono">cand1</td><td class="n">0.170</td><td class="n">55.3</td><td class="n">0.43</td><td class="n">1</td><td class="n">16</td></tr><tr><td class="mono">cand2</td><td class="n">0.348</td><td class="n">38.2</td><td class="n">0.81</td><td class="n">1</td><td class="n">58</td></tr><tr><td class="mono">cand3</td><td class="n">0.258</td><td class="n">19.1</td><td class="n">1.44</td><td class="n">3</td><td class="n">34</td></tr><tr><td class="mono">cand4</td><td class="n">0.368</td><td class="n">30.1</td><td class="n">1.26</td><td class="n">2</td><td class="n">20</td></tr><tr><td class="mono">cand5</td><td class="n">0.201</td><td class="n">47.7</td><td class="n">1.24</td><td class="n">1</td><td class="n">3</td></tr><tr><td class="mono">cand6</td><td class="n">0.326</td><td class="n">29.4</td><td class="n">1.23</td><td class="n">1</td><td class="n">13</td></tr><tr><td class="mono">cand7</td><td class="n">0.181</td><td class="n">27.7</td><td class="n">0.62</td><td class="n">1</td><td class="n">186</td></tr><tr><td>데이터 시작 state (e000 primitive)</td><td class="n">0.282~0.319</td><td class="n">–</td><td class="n">≤ 0.82</td><td class="n">–</td><td class="n">–</td></tr></tbody></table></div>
   <ul class="res" style="margin-top:10px">
-    <li><span class="pill p-fail">불통과</span> 기준 ② — 평균 E 거리 최대 0.038 (기준 0.1). 후보 번호별 형상이 두 task 에서 같다.</li>
+    <li><span class="pill p-fail">불통과</span> 기준 (2) — 평균 E 거리 최대 0.038 (기준 0.1). 후보 번호별 형상이 두 task 에서 같다.</li>
     <li><span class="pill p-pass">개선</span> 예측-실제 격차가 사라졌다. 형상 고정이 풀리고 E 가 세 학습 형상으로 나뉜다 (try1 은 전부 e000).</li>
     <li><span class="pill p-warn">새 문제</span> 생성 s0 가 데이터 분포 밖 (높이·속도·접지). 원인: free 조건은 episode 중간에서 뽑은 window 의 첫 state 를 학습했다. 데이터 seq 의 41~73 % 가 낙상 episode 라 넘어지는 중인 state 도 포함된다.</li>
+  </ul>
+</section>
+
+<section id="d1">
+  <h2>7-4 · 진단 D1 · open-loop 민감도 (<code>diag_openloop.py</code>)</h2>
+  <p style="margin:0">질문: 생성한 형상이 제대로 움직이지 못하는 원인이 open-loop 실행 자체인가, TT 예측 오차인가. TT 를 빼고 rollout 데이터의 <b>실제 행동</b>을 MJX 에 그대로 재생해, 시작 state 에 작은 교란만 준다.</p>
+  <div class="tw" style="margin-top:10px"><table>
+    <tbody><tr><th>항목</th><th>값</th></tr>
+    <tr><td>대상</td><td>e000·e001·e002 의 10 s 혼합 episode 중 데이터에서 넘어지지 않은 것, 형상당 32 개</td></tr>
+    <tr><td>교란</td><td>none (대조군) / small: 관절 ±0.01 rad · 몸통 ±1 mm / medium: 관절 ±0.05 rad · 몸통 ±5 mm. 교란 수준당 표본 2 개</td></tr>
+    <tr><td>실행</td><td>try1·try2 와 같은 MJX 실행 (PD · 50 Hz · 낙상 기준), 재계획 없음</td></tr>
+    <tr><td>판정 (사전)</td><td>small 에서 10 s 안 낙상 ≥ 50 % → open-loop 실행 자체가 주원인</td></tr>
+  </tbody></table></div>
+  <h3>결과</h3>
+  <div class="tw"><table>
+    <tbody><tr><th>형상</th><th>교란</th><th>낙상 (10 s)</th><th>위치 차이 1 s</th><th>2 s</th><th>5 s</th><th>10 s</th><th>yaw 차이 10 s</th></tr>
+    <tr><td class="mono">e000</td><td>none</td><td class="n">0 %</td><td class="n">0.0 cm</td><td class="n">0.0</td><td class="n">0.0</td><td class="n">0.9</td><td class="n">1.0°</td></tr>
+    <tr><td></td><td>small</td><td class="n">0 %</td><td class="n">0.4</td><td class="n">0.8</td><td class="n">2.5</td><td class="n">7.7</td><td class="n">2.8°</td></tr>
+    <tr><td></td><td>medium</td><td class="n">0 %</td><td class="n">1.3</td><td class="n">1.9</td><td class="n">3.6</td><td class="n">9.3</td><td class="n">4.0°</td></tr>
+    <tr><td class="mono">e001</td><td>none</td><td class="n">6 %</td><td class="n">0.0</td><td class="n">0.0</td><td class="n">0.3</td><td class="n">5.4</td><td class="n">4.3°</td></tr>
+    <tr><td></td><td>small</td><td class="n">33 %</td><td class="n">0.7</td><td class="n">1.7</td><td class="n">6.3</td><td class="n">21.9</td><td class="n">9.8°</td></tr>
+    <tr><td></td><td>medium</td><td class="n">44 %</td><td class="n">1.7</td><td class="n">4.0</td><td class="n">11.4</td><td class="n">19.9</td><td class="n">8.0°</td></tr>
+    <tr><td class="mono">e002</td><td>none</td><td class="n">16 %</td><td class="n">0.0</td><td class="n">0.0</td><td class="n">0.4</td><td class="n">6.7</td><td class="n">3.6°</td></tr>
+    <tr><td></td><td>small</td><td class="n">36 %</td><td class="n">0.6</td><td class="n">1.9</td><td class="n">7.3</td><td class="n">17.9</td><td class="n">6.2°</td></tr>
+    <tr><td></td><td>medium</td><td class="n">44 %</td><td class="n">1.6</td><td class="n">3.5</td><td class="n">12.5</td><td class="n">22.0</td><td class="n">4.9°</td></tr>
+  </tbody></table></div>
+  <p class="note">위치·yaw 차이 = 같은 행동을 재생한 궤적과 데이터 궤적의 차이 (중앙값, 넘어지지 않은 표본만). 대조군의 작은 차이는 batch 실행의 부동소수점 차이에서 시작된다.</p>
+  <ul class="res" style="margin-top:10px">
+    <li><span class="pill p-pass">판정</span> small 교란 낙상 평균 23 % (기준 50 %) → open-loop 실행 자체는 주원인이 아니다.</li>
+    <li><span class="pill p-info">크기 비교</span> 교란으로 생기는 위치 차이는 1 s 에 0.4~0.7 cm. TT 의 32 step (0.64 s) 위치 오차는 8.4 cm 로 10 배 이상 크다 → 생성 형상이 제대로 움직이지 못하는 주원인은 TT 예측 오차다 (사용자 분석과 일치). try1 은 생성 형상이 e000 (교란에도 낙상 0 %) 인데 scale 0 에서 5/8 낙상했다.</li>
+    <li><span class="pill p-warn">형상 차이</span> e001·e002 는 실제 행동을 재생해도 10 s 동안 33~36 % 낙상 (대조군 6~16 %). 이 형상들은 긴 open-loop 실행에서 불안정하므로, TT 가 정확해져도 10 s 실행에는 재계획 (N4) 이 필요할 수 있다.</li>
+  </ul>
+</section>
+
+<section id="d2">
+  <h2>7-5 · 진단 D2 · 생성 궤적이 데이터 분포 밖인가 (<code>diag_ood.py</code>)</h2>
+  <p style="margin:0">질문: guidance 가 TT 가 경험하지 않은 상태·행동 (새로운 물리 영역) 으로 궤적을 끌고 가서 실패했는가. 생성 궤적의 각 step 이 TT 학습 데이터의 가장 가까운 step 에서 얼마나 떨어져 있는지 잰다.</p>
+  <div class="tw" style="margin-top:10px"><table>
+    <tbody><tr><th>항목</th><th>값</th></tr>
+    <tr><td>step 특징</td><td>상태 34 (높이 · 중력 · 선속도 · 각속도 · 관절각 · 관절속도) + 행동 12 + 행동 변화량 12. 위치 · yaw · 접지는 제외. 데이터 표준편차로 정규화</td></tr>
+    <tr><td>데이터</td><td>TT 학습 rollout 417,915 step 중 20 만 step 을 검색 대상, 5,000 step 을 기준선용으로 분리</td></tr>
+    <tr><td>기준선</td><td>분리한 데이터 step 의 최근접 거리 99 백분위 (데이터 자신도 1 % 는 넘는다)</td></tr>
+    <tr><td>대상</td><td>track_try1 · zigzag_try1 · track_try2 · zigzag_try2, scale 0 / 1 / 3 / 10, 후보 8 개씩 (각 500 step)</td></tr>
+    <tr><td>판정 (사전)</td><td>기준선 초과 비율 ≥ 3 % 이고 scale 과 함께 늘면 → 데이터 밖 영역이 원인. 1 % 근처면 → TT 가 데이터 범위 안에서 틀린다</td></tr>
+  </tbody></table></div>
+  <h3>결과 (기준선 초과 비율, 전체 특징)</h3>
+  <div class="tw"><table>
+    <tbody><tr><th>run</th><th>scale 0</th><th>scale 1</th><th>scale 3</th><th>scale 10</th></tr>
+    <tr><td class="mono">track_try1</td><td class="n">0.0 %</td><td class="n">0.1 %</td><td class="n">0.1 %</td><td class="n">0.0 %</td></tr>
+    <tr><td class="mono">zigzag_try1</td><td class="n">0.0 %</td><td class="n">0.1 %</td><td class="n">0.1 %</td><td class="n">0.0 %</td></tr>
+    <tr><td class="mono">track_try2</td><td class="n">0.3 %</td><td class="n">0.0 %</td><td class="n">0.0 %</td><td class="n">0.0 %</td></tr>
+    <tr><td class="mono">zigzag_try2</td><td class="n">0.3 %</td><td class="n">0.0 %</td><td class="n">0.0 %</td><td class="n">0.0 %</td></tr>
+    <tr><td>데이터 자신</td><td class="n" colspan="4" style="text-align:center">1 % (정의상)</td></tr>
+  </tbody></table></div>
+  <div class="tw" style="margin-top:10px"><table>
+    <tbody><tr><th>추가 지표</th><th>값</th></tr>
+    <tr><td>최근접 거리 중앙값</td><td>생성 0.21~0.32 · 데이터 0.055 (4~6 배)</td></tr>
+    <tr><td>행동만 기준선 초과</td><td>0~5.7 % (try2 scale 0 이 최대, 생성 s0 영향)</td></tr>
+    <tr><td>후보별 초과 비율과 예측-실제 차이의 상관</td><td>−0.09 (경로 차이와 −0.13)</td></tr>
+  </tbody></table></div>
+  <ul class="res" style="margin-top:10px">
+    <li><span class="pill p-pass">판정</span> 데이터 분포 밖이 원인이 아니다. 생성 step 의 기준선 초과는 0.07 % 로 데이터 자신 (1 %) 보다 적고, scale 10 에서도 0 %. try1 scale 10 은 예측-실제 차이가 가장 크지만 (지그재그 1.74 m) 초과 0 %.</li>
+    <li><span class="pill p-info">해석</span> TT 는 데이터 범위 안의 상태·행동에서도 다음 상태를 틀리게 예측한다 (P4 회전 과대 · P13 속도). guidance 는 그럴듯한 step 들로 이루어진, 실제로는 이어지지 않는 궤적을 만든다.</li>
+    <li><span class="pill p-warn">한계</span> 생성 step 은 데이터가 드문 사이 영역에 있다 (거리 4~6 배). 또 step 하나씩 보는 검사라, 각 step 은 그럴듯해도 이어지는 전이 (상태 + 행동 → 다음 상태) 가 틀린 경우는 잡지 못한다 → D3 에서 확인.</li>
+  </ul>
+</section>
+
+<section id="orig">
+  <h2>원본 TT 와 다른 점 · 생성 방식 논의 (2026-10-19)</h2>
+  <p style="margin:0">계기: "형상 E 를 첫 window 에서만 정한다" (생성 E 가 0.62 s 구간 reward 만 보고 정해짐, 이후 window 는 E 고정) 를 고치려고 원본 TT 코드 (<code>transformer-transformer/t2/eval/diffusion_guidance.py</code>, <code>t2/data/dataset.py</code>) 를 대조했다.</p>
+  <div class="tw" style="margin-top:10px"><table>
+    <tbody><tr><th>항목</th><th>원본 TT (quadruped hardware_gen)</th><th>우리 (<code>generate_task.py</code>)</th></tr>
+    <tr><td>조건</td><td>참조 모션 <code>target_pose</code> 고정</td><td>s0 만 (과제는 reward 가 정함)</td></tr>
+    <tr><td>시간 구성</td><td>episode 전체에서 sparse 8 step (학습 무작위, 생성 균등 간격)</td><td>dense 32 step window 를 이어 붙임</td></tr>
+    <tr><td>diffusion</td><td>100 step</td><td>5 step</td></tr>
+    <tr><td>형상 선택</td><td>seed 64 개 → 모델이 예측한 reward 로 최고 1 개. guidance 는 선택, 형상 토큰에만</td><td>후보 8 개, guidance 는 S·A·E 모두</td></tr>
+    <tr><td>실행</td><td>생성 형상과 가장 가까운 설계의 RL expert 가 참조 모션을 closed-loop 로 따라감. 생성한 시작 자세는 안 씀 (<code>use_predicted_reset_qpos: false</code>)</td><td>생성 A 를 MJX 에 open-loop 로 그대로</td></tr>
+  </tbody></table></div>
+
+  <div class="qa"><div class="q">Q. sparse 가 뭐야?</div>
+  <div class="a">A. 전체 step 을 다 쓰지 않고 몇 시점만 띄엄띄엄 쓰는 것 (반대 = dense). 원본은 500 step 중 8 개 (0, 71, 142, … 499) 만 보지만 10 s 전체를 한 번에 본다. 그래서 E 가 과제 전체를 반영한다. 대신 시점 간격이 1.4 s 라 중간 동작이 없고, 생성 A 를 그대로 실행할 수 없다.</div></div>
+
+  <div class="qa"><div class="q">Q. 그런데 내가 생각했던 건 저 32 step 단위로 500 step 을 끝까지 보게 하려던 건데?</div>
+  <div class="a">A. 가능하다 = window 동시 생성. 매 디노이징 step 에서 window 16 개를 한 batch 로 같이 생성하고, 16 개가 E 토큰 하나를 공유하며, window w 의 s0 = 같은 step 에서 window w−1 이 예측한 마지막 state. reward 는 이어 붙인 500 step 전체로 계산해서 ∇R 이 모든 window 를 거쳐 E 로 간다. 원본의 다중 궤적 모드 (궤적 26 개가 형상 하나를 공유, E 노이즈 예측 평균) 와 같은 원리이고, 모든 window 가 "s0 앎·E 모름" = mode 0 이라 재학습이 필요 없다. dense 라 A 도 그대로 실행 가능. → 미결 안건 (s0 결정 후).</div></div>
+
+  <div class="qa"><div class="q">Q. mode 는 세 가지 모두를 모르는 free 로 하면?</div>
+  <div class="a">A. 반대 의견. (1) window 2~16 은 이어 붙이려면 s0 = 앞 window 끝이라 free 가 될 수 없다 (mode 0). free 가 되는 건 window 1 의 s0 뿐. (2) 생성 s0 로 MJX 를 시작하면 주저앉거나 달리는 자세에서 출발 (7-3), 실물은 그렇게 출발할 수 없다. 원본도 생성 시작 자세를 실행에 안 쓴다. (3) s0 고정은 참조 모션 고정과 다르다: 과제가 아니라 "서서 출발한다" 는 물리적 사실이라 생성 자유도를 줄이지 않는다. → s0 고정 (mode 0) 을 제안, 미결 안건.</div></div>
+</section>
+
+<section id="noguide">
+  <h2>7-6 · S 직접 guidance 끄기 · track_try3 · zigzag_try3 (2026-10-19, 판정 B)</h2>
+
+  <h3>여기까지 온 논의 (질문 → 답)</h3>
+  <div class="qa"><div class="q">Q. 원본 TT 는 참조 모션을 고정하고 그걸 따라가면 reward 를 많이 받는 방향으로 유도되는데, 우리는 고정할 부분이 없다. 이전 형상·행동·상태의 reward 와 비교해서 증가하는 방향으로 진행해야 하나? 고정할 부분이 굳이 필요한가?</div>
+  <div class="a">A. 비교 단계는 필요 없다. guidance 식 ε' = ε − scale·√(1−ᾱ)·∇R 에서 ∇R 자체가 "지금 샘플에서 reward 가 늘어나는 방향" 이라 생성 과정 안에서 계속 reward 쪽으로 끌려간다. 이전 결과와 비교하며 개선하는 건 CEM 같은 외부 최적화고, 원본도 비교는 마지막에 seed 64 개 중 최고를 고르는 것뿐이다. 원본의 참조 모션 조건은 "과제가 무엇인지" 를 알려주는 역할인데, 우리는 reward R 이 과제 자체라 조건 없는 prior + reward guidance (Diffuser, Janner 2022 와 같은 형식) 로 충분하다. 고정이 필요한 것은 과제가 아니라 물리적 사실 (s0) 뿐 → s0 는 미결 안건.</div></div>
+
+  <div class="qa"><div class="q">Q. 원본과 달리 A 에도 guidance 를 주면, E·A 에 guidance 가 주어지니 S 에도 guidance 가 주어지는 거 아닌가?</div>
+  <div class="a">A. 절반만 맞다. S 로 가는 길이 두 개다. (1) 직접 경로: ∂R/∂S 가 S 토큰을 곧바로 reward 쪽으로 옮긴다 (신경망을 안 거침). (2) 간접 경로: E·A 가 바뀌면 다음 디노이징 step 에서 TT 가 "이 E·A 면 S 는 이렇게 된다" 고 다시 예측해서 S 가 따라온다. 말한 직관은 (2) 이고, 지금 코드는 (1) 도 켜져 있다. (1) 이 있으면 S 가 E·A 와 상관없이 reward 쪽으로 가서, MJX 가 A 를 실행했을 때 나오는 S 와 달라진다. 원본이 형상 토큰에만 guidance 를 주는 것도 이 때문으로 본다.</div></div>
+
+  <div class="qa"><div class="q">Q. 지금 보는 건 그러면 S 직접 guidance 때문에, E·A guidance 로 예측된 S 와 guidance 가 말하는 S 가 달라서 생긴 원인인지를 파악하는 과정인 거야?</div>
+  <div class="a">A. 맞다. 생성 S = (E·A 에서 TT 가 예측하는 S) + (직접 경로로 옮겨진 양). MJX 는 A 를 실행하니 실제 결과는 앞쪽에 가깝다. 직접 경로를 끄고 (try3) 예측-실제 차이가 줄면 이 원인이 확정된다. 단, MJX 와의 차이에는 TT dynamics 자체 오차 (연속 예측 위치 70 cm, hold 수준) 가 섞여 있어서 가려질 수 있다 → 아래 보조 진단으로 직접 경로 몫만 따로 잰다.</div></div>
+
+  <div class="qa"><div class="q">Q. 기준값 (guidance 없음) 이 6.3 cm 나 나오는 이유는 뭐야? 조건 차이에 대한 문제가 지속적으로 발생하는데.</div>
+  <div class="a">A. 이번은 조건 차이가 아니다. 같은 조건 (mode 1) 으로 seed 만 바꿔 두 번 생성해도 서로 6.3~7.1 cm 다르다. TT 가 같은 E·s0·A 를 받아도 S 를 하나로 정하지 못하고 32 step 마다 6 cm 쯤 흔들린다는 뜻 (물리는 결정적이니 제대로 배웠다면 0 에 가까워야 함). 속도 오차가 hold 와 같은 것 (0.172 vs 0.180) 과 같은 증상: TT 가 A 를 보고 움직임을 결정하지 못한다. 조건 불일치는 과거에 실제로 두 번 있었다 (mode 3 마스크 버그, free s0 학습 분포) — 생성 마스크는 로컬도 맞고, 재발 방지를 위해 fix/free-conditioning 의 공용 <code>condition_masks</code> 를 병합한다 (try3 종료 후).</div></div>
+
+  <h3>실험 조건</h3>
+  <div class="tw"><table>
+    <tbody><tr><th>항목</th><th>값</th></tr>
+    <tr><td>고정</td><td>h32_try4 (mode 0/1/2), s0 = walkForwardSlow 데이터 시작, 후보 8, seed 0, scale 1 / 3 / 10 (scale 0 은 guidance 가 없어 try1 과 동일하므로 생략)</td></tr>
+    <tr><td>변경 (단변수)</td><td><code>--no-guide-s</code>: ∇R 의 S 성분을 0 으로 (<code>gx[..., :S_DIM] = 0</code>). 직접 경로만 끊고 간접 경로 (E·A → TT → S) 는 그대로</td></tr>
+    <tr><td>비교 대상</td><td>track_try1 · zigzag_try1 (같은 조건, S guidance on)</td></tr>
+    <tr><td>판정 (사전)</td><td><b>A</b>: 예측-실제 차이 감소 + MJX reward 유지·상승 → 직접 경로가 원인, 기본값 off 로<br><b>B</b>: 차이 감소 + MJX reward 하락 → E·A 경로 gradient 가 약하다 (TT 가 A→S 를 확정 못 하는 문제가 병목)<br><b>C</b>: 차이 불변 → 직접 경로는 원인 아님</td></tr>
+  </tbody></table></div>
+
+  <h3>보조 진단 · 생성 S 가 생성 E·A 와 맞는가 (<code>diag_consistency.py</code>)</h3>
+  <p style="margin:0">방법: 생성된 E·s0·A 를 TT 의 dynamics 조건 (mode 1: E·s0·A 를 주고 S 만 생성) 에 다시 넣어 "그 E·A 에서 TT 가 예측하는 S" 를 만든다 → 생성 S 와 비교. MJX 를 안 거치므로 TT 자체 오차는 빠지고 직접 경로가 옮긴 양만 남는다. window 128 개 (후보 8 × window 16), 각 window 의 32 step 끝 값 평균.</p>
+  <div class="tw" style="margin-top:10px"><table>
+    <tbody><tr><th>track_try1 (S guidance on)</th><th>재예측 S vs 생성 S · 위치</th><th>yaw</th><th>seed 흔들림 (같은 입력, seed 만 변경)</th></tr>
+    <tr><td>scale 0 (guidance 없음)</td><td class="n">6.27 cm</td><td class="n">8.95°</td><td class="n">6.30~7.14 cm · 10.0°</td></tr>
+    <tr><td>scale 1</td><td class="n">10.73 cm</td><td class="n">13.61°</td><td class="n">–</td></tr>
+    <tr><td>scale 3</td><td class="n">11.53 cm</td><td class="n">12.39°</td><td class="n">7.73~8.51 cm · 13.3°</td></tr>
+    <tr><td>scale 10</td><td class="n">9.40 cm</td><td class="n">8.74°</td><td class="n">–</td></tr>
+  </tbody></table></div>
+  <div class="tw" style="margin-top:10px"><table>
+    <tbody><tr><th>재예측 S vs 생성 S (32 step 끝)</th><th>scale 1</th><th>scale 3</th><th>scale 10</th></tr>
+    <tr><td>track_try1 (on)</td><td class="n">10.73 cm · 13.6°</td><td class="n">11.53 cm · 12.4°</td><td class="n">9.40 cm · 8.7°</td></tr>
+    <tr><td>track_try3 (off)</td><td class="n">6.99 cm · 6.4°</td><td class="n">7.21 cm · 6.5°</td><td class="n">7.36 cm · 5.5°</td></tr>
+    <tr><td>zigzag_try1 (on)</td><td class="n">11.46 cm · 14.3°</td><td class="n">10.27 cm · 13.3°</td><td class="n">10.14 cm · 7.4°</td></tr>
+    <tr><td>zigzag_try3 (off)</td><td class="n">7.41 cm · 6.4°</td><td class="n">7.41 cm · 6.5°</td><td class="n">7.64 cm · 6.0°</td></tr>
+    <tr><td>참고: scale 0 · seed 흔들림</td><td class="n" colspan="3" style="text-align:center">6.27 cm · 9.0° · 흔들림 6.3~7.1 cm</td></tr>
+  </tbody></table></div>
+  <ul class="res" style="margin-top:10px">
+    <li><span class="pill p-info">기준값</span> scale 0 의 6.3 cm = seed 흔들림 (6.3~7.1 cm) 과 같다 → 조건 차이가 아니라 TT 자체가 S 를 확정 못 하는 양.</li>
+    <li><span class="pill p-warn">guidance 초과분</span> scale 3: 생성 S 와 11.5 cm, 흔들림 7.7~8.5 cm → 약 3~4 cm 가 직접 경로로 생긴 불일치 후보. try3 에서 이 초과분이 사라지면 확인.</li>
+    <li><span class="pill p-warn">흔들림 증가</span> guidance 를 주면 흔들림 자체도 커진다 (6.3 → 7.7~8.5 cm): guidance 가 E·A 를 TT 가 덜 확실한 영역으로 끌고 간다.</li>
+    <li><span class="pill p-pass">try3 결과</span> 직접 경로를 끄면 불일치가 7.0~7.6 cm 로 seed 흔들림 수준까지 내려간다 (yaw 는 5.5~6.5° 로 scale 0 의 9° 보다도 작음). 초과분 3~4 cm 는 직접 경로가 만든 것이 맞다.</li>
+  </ul>
+
+  <h3>Task 결과 · try1 (on) vs try3 (off), 후보 8 개 평균</h3>
+  <div class="tw"><table>
+    <tbody><tr><th>run</th><th>scale</th><th>TT 예측 R</th><th>MJX 실제 R</th><th>진행 예측 / 실제</th><th>진행 |예측−실제|</th><th>경로 차 (m)</th><th>낙상</th><th>유효 시간 (s)</th></tr>
+    <tr><td class="mono">track_try1</td><td class="n">1</td><td class="n">0.24</td><td class="n">−0.98</td><td class="n">0.10 / −0.02 바퀴</td><td class="n">0.13</td><td class="n">0.36</td><td class="n">6/8</td><td class="n">5.4</td></tr>
+    <tr><td class="mono">track_try3</td><td class="n">1</td><td class="n">−0.89</td><td class="n">−3.02</td><td class="n">0.09 / 0.01</td><td class="n">0.10</td><td class="n">0.27</td><td class="n">5/8</td><td class="n">7.0</td></tr>
+    <tr><td class="mono">track_try1</td><td class="n">3</td><td class="n">0.49</td><td class="n">−3.26</td><td class="n">0.11 / −0.01</td><td class="n">0.12</td><td class="n">0.45</td><td class="n">6/8</td><td class="n">6.7</td></tr>
+    <tr><td class="mono">track_try3</td><td class="n">3</td><td class="n">−1.19</td><td class="n">−2.38</td><td class="n">0.05 / 0.00</td><td class="n">0.06</td><td class="n">0.26</td><td class="n">5/8</td><td class="n">7.0</td></tr>
+    <tr><td class="mono">track_try1</td><td class="n">10</td><td class="n">1.88</td><td class="n">−0.95</td><td class="n">0.31 / −0.07</td><td class="n">0.37</td><td class="n">0.86</td><td class="n">0/8</td><td class="n">10.0</td></tr>
+    <tr><td class="mono">track_try3</td><td class="n">10</td><td class="n">−0.69</td><td class="n">−1.36</td><td class="n">0.05 / −0.04</td><td class="n">0.09</td><td class="n">0.43</td><td class="n">1/8</td><td class="n">9.9</td></tr>
+    <tr><td class="mono">zigzag_try1</td><td class="n">1</td><td class="n">−0.58</td><td class="n">−1.84</td><td class="n">0.34 / −0.02 m</td><td class="n">0.36</td><td class="n">0.25</td><td class="n">6/8</td><td class="n">6.5</td></tr>
+    <tr><td class="mono">zigzag_try3</td><td class="n">1</td><td class="n">−8.48</td><td class="n">−3.58</td><td class="n">0.66 / 0.08</td><td class="n">0.68</td><td class="n">0.21</td><td class="n">6/8</td><td class="n">5.7</td></tr>
+    <tr><td class="mono">zigzag_try1</td><td class="n">3</td><td class="n">0.27</td><td class="n">−0.79</td><td class="n">0.60 / −0.02</td><td class="n">0.77</td><td class="n">0.17</td><td class="n">8/8</td><td class="n">4.2</td></tr>
+    <tr><td class="mono">zigzag_try3</td><td class="n">3</td><td class="n">−6.39</td><td class="n">−3.60</td><td class="n">0.63 / −0.02</td><td class="n">0.79</td><td class="n">0.25</td><td class="n">5/8</td><td class="n">6.2</td></tr>
+    <tr><td class="mono">zigzag_try1</td><td class="n">10</td><td class="n">2.06</td><td class="n">−1.02</td><td class="n">2.14 / 0.41</td><td class="n">1.74</td><td class="n">0.83</td><td class="n">0/8</td><td class="n">10.0</td></tr>
+    <tr><td class="mono">zigzag_try3</td><td class="n">10</td><td class="n">−3.70</td><td class="n">−4.35</td><td class="n">0.66 / −0.06</td><td class="n">0.88</td><td class="n">0.47</td><td class="n">2/8</td><td class="n">8.6</td></tr>
+  </tbody></table></div>
+  <p class="note">두 task 사이 평균 E 거리: try1 0.0011~0.0015 · try3 0.0008~0.0010 (기준 0.1). 생성 E 는 둘 다 e000 (모두 0.5) 근처에서 움직이지 않는다.</p>
+
+  <h3>판정 · B</h3>
+  <ul class="res">
+    <li><span class="pill p-pass">예측-실제 차이</span> 원형은 모든 scale 에서 줄었다 (경로 차 0.36/0.45/0.86 → 0.27/0.26/0.43 m, scale 10 진행 차 0.37 → 0.09 바퀴). 지그재그는 scale 10 만 크게 줄고 (1.74 → 0.88 m) scale 1 은 늘었다 (0.36 → 0.68).</li>
+    <li><span class="pill p-fail">MJX reward</span> 6 개 중 5 개에서 하락 (지그재그 −0.79~−1.84 → −3.58~−4.35). TT 예측 reward 도 크게 떨어졌다 (지그재그 −3.7~−8.5): guidance 가 이제 예측 궤적조차 reward 쪽으로 끌지 못한다.</li>
+    <li><span class="pill p-info">해석</span> 직접 경로는 "S 를 물리와 무관하게 옮겨서 거짓 예측을 만드는" 나쁜 효과와 함께, "옮겨진 S 를 따라 다음 디노이징 step 에서 TT 가 A 를 맞춰 생성하는" (S → A, 역동역학처럼) 좋은 효과도 있었다. 끄면 앞의 것은 사라지지만 A 를 바꿀 통로도 ∂R/∂A (A → TT → S → R) 하나만 남는데, TT 의 A→S 가 느슨해서 (seed 흔들림 6 cm) 이 gradient 가 약하다.</li>
+    <li><span class="pill p-warn">공통 한계</span> on·off 모두 MJX 실제 진행 ≈ 0 이고 E 는 움직이지 않는다. guidance 경로를 고르는 것보다 TT 가 A 로 S 를 확정하는 능력 (dynamics 정밀도) 과 형상 coverage 가 먼저다.</li>
   </ul>
 </section>
 
@@ -331,7 +499,7 @@ a{color:var(--accent)}
     <tr><td>P4</td><td>관측 (dynamics)</td><td>TT 가 회전을 과대 예측한다</td><td>회전 window yaw 오차 19.5° vs 직진 5.8°, 예측 Δyaw 13.5° vs 실제 3.5°</td><td><span class="pill p-fail">미해결</span></td></tr>
     <tr><td>P5</td><td>최적화</td><td>guidance 가 TT 오류를 이용한다 (model exploitation)</td><td>try1 지그재그 scale 10: 예측 2.14 vs 실제 0.41 m. try2 에서 0.81 vs 0.76 m 로 감소</td><td><span class="pill p-warn">try2 에서 감소</span></td></tr>
     <tr><td>P6</td><td>관측 (데이터)</td><td>free 조건이 생성하는 s0 가 불안정한 state 다</td><td>생성 s0 높이 0.11~0.37 m, 속도 최대 1.4 m/s → scale 0 낙상 8/8</td><td><span class="pill p-fail">미해결</span></td></tr>
-    <tr><td>P7</td><td>실행 방식</td><td>open-loop 10 s 재생은 작은 오차가 쌓여 무너진다</td><td>try1 scale 0 에서도 낙상 5/8</td><td><span class="pill p-fail">미해결</span></td></tr>
+    <tr><td>P7</td><td>실행 방식</td><td>open-loop 10 s 재생은 작은 오차가 쌓여 무너진다</td><td>try1 scale 0 에서도 낙상 5/8. D1: 실제 행동 재생 + 작은 교란에서 e000 0 %, e001·e002 33~36 % 낙상 → 주원인은 아니지만 e001·e002 에서는 영향이 있다</td><td><span class="pill p-warn">부분 원인 (D1)</span></td></tr>
     <tr><td>P8</td><td>관측 (데이터)</td><td>rollout 10 s 혼합 데이터의 낙상률 41~73 %. 넘어지는 중인 state 가 학습 데이터에 많다 (P6 의 원인)</td><td>낙상 92 % 가 전환 후 1 s 안. 사용자 결정으로 그대로 사용</td><td><span class="pill p-info">수용</span></td></tr>
     <tr><td>P9</td><td>관측 (dynamics)</td><td>직진 쏠림: TT 가 직진으로 예측한 구간에서 MJX 실제 로봇은 왼쪽으로 돈다</td><td>진단 A: 직진 window 당 MJX +3.7°, TT 예측 0.2°</td><td><span class="pill p-fail">미해결</span></td></tr>
     <tr><td>P10</td><td>reward</td><td>fall 벌점의 높이 기준이 출발 높이다. s0 를 생성하면 기준도 생성값이 되어, 낮은 s0 에서는 낮게 걷는 궤적에 벌점이 거의 없다</td><td><code>task_reward.p_fall</code> = 출발 높이 × 0.6 아래만 벌점. try2 생성 s0 높이 0.11 m 사례 (코드 확인, 실험 검증 없음)</td><td><span class="pill p-fail">미해결</span></td></tr>
@@ -371,7 +539,7 @@ a{color:var(--accent)}
     <tr><td>Expert</td><td><code>motion_tracking/train_rl_procedural.py</code>, <code>track_env.py</code>, <code>train_selected_experts.sh</code>, <code>eval_multi_designs.sh</code></td><td><code>experts/&lt;모션&gt;/</code>, <code>experts/selection.csv</code></td></tr>
     <tr><td>Rollout</td><td><code>motion_tracking/collect_rollouts.py</code>, <code>check_rollouts.py</code></td><td><code>rollouts/</code> (정본), <code>rollouts_archive/</code>, <code>ROLLOUT_PLAN.md</code></td></tr>
     <tr><td>TT</td><td><code>tt_dynamics/train_tt.py</code>, <code>tt_model.py</code>, <code>rollout_data.py</code>, <code>diag_mlp.py</code></td><td><code>tt/&lt;run&gt;/</code> (config · progress · eval · diag_window)</td></tr>
-    <tr><td>Task</td><td><code>tt_dynamics/task_reward.py</code>, <code>generate_task.py</code>, <code>diag_task.py</code></td><td><code>task/&lt;run&gt;/</code> (summary · paths.png · videos · designs)</td></tr>
+    <tr><td>Task</td><td><code>tt_dynamics/task_reward.py</code>, <code>generate_task.py</code> (<code>--no-guide-s</code>), <code>diag_task.py</code>, <code>diag_consistency.py</code></td><td><code>task/&lt;run&gt;/</code> (summary · paths.png · videos · designs)</td></tr>
   </tbody></table></div>
   <div class="eq">CUDA_VISIBLE_DEVICES=0 ../transformer-transformer/.venv/bin/python code/tt_dynamics/train_tt.py --out runs/pipeline_v1/tt/h32_try5 \
     --horizon 32 --steps 100000 --diff-steps 5 --norm minmax --clip 1.0 --modes 0 1 2 3 --sampler ddim

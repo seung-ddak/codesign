@@ -2,6 +2,7 @@
 
 생성: window (H step) 를 이어 붙여 10 s (500 step). 첫 window 는 E 도 노이즈에서 생성 (joint 조건), 이후 window 는 그 E 고정 (given_E 조건).
   --free-s0: 첫 window 를 free 조건 (mode 3) 으로 s0 까지 노이즈에서 생성한다 (TT 를 --modes 0 1 2 3 으로 학습해야 한다).
+  --rest-s0: 첫 window 를 mode 4 로. s0 의 형상 무관 칸 (속도 0·수직·접지) 만 고정, 높이·관절각은 E 와 함께 생성 (--modes 에 4).
   매 디노이징 step 에서 보상 R(x0_hat) 의 gradient 를 ε 에 반영한다 (classifier guidance: ε' = ε - scale·√(1-ᾱ)·∇R).
   gradient 는 network 를 거쳐 S·A 와 E 모두에 전달된다. scale 0 = guidance 없음 (비교 기준).
 실행: 생성한 E 로 MJX 모델을 만들고 (pd_replay.build_model), 생성한 target_q 를 50 Hz 로 그대로 넣는다 (재계획 없음).
@@ -41,7 +42,7 @@ from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
 from task_reward import TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
-from tt_model import Net, check_free_checkpoint, condition_masks, schedule, unbase  # noqa: E402
+from tt_model import Net, check_free_checkpoint, check_rest_checkpoint, condition_masks, rest_s0, schedule, unbase  # noqa: E402
 
 EP, FOOT_R, A = 500, 0.02, slice(S_DIM, X_DIM)
 
@@ -58,6 +59,8 @@ parser.add_argument("--amp", type=float, default=0.3, help="zigzag 진폭 (m)")
 parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)")
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--free-s0", action="store_true", help="s0 도 생성 (free 조건)")
+parser.add_argument("--rest-s0", action="store_true", help="s0 의 형상 무관 칸만 고정, 높이·관절각 생성 (mode 4)")
+parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
 args = parser.parse_args()
 dev = "cuda"
 args.out.mkdir(parents=True, exist_ok=True)
@@ -69,6 +72,10 @@ ck = torch.load(args.ckpt / "checkpoint.pt", weights_only=False)
 ta = ck["args"]
 if args.free_s0:
     check_free_checkpoint(ta)
+if args.rest_s0:
+    check_rest_checkpoint(ta)
+assert not (args.free_s0 and args.rest_s0)
+GEN_S0 = args.free_s0 or args.rest_s0
 H = ta["horizon"]
 net = Net(H, ta["d_model"], ta["layers"]).to(dev)
 net.load_state_dict(ck["net"])
@@ -112,6 +119,8 @@ def ddim(x0, e0, kx, ke, pad, cur, m, scale):
                 x0h = torch.where(kx > 0, x0, ((xr - (1 - ab).sqrt() * ex) / ab.sqrt()).clamp(-CLIP, CLIP))
                 R, _ = reward(unbase(x0h * sd + mu, cur), m)
                 gx, ge = torch.autograd.grad(R.sum(), [xr, er])
+                if args.no_guide_s:
+                    gx[..., :S_DIM] = 0
                 ex, ee = ex - scale * (1 - ab).sqrt() * gx, ee - scale * (1 - ab).sqrt() * ge
         ex, ee = ex.detach(), ee.detach()
         x0h = ((x - (1 - ab).sqrt() * ex) / ab.sqrt()).clamp(-CLIP, CLIP)
@@ -129,6 +138,8 @@ def generate(scale, n, seed):
     if args.free_s0:
         traj[:, 0, :S_DIM] = 0
         traj[:, 0, 3] = 1  # 위치 0, yaw 0 (window 기준 원점). 나머지는 첫 window 에서 생성
+    if args.rest_s0:
+        traj[:, 0, :S_DIM] = rest_s0().to(dev)  # 높이·관절각 칸은 첫 window 에서 생성
     cur = traj[:, 0].clone()
     e_norm = None
     t0 = 0
@@ -139,7 +150,7 @@ def generate(scale, n, seed):
         s = cur.clone()
         s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0  # window 기준 원점
         x0[:, 0] = (s - mu) / sd
-        mode = 2 if e_norm is not None else (3 if args.free_s0 else 0)
+        mode = 2 if e_norm is not None else (3 if args.free_s0 else 4 if args.rest_s0 else 0)
         kx, ke = condition_masks(torch.full((n,), mode, device=dev), m)
         e0 = e_norm if e_norm is not None else torch.zeros(n, E_DIM, device=dev)
         xw, ew = ddim(x0 * m[..., None], e0, kx, ke, ~m, cur, m, scale)
@@ -173,7 +184,7 @@ def execute(E_np, tq, s0):
                                                      torque_limit=cfg.get("torque_limit"), uniforms=E_np), **ecfg)
     if jit_step is None:
         jit_step = jax.jit(lambda model, d, c: step(model, d, c, env.n_substeps))
-    q, qv = s0_to_q(s0) if args.free_s0 else (qpos0.copy(), qvel0)
+    q, qv = s0_to_q(s0) if GEN_S0 else (qpos0.copy(), qvel0)
     d = mujoco.MjData(env.mj_model)
     d.qpos[:] = q
     mujoco.mj_kinematics(env.mj_model, d)
@@ -260,7 +271,7 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
     r.close()
 
 
-summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if args.free_s0 else args.s0_motion, candidates=args.candidates, runs={})
+summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion, candidates=args.candidates, runs={})
 fig, axes = plt.subplots(1, len(args.scales), figsize=(5 * len(args.scales), 5), squeeze=False)
 for si, scale in enumerate(args.scales):
     traj, E = generate(scale, args.candidates, args.seed)
