@@ -1,7 +1,8 @@
 """Controlled D4 morphology-sensitivity evaluation for the trained multi-shape TT.
 
 For each held-out source window, keep qpos0, qvel0 and target_q identical while
-replaying it on e000/e001/e002. No start-state height or pose correction is made.
+replaying it on e000/e001/e002. No start-state height or pose correction is made
+unless --align-height (start_align: body z only, source lowest-foot clearance kept).
 The three TT predictions use the same per-group diffusion noise for each seed.
 
 Run from codesign/:
@@ -36,6 +37,7 @@ from omegaconf import OmegaConf
 
 from pd_replay import build_model
 from rollout_data import E_DIM, S_DIM, features
+from start_align import align_height, foot_clearance
 from t2.mjx_env.base_env import make_data, step
 from track_env import TrackMjxEnv
 from tt_model import Net, condition_masks, schedule
@@ -53,6 +55,9 @@ parser.add_argument("--starts-per-source", type=int, default=192)
 parser.add_argument("--pool-factor", type=int, default=4, help="initially inspect this multiple to allow filtering")
 parser.add_argument("--tt-seeds", type=int, default=8)
 parser.add_argument("--seed", type=int, default=20261020)
+parser.add_argument("--align-height", action="store_true",
+                    help="per-target-E body z shift keeping the source lowest-foot clearance")
+parser.add_argument("--audit-only", action="store_true", help="write selection.json after the start audit and stop")
 parser.add_argument("--manifests", type=Path, nargs=3, default=[
     ROOT / "runs/pipeline_v1/action_ablation/split_manifest.json",
     ROOT / "runs/pipeline_v1/action_ablation/e001/split_manifest.json",
@@ -220,6 +225,15 @@ for shape in SHAPES:
          "target_q": np.asarray(d["target_q"][ep, t : t + H], np.float32).copy()}
         for ep, t in possible[:pool_n]
     ]
+    src_m, src_feet = envs[shape].mj_model, np.asarray(envs[shape]._foot_ids)
+    for row in candidates[shape]:
+        if args.align_height:
+            clearance = foot_clearance(src_m, row["qpos0"], src_feet)
+            row["qpos0_by_shape"] = {s: align_height(envs[s].mj_model, row["qpos0"], np.asarray(envs[s]._foot_ids), clearance)
+                                     for s in SHAPES}
+            assert abs(row["qpos0_by_shape"][shape][2] - row["qpos0"][2]) < 1e-9, "alignment must be identity on the source E"
+        else:
+            row["qpos0_by_shape"] = {s: row["qpos0"] for s in SHAPES}
     print(f"{shape}: {len(possible)} possible held-out windows; auditing {pool_n}", flush=True)
 
 # Audit every candidate on all three E's. Starts and targets are copied bit-for-bit.
@@ -229,7 +243,7 @@ for source_shape in SHAPES:
     valid_rows = []
     reason_counts = defaultdict(int)
     for row in candidates[source_shape]:
-        audits = {shape: initial_audit(shape, row["qpos0"], row["qvel0"], row["target_q"]) for shape in SHAPES}
+        audits = {shape: initial_audit(shape, row["qpos0_by_shape"][shape], row["qvel0"], row["target_q"]) for shape in SHAPES}
         row["initial_audit"] = audits
         for shape, result in audits.items():
             for key in ("finite", "joint_limit_violation", "quaternion_invalid", "severe_floor_penetration", "action_in_common_range"):
@@ -270,6 +284,13 @@ for source_shape in SHAPES:
     print(f"{source_shape}: valid={len(valid_rows)}, selected={len(chosen)}, "
           f"contact-matched={selection_counts[source_shape]['selected_contact_matched']}", flush=True)
 
+if args.audit_only:
+    (args.out / "selection.json").write_text(json.dumps(
+        {"align_height": args.align_height, "selection": selection_counts,
+         "body_z_shift_m": {src: {s: [float(r["qpos0_by_shape"][s][2] - r["qpos0"][2]) for r in audited[src]] for s in SHAPES}
+                            for src in SHAPES}}, indent=2))
+    sys.exit(0)
+
 if sum(selection_counts[s]["selected"] for s in SHAPES) < 32:
     raise ValueError(f"fewer than 32 shared physically valid starts across source strata: {selection_counts}")
 
@@ -280,6 +301,7 @@ source_shape = np.array([r["source_shape"] for r in starts])
 source_episode = np.array([r["source_episode"] for r in starts], np.int32)
 source_t = np.array([r["source_t"] for r in starts], np.int32)
 qpos0 = np.stack([r["qpos0"] for r in starts]).astype(np.float64)
+qpos0_by_shape = np.stack([[r["qpos0_by_shape"][s] for s in SHAPES] for r in starts]).astype(np.float64)
 qvel0 = np.stack([r["qvel0"] for r in starts]).astype(np.float64)
 target_q = np.stack([r["target_q"] for r in starts]).astype(np.float32)
 N = len(starts)
@@ -297,7 +319,7 @@ def run_mjx(shape: str) -> dict[str, np.ndarray]:
     if not np.allclose(clipped, target_q, atol=1e-6, rtol=0):
         raise AssertionError("a candidate escaped the shared action range after audit")
     datas = [make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(v), impl=env.impl,
-                       nconmax=env._nconmax, njmax=env._njmax) for q, v in zip(qpos0, qvel0)]
+                       nconmax=env._nconmax, njmax=env._njmax) for q, v in zip(qpos0_by_shape[:, SHAPES.index(shape)], qvel0)]
     state = jax.tree.map(lambda *xs: jnp.stack(xs), *datas)
     state = jax.jit(jax.vmap(lambda x: mjx.forward(model, x)))(state)
     init_q, init_v = np.asarray(state.qpos), np.asarray(state.qvel)
@@ -358,7 +380,9 @@ def predict_for_shape(shape: str) -> tuple[np.ndarray, np.ndarray]:
     x = mjx_runs[shape]["x"].copy()
     # Contact is part of the learned state. Hold its S0 token fixed across E by
     # using the source morphology contact; later contacts remain actual MJX state.
-    x[:, 0, 38:42] = common_s0_contact
+    # With --align-height each E keeps its own actual MJX s0 contact.
+    if not args.align_height:
+        x[:, 0, 38:42] = common_s0_contact
     x0 = (torch.as_tensor(x, device=device) - mu) / sd
     E = np.asarray(data_by_shape[shape]["E"], np.float32)
     e = ((torch.as_tensor(E, device=device) - E_MU) / E_SD).expand(N, E_DIM)
@@ -522,7 +546,8 @@ summary = {
                            "norm": str(config["norm"]), "clip": float(config["clip"])},
     "control_period_s": 0.02, "states_per_window": H, "executed_control_intervals": H - 1,
     "same_initial_qpos_qvel_and_target_q": True,
-    "no_initial_pose_or_height_correction": True,
+    "no_initial_pose_or_height_correction": not args.align_height,
+    "height_alignment": "body z per E, source lowest-foot clearance kept" if args.align_height else None,
     "source_split": "test episodes only",
     "manifests": manifest_by_shape,
     "morphologies": {shape: data_by_shape[shape]["E"].astype(float).tolist() for shape in SHAPES},
@@ -533,7 +558,8 @@ summary = {
     "initial_contact_matched_groups": int(contact_matched.sum()),
     "initial_contact_mismatch_groups": int((~contact_matched).sum()),
     "cpu_contact_matched_groups": int(cpu_contact_matched.sum()),
-    "tt_s0_contact_source": "held-out source morphology; identical across E within group",
+    "tt_s0_contact_source": ("each E's own MJX s0 contact" if args.align_height
+                             else "held-out source morphology; identical across E within group"),
     "metrics_definition": {
         "dx_m/dy_m": "window-frame end displacement relative to t=0",
         "yaw_deg": "wrapped final heading change relative to t=0",
@@ -554,7 +580,7 @@ summary = {
 np.savez_compressed(
     args.out / "d4_morphology.npz",
     source_shape=source_shape, source_episode=source_episode, source_t=source_t,
-    group_id=np.arange(N, dtype=np.int32), qpos0=qpos0, qvel0=qvel0, target_q=target_q,
+    group_id=np.arange(N, dtype=np.int32), qpos0=qpos0, qpos0_by_shape=qpos0_by_shape, qvel0=qvel0, target_q=target_q,
     morphology=np.stack([data_by_shape[s]["E"] for s in SHAPES]).astype(np.float32),
     initial_contact_cpu=np.stack([[r["initial_audit"][s]["contact"] for s in SHAPES] for r in starts]).astype(bool),
     initial_contact_mjx=mjx_initial_contact.astype(bool),
@@ -736,7 +762,8 @@ plt.close(fig)
 lines = ["# D4 morphology sensitivity results", "", f"Checkpoint: `{args.ckpt}`",
          f"Starts: {N} total ({', '.join(f'{s}={int(source_masks[s].sum())}' for s in SHAPES)} source starts); "
          f"initial-contact matched: {int(contact_matched.sum())}; TT diffusion seeds: {args.tt_seeds}.",
-         "", "The same unmodified qpos0, qvel0 and target_q are replayed on each morphology."
+         "", ("The same qpos0 (body z shifted per E to keep the source lowest-foot clearance), qvel0 and target_q"
+              if args.align_height else "The same unmodified qpos0, qvel0 and target_q") + " are replayed on each morphology."
          " Each window has 32 states and 31 executed 50 Hz controls. Falls remain included;"
          " numerical failures are flagged and only non-finite metric entries are omitted.",
          "", "## Physical-validity selection", "",
