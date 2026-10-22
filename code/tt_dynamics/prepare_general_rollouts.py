@@ -39,19 +39,31 @@ for path in args.sources:
     E = data["E"]
     if E.shape != (13,) or not np.isfinite(E).all():
         raise ValueError(f"{path}: expected one 13-D E per source NPZ")
-    # A fixed source-path hash gives stable splits independent of input ordering.
-    h = hashlib.sha256((str(path.resolve()) + ":" + str(args.seed)).encode()).digest()
-    rng = np.random.default_rng(int.from_bytes(h[:8], "little"))
-    order = rng.permutation(n)
-    val_n = max(1, round(n * args.val_frac)) if args.val_frac else 0
-    test_n = max(1, round(n * args.test_frac)) if args.test_frac else 0
-    if val_n + test_n >= n:
-        raise ValueError(f"{path}: split leaves no training episodes")
+    # Hash PHYSICAL source episode identity, not the morphology-specific file
+    # path. Replicas across e000/e001/... must carry the same split label.
+    # Existing group_id is kept; source_episode wins over fallback row index.
+    origin = data["source_episode"] if "source_episode" in data else np.arange(n)
+    if "group_id" in data:
+        gid = np.asarray(data["group_id"], dtype=np.int64)
+    else:
+        gid = np.array([
+            int.from_bytes(hashlib.sha256(f"{path.stem}:{int(b)}".encode()).digest()[:8],
+                           "little") % (2**63 - 1) for b in origin
+        ], dtype=np.int64)
+        data["group_id"] = gid
+    # Shared ID-based split assignment is independent of file ordering/count.
+    score = np.array([
+        int.from_bytes(hashlib.sha256(f"{args.seed}:{int(g)}".encode()).digest()[:8],
+                       "little") / float(2**64) for g in gid
+    ])
     split = np.full(n, "train", dtype="<U5")
-    split[order[:val_n]] = "val"
-    split[order[val_n:val_n + test_n]] = "test"
+    split[score < args.test_frac] = "test"
+    split[(score >= args.test_frac) & (score < args.test_frac + args.val_frac)] = "val"
     data["split"] = split
-    data["source_episode"] = np.arange(n, dtype=np.int32)
+    data["source_episode"] = np.asarray(origin, dtype=np.int32)
+    val_n, test_n = int((split == "val").sum()), int((split == "test").sum())
+    if not (split == "train").any():
+        raise ValueError(f"{path}: deterministic grouped split leaves no train episodes")
     digest = hashlib.sha256(str(path.resolve()).encode()).hexdigest()[:12]
     dest = args.out / f"general_{path.stem}_{digest}.npz"
     if dest.exists():
