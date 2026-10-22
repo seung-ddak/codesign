@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code" / "tt_dynami
 from check_fast_smoke import evaluate
 
 
-def _fixture(tmp_path, *, valid=True, e_grad=True, s_grad=True, a_grad=True):
+def _fixture(tmp_path, *, valid=True, e_grad=True, s_grad=True, a_grad=True, projected=False):
     baseline = np.zeros((1, 100, 54), dtype=np.float32)
     guided = baseline.copy()
     guided[:, :, 2] = 0.1
@@ -20,7 +20,7 @@ def _fixture(tmp_path, *, valid=True, e_grad=True, s_grad=True, a_grad=True):
     e[:, 1] = 0.6
     np.savez_compressed(tmp_path / "scale_1.npz", E=e, pred=guided)
 
-    def sample(physical, reward, *, invalid=False):
+    def sample(physical, reward, *, invalid=False, projected=False):
         return {
             "E": [0.5] * 13,
             "physically_valid_s0": physical,
@@ -28,6 +28,8 @@ def _fixture(tmp_path, *, valid=True, e_grad=True, s_grad=True, a_grad=True):
             "mjx_fell_step": None if invalid else -1,
             "mjx_valid_s": 0.0 if invalid else 2.0,
             "mjx_total": reward,
+            "initial_physics": {"geometry_adjusted": projected,
+                                "initial_support_mode": "grounded"},
         }
 
     def g(on):
@@ -37,7 +39,8 @@ def _fixture(tmp_path, *, valid=True, e_grad=True, s_grad=True, a_grad=True):
         "task": "zigzag", "ckpt": "some-ckpt",
         "runs": {
             "scale_0": [sample(True, 0.5)],
-            "scale_1": [sample(valid, 1.0 if valid else None, invalid=not valid)],
+            "scale_1": [sample(valid, 1.0 if valid else None, invalid=not valid,
+                               projected=projected)],
         },
         "joint_full_guidance_audit": {
             "scale_1": {
@@ -90,3 +93,21 @@ def test_guidance_must_change_e_s_a(tmp_path):
     r = evaluate(tmp_path, guided_scale=1.0, seconds=2.0)
     assert not r["checks"]["guidance_changes_generated_A"]
     assert not r["all_pass"]
+
+
+def test_geometry_projection_is_not_raw_generation_success(tmp_path):
+    _fixture(tmp_path, projected=True)
+    r = evaluate(tmp_path, guided_scale=1.0, seconds=2.0)
+    assert r["all_pass"]
+    assert r["guided_completed_MJX_count"] == 1
+    assert r["guided_completed_unmodified_MJX_count"] == 0
+    assert r["guided_completed_projection_assisted_MJX_count"] == 1
+    assert not r["strict_raw_TT_to_MJX_verified"]
+
+
+def test_unmodified_completion_is_strict_raw_success(tmp_path):
+    _fixture(tmp_path, projected=False)
+    r = evaluate(tmp_path, guided_scale=1.0, seconds=2.0)
+    assert r["all_pass"]
+    assert r["guided_completed_unmodified_MJX_count"] == 1
+    assert r["strict_raw_TT_to_MJX_verified"]
