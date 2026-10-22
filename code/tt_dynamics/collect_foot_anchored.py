@@ -17,7 +17,7 @@ from track_env import TrackMjxEnv
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("--starts", type=Path, required=True); p.add_argument("--out", type=Path, required=True)
 p.add_argument("--actions", nargs="+", default=glob.glob("runs/pipeline_v1/wide16_action/rollouts/e*/primitive_seed0.npz"))
-p.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts_wide16_v2/walkForwardSlow__r00")
+p.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts_wide16/walkForwardSlow__r00")
 p.add_argument("--horizon", type=int, default=32); p.add_argument("--offset", type=float, default=.2)
 p.add_argument("--min-action-rms", type=float, default=.05); p.add_argument("--seed", type=int, default=0)
 p.add_argument("--command-bank-max", type=int, default=8192)

@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 stage=${1:-prepare}
 root=${FOOT_ROOT:-runs/pipeline_v1/foot_anchored_v1}
+expert_config=${FOOT_EXPERT_CONFIG:-runs/pipeline_v1/experts_wide16/walkForwardSlow__r00}
 python=../transformer-transformer/.venv/bin/python
 export TMPDIR="$PWD/.runtime/tmp" MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false \
   XLA_PYTHON_CLIENT_ALLOCATOR=platform CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-0} PYTHONUNBUFFERED=1
@@ -11,10 +12,10 @@ mkdir -p "$TMPDIR" "$root"
 
 if [[ "$stage" == prepare ]]; then
   [[ -f "$root/s0.npz" ]] || "$python" code/tt_dynamics/foot_anchored_s0.py \
-    --out "$root/s0.npz" --designs "${FOOT_DESIGNS:-32}" --poses "${FOOT_POSES:-8}" \
+    --out "$root/s0.npz" --expert-config "$expert_config" --designs "${FOOT_DESIGNS:-32}" --poses "${FOOT_POSES:-8}" \
     > "$root/s0.log" 2>&1
   [[ -f "$root/data/prepare.done" ]] || "$python" code/tt_dynamics/collect_foot_anchored.py \
-    --starts "$root/s0.npz" --out "$root/data" --rollout-batch "${FOOT_ROLLOUT_BATCH:-3}" \
+    --starts "$root/s0.npz" --out "$root/data" --expert-config "$expert_config" --rollout-batch "${FOOT_ROLLOUT_BATCH:-3}" \
     > "$root/collect.log" 2>&1
   echo "Prepared foot-anchored intervention data in $root/data"
   exit
@@ -52,11 +53,11 @@ if [[ "$stage" == dynamics ]]; then
   for design in "${test_designs[@]}"; do files+=("$root/data/${design}_orig.npz"); manifests+=("$root/data/${design}_manifest.json"); done
   [[ -f "$root/d4_strict_audit/selection.json" ]] || "$python" code/tt_dynamics/d4_morphology.py \
     --ckpt "$root/tt_intervention" --out "$root/d4_strict_audit" --shapes "${test_designs[@]}" \
-    --rollout-files "${files[@]}" --manifests "${manifests[@]}" --expert-config runs/pipeline_v1/experts_wide16_v2/walkForwardSlow__r00 \
+    --rollout-files "${files[@]}" --manifests "${manifests[@]}" --expert-config "$expert_config" \
     --starts-per-source "${FOOT_D4_STARTS:-8}" --pool-factor 4
   [[ -f "$root/d4_strict_morph/d4_morphology.json" ]] || "$python" code/tt_dynamics/d4_morphology.py \
     --ckpt "$root/tt_morph" --out "$root/d4_strict_morph" --shapes "${test_designs[@]}" \
-    --rollout-files "${files[@]}" --manifests "${manifests[@]}" --expert-config runs/pipeline_v1/experts_wide16_v2/walkForwardSlow__r00 \
+    --rollout-files "${files[@]}" --manifests "${manifests[@]}" --expert-config "$expert_config" \
     --starts-per-source "${FOOT_D4_STARTS:-8}" --pool-factor 4
   "$python" - "$root" <<'PY'
 import json, sys

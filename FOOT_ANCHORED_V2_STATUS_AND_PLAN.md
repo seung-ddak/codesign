@@ -26,11 +26,12 @@ D4에서는 X 위치, 높이, 관절각 ΔMAE가 일부 감소했지만 Yaw slop
 
 ## V100에서 재개할 순서
 
-V100에서는 먼저 CUDA·JAX 환경과 VRAM을 확인한 뒤 같은 출력 경로에서 수집을 재개한다. 기존 `s0.npz`는 재사용하고, 비어 있는 `data/`만 채운다.
+V100에서는 먼저 CUDA·JAX 환경과 VRAM을 확인한 뒤 같은 출력 경로에서 수집을 재개한다. 기존 `s0.npz`는 재사용하고, 비어 있는 `data/`만 채운다. Foot-Anchored 스크립트의 기본 expert 설정은 저장소에 있는 `runs/pipeline_v1/experts_wide16/walkForwardSlow__r00`을 사용한다. 다른 설정을 쓸 때만 `FOOT_EXPERT_CONFIG`로 경로를 지정한다.
 
 ```bash
 cd /home/cgr-ugrad-2026/quad_ws/codesign
 FOOT_ROOT=runs/pipeline_v1/foot_anchored_v2 \
+FOOT_EXPERT_CONFIG=runs/pipeline_v1/experts_wide16/walkForwardSlow__r00 \
 FOOT_ROLLOUT_BATCH=3 \
 bash code/tt_dynamics/run_foot_anchored_pipeline.sh prepare
 ```

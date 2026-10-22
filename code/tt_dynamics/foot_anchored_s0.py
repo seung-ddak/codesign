@@ -28,7 +28,7 @@ parser.add_argument("--designs", type=int, default=3)
 parser.add_argument("--poses", type=int, default=32)
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--source", nargs="+", default=glob.glob("runs/pipeline_v1/wide16_action/rollouts/e*/primitive_seed0.npz"))
-parser.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts_wide16_v2/walkForwardSlow__r00")
+parser.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts_wide16/walkForwardSlow__r00")
 parser.add_argument("--settle-seconds", type=float, default=0.2)
 args = parser.parse_args()
 if args.out.exists():
