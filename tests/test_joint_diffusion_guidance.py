@@ -11,9 +11,14 @@ from joint_diffusion_guidance import joint_diffusion_full_reward
 
 
 class TinyShapeSensitiveNet(torch.nn.Module):
+    def __init__(self, e_index=1):
+        super().__init__()
+        self.e_index = e_index
+
     def forward(self, x, e, kx, ke, k, pad):
-        # Deliberately make denoising depend on the noisy morphology token.
-        ex = torch.ones_like(x) * (0.1 * e[:, :1, None])
+        # Use active E[1] by default; E[0], E[11], E[12] are inactive
+        # coordinates whose morphology reward gradient is intentionally zero.
+        ex = torch.ones_like(x) * (0.1 * e[:, self.e_index:self.e_index + 1, None])
         ee = torch.zeros_like(e)
         return ex, ee
 
@@ -59,3 +64,16 @@ def test_joint_guidance_has_deterministic_noise():
     b, eb, _ = joint_diffusion_full_reward(TinyShapeSensitiveNet(), ToyDifferentiableTask(), **kwargs)
     assert torch.allclose(a, b)
     assert torch.allclose(ea, eb)
+
+
+def test_inactive_morphology_dimension_does_not_fake_success():
+    _, _, meta = joint_diffusion_full_reward(
+        TinyShapeSensitiveNet(e_index=0), ToyDifferentiableTask(),
+        n=1, episode_states=9, horizon=4, state_dim=42,
+        action_dim=12, e_dim=13,
+        mu=torch.zeros(54), sd=torch.ones(54),
+        beta=torch.tensor([0.1, 0.3, 0.5]),
+        abar=torch.tensor([0.8, 0.5, 0.2]),
+        guidance_scale=1.0, clip=5.0, seed=17)
+    assert not meta["e_gradient_nonzero"]
+    assert all(g == 0.0 for g in meta["e_gradient_norm_per_step"])
