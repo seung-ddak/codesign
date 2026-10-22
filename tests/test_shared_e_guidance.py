@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code" / "tt_dynami
 
 import torch
 from shared_e_guidance import optimize_shared_e
-from tt_model import condition_masks, rest_s0
+from tt_model import condition_masks, rest_s0, check_fixed_e_rest_checkpoint, CONDITIONING_VERSION
 
 
 def test_mode5_keeps_e_and_rest_only():
@@ -15,10 +15,15 @@ def test_mode5_keeps_e_and_rest_only():
     assert torch.equal(kx[0], kx[1])
     assert (kx[:, 0, 2] == 0).all()
     assert (kx[:, 0, 14:26] == 0).all()
-    assert (kx[:, 0, 38:42] == 1).all()
+    # Version 4 anchors ONLY canonical XY and yaw; contact is predicted.
+    assert (kx[:, 0, 38:42] == 0).all()
+    assert (kx[:, 0, [0, 1, 3, 4]] == 1).all()
     assert not kx[:, 1:, :].any()
     s0 = rest_s0()
-    assert (s0[38:42] == 1).all()
+    assert (s0[38:42] == 0).all()
+    assert s0[3] == 1
+    check_fixed_e_rest_checkpoint({"modes": [1, 2, 4, 5],
+                                   "conditioning_version": CONDITIONING_VERSION})
 
 
 def test_shared_e_optimizes_complete_objective_and_preserves_inert_dims():
