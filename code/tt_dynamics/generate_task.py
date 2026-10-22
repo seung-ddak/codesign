@@ -2,7 +2,7 @@
 
 생성: window (H step) 를 이어 붙여 10 s (500 step). 첫 window 는 E 도 노이즈에서 생성 (joint 조건), 이후 window 는 그 E 고정 (given_E 조건).
   --free-s0: 첫 window 를 free 조건 (mode 3) 으로 s0 까지 노이즈에서 생성한다 (TT 를 --modes 0 1 2 3 으로 학습해야 한다).
-  --rest-s0: 첫 window 를 mode 4 로. s0 의 형상 무관 칸 (속도 0·수직·접지) 만 고정, 높이·관절각은 E 와 함께 생성 (--modes 에 4).
+  --anchor-s0 (old alias --rest-s0): 첫 window Mode 4. 시작 위치·Yaw 좌표 기준만 고정. 속도·접촉·높이·관절각은 MJX 데이터 분포에서 E 와 함께 생성.
   매 디노이징 step 에서 보상 R(x0_hat) 의 gradient 를 ε 에 반영한다 (classifier guidance: ε' = ε - scale·√(1-ᾱ)·∇R).
   gradient 는 network 를 거쳐 S·A 와 E 모두에 전달된다. scale 0 = guidance 없음 (비교 기준).
 실행: 생성한 E 로 MJX 모델을 만들고 (pd_replay.build_model), 생성한 target_q 를 50 Hz 로 그대로 넣는다 (재계획 없음).
@@ -63,7 +63,7 @@ parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--seconds", type=float, default=10.0)
 parser.add_argument("--free-s0", action="store_true", help="s0 도 생성 (free 조건)")
-parser.add_argument("--rest-s0", action="store_true", help="s0 의 형상 무관 칸만 고정, 높이·관절각 생성 (mode 4)")
+parser.add_argument("--anchor-s0", "--rest-s0", dest="rest_s0", action="store_true", help="Mode 4: anchor XY=(0,0), yaw=0; learn remaining S0 and E (old alias --rest-s0)")
 parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
 parser.add_argument("--no-s0-align", action="store_true", help="execute generated S0 exactly; do not shift body height")
 parser.add_argument("--no-render", action="store_true")
@@ -135,7 +135,7 @@ else:
 
 
 def s0_to_q(s):
-    """S 토큰 하나 [42] -> MJX qpos [19], qvel [18] (xy 0, yaw 0). features() 의 역."""
+    """S token [42] -> MJX qpos [19], qvel [18] (xy=0, yaw=0). Dynamic starts allowed."""
     g = s[5:8] / np.linalg.norm(s[5:8])  # body frame 중력 = (sinθ, -sinφ·cosθ, -cosφ·cosθ)
     th, ph = np.arcsin(np.clip(g[0], -1, 1)), np.arctan2(-g[1], -g[2])
     ch, sh, cp, sp = np.cos(th / 2), np.sin(th / 2), np.cos(ph / 2), np.sin(ph / 2)
@@ -189,7 +189,7 @@ def generate(scale, n, seed):
         traj[:, 0, :S_DIM] = 0
         traj[:, 0, 3] = 1  # 위치 0, yaw 0 (window 기준 원점). 나머지는 첫 window 에서 생성
     if args.rest_s0:
-        traj[:, 0, :S_DIM] = rest_s0().to(dev)  # 높이·관절각 칸은 첫 window 에서 생성
+        traj[:, 0, :S_DIM] = rest_s0().to(dev)  # Only XY/yaw anchored; all other S0 features learned
     cur = traj[:, 0].clone()
     e_norm = None
     t0 = 0
@@ -237,7 +237,7 @@ def sample_rest_morphology(n, seed):
 def generate_fixed_e(E_physical, scale, seed):
     """Roll out the entire horizon under one FIXED E.
 
-    First window uses Mode 5: E known, rest S0 partially known. All later
+    First window uses Mode 5: E known, only initial XY/yaw anchored. All later
     windows use Mode 2: E and the generated preceding-window S0 known.
     Same seed provides common diffusion noise across finite-difference
     morphology probes. E is never re-sampled between windows.
@@ -341,17 +341,32 @@ def execute(E_np, tq, s0):
     x[:L, A] = tq[:L]
     m = np.zeros(EP, bool)
     m[:L] = True
-    physically_valid = bool(np.isfinite(q).all() and np.isfinite(qv).all() and abs(qnorm - 1.0) <= 1e-3
-                            and not joint_bad and raw_contact.all()
-                            and np.max(np.abs(raw_foot_z)) <= 1.5e-3
+    # Mode 4 now generates a moving initial state from the expert distribution.
+    # Requiring all four feet on the floor would recreate the rare-condition
+    # mismatch. Demand >=2 supporting contacts and no deep penetration instead.
+    # This is a feasibility heuristic, NOT a guarantee of stability.
+    initial_support_ok = (int(raw_contact.sum()) >= 2 and int(sum(mjx_floor_contact)) >= 2)
+    feet_penetration_ok = bool(np.isfinite(raw_foot_z).all() and raw_foot_z.min() >= -2e-3)
+    upright = float(1.0 - 2.0 * (q[4] * q[4] + q[5] * q[5])) if np.isfinite(q).all() else -1.0
+    physically_valid = bool(np.isfinite(q).all() and np.isfinite(qv).all()
+                            and abs(qnorm - 1.0) <= 1e-3 and not joint_bad
+                            and initial_support_ok and feet_penetration_ok
+                            and upright > env.termination_fellover_threshold
                             and raw_nonfoot_pen <= 2e-3 and raw_self_pen <= 2e-3
-                            and all(mjx_floor_contact) and abs(z_shift) <= 1e-9)
+                            and abs(z_shift) <= 1e-9)
     initial = dict(raw_four_foot_contact=bool(raw_contact.all()), raw_contact=raw_contact.tolist(),
-                   raw_foot_z_m=raw_foot_z.tolist(), raw_nonfoot_penetration_m=raw_nonfoot_pen,
+                   raw_foot_contact_count=int(raw_contact.sum()),
+                   raw_foot_z_m=raw_foot_z.tolist(),
+                   raw_feet_penetration_ok=feet_penetration_ok,
+                   raw_nonfoot_penetration_m=raw_nonfoot_pen,
                    raw_self_penetration_m=raw_self_pen, raw_joint_limit_violation=bool(joint_bad),
-                   raw_quaternion_norm=qnorm, mjx_four_foot_floor_contact=bool(all(mjx_floor_contact)),
-                   mjx_foot_floor_contact=mjx_floor_contact, physically_valid=physically_valid,
-                   applied_body_z_shift_m=z_shift)
+                   raw_quaternion_norm=qnorm, raw_upright_cosine=upright,
+                   initial_support_ok=bool(initial_support_ok),
+                   initial_linear_speed_m_s=float(np.linalg.norm(qv[:3])),
+                   mjx_four_foot_floor_contact=bool(all(mjx_floor_contact)),
+                   mjx_foot_floor_contact=mjx_floor_contact,
+                   mjx_foot_contact_count=int(sum(mjx_floor_contact)),
+                   physically_valid=physically_valid, applied_body_z_shift_m=z_shift)
     return x, m, fell, np.array(qs), env.mj_model, initial
 
 
@@ -411,6 +426,7 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
 summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
                candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align,
                shared_e_guidance=args.shared_e_guidance, joint_full_guidance=args.joint_full_guidance,
+               initial_condition=("xy-yaw-anchor-v4" if args.rest_s0 else "free" if args.free_s0 else "observed"),
                shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else "first-window E only"),
                shared_e_settings=(dict(iters=args.shared_e_iters, perturb=args.shared_e_perturb,
                                        step_size=args.shared_e_step_size, noise_seed=args.seed + 731)
