@@ -80,6 +80,7 @@ else
   seconds=10
 fi
 task=${QUICK_TASK:-zigzag}
+guidance=${QUICK_GUIDANCE_SCALE:-1}
 out="$root/${stage}_${task}_joint"
 if [[ -f "$out/summary.json" ]]; then
   echo "Existing result $out/summary.json: use another QUICK_ROOT or remove only this output after checking it" >&2
@@ -90,7 +91,7 @@ echo "TT joint diffusion generation + MJX: stage=$stage task=$task seconds=$seco
   --ckpt "$ckpt" --out "$out" --expert-config "$expert" \
   --anchor-s0 --joint-full-guidance --no-s0-align --no-render \
   --seconds "$seconds" --candidates "${QUICK_CANDIDATES:-1}" \
-  --task "$task" --scales 0 "${QUICK_GUIDANCE_SCALE:-1}"
+  --task "$task" --scales 0 "$guidance"
 "$python" - "$out/summary.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
@@ -100,7 +101,7 @@ for name, candidates in d["runs"].items():
         print(name, "candidate", i,
               "E", r["E"],
               "predicted R", round(r["pred_total"], 3),
-              "MJX R", round(r["mjx_total"], 3),
+              "MJX R", round(r["mjx_total"], 3) if r["mjx_total"] is not None else "SKIPPED",
               "valid S0", r["physically_valid_s0"],
               "survived", r["mjx_fell_step"] == -1,
               "valid seconds", round(r["mjx_valid_s"], 2))
@@ -109,4 +110,8 @@ for name,audit in d.get("joint_full_guidance_audit", {}).items():
           "window count:", audit["windows"])
 print("Caution: this is a direct software feasibility check; require real MJX score improvement and physically valid S0 before claiming co-design.")
 PY
+echo "Validating separately E, S, A gradients; generated changes; physical S0; MJX 2s/full execution..."
+"$python" code/tt_dynamics/check_fast_smoke.py \
+    --out "$out" --guided-scale "$guidance" --seconds "$seconds"
 echo "Result: $out/summary.json"
+echo "Checks: $out/smoke_check.json"
