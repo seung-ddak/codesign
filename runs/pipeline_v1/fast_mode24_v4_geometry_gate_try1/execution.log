@@ -1,0 +1,50 @@
+1/2: verify CPU geometry and raw-vs-assisted report contracts
+..............                                                           [100%]
+14 passed in 0.03s
+2/2: same trained TT, opt-in bounded MuJoCo geometry, airborne gate, 2s MJX
+Compatible checkpoint: runs/pipeline_v1/fast_mode24_v4/tt_joint/checkpoint.pt modes [2, 4]
+TT joint diffusion generation + MJX: stage=smoke task=zigzag seconds=2
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/tt_model.py:69: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(layer, layers)
+scale 0 #0: MJX 실행 제외 - geometry_correction_exceeds_limit | TT 예상 Reward -1.85 (실제 Reward는 평가하지 않음)
+scale 0 #1: MJX 실행 제외 - invalid_initial_physics | TT 예상 Reward -3.35 (실제 Reward는 평가하지 않음)
+scale 0 #2: MJX 실행 제외 - invalid_initial_physics | TT 예상 Reward -0.55 (실제 Reward는 평가하지 않음)
+scale 0 #3: TT 예측 -0.00 m (R -0.89) | MJX -0.06 m (R -2.75), 낙상 83, 경로 차 0.23 m | E[:3] [0.5, 0.4309999942779541, 0.3140000104904175]
+scale 1 #0: MJX 실행 제외 - geometry_correction_exceeds_limit | TT 예상 Reward -1.26 (실제 Reward는 평가하지 않음)
+scale 1 #1: MJX 실행 제외 - invalid_initial_physics | TT 예상 Reward -0.05 (실제 Reward는 평가하지 않음)
+scale 1 #2: MJX 실행 제외 - geometry_correction_exceeds_limit | TT 예상 Reward -0.04 (실제 Reward는 평가하지 않음)
+scale 1 #3: TT 예측 -0.09 m (R -0.96) | MJX 0.54 m (R -2.30), 낙상 24, 경로 차 0.21 m | E[:3] [0.5, 0.5450000166893005, 0.5360000133514404]
+-> runs/pipeline_v1/fast_mode24_v4_geometry_gate_try1/smoke_zigzag_joint
+
+QUICK CP-DESIGN REPORT (not a proof of task-optimality)
+scale_0 candidate 0 E [0.5, 0.40400001406669617, 0.210999995470047, 0.9150000214576721, 0.8199999928474426, 0.42500001192092896, 0.5040000081062317, 0.2930000126361847, 0.5580000281333923, 0.4050000011920929, 0.7369999885559082, 0.5, 0.5] predicted R -1.852 MJX R SKIPPED valid S0 False survived False valid seconds 0.0
+scale_0 candidate 1 E [0.5, 0.5619999766349792, 0.949999988079071, 0.8610000014305115, 0.949999988079071, 0.7839999794960022, 0.5839999914169312, 0.949999988079071, 0.05000000074505806, 0.16099999845027924, 0.05000000074505806, 0.5, 0.5] predicted R -3.351 MJX R SKIPPED valid S0 False survived False valid seconds 0.0
+scale_0 candidate 2 E [0.5, 0.20200000703334808, 0.18799999356269836, 0.7210000157356262, 0.7960000038146973, 0.3140000104904175, 0.39800000190734863, 0.3050000071525574, 0.19900000095367432, 0.7979999780654907, 0.7580000162124634, 0.5, 0.5] predicted R -0.553 MJX R SKIPPED valid S0 False survived False valid seconds 0.0
+scale_0 candidate 3 E [0.5, 0.4309999942779541, 0.3140000104904175, 0.6119999885559082, 0.4620000123977661, 0.492000013589859, 0.2809999883174896, 0.5839999914169312, 0.36899998784065247, 0.7519999742507935, 0.7889999747276306, 0.5, 0.5] predicted R -0.892 MJX R -2.745 valid S0 True survived False valid seconds 1.68
+scale_1 candidate 0 E [0.5, 0.41600000858306885, 0.1340000033378601, 0.9240000247955322, 0.8259999752044678, 0.4189999997615814, 0.5540000200271606, 0.20499999821186066, 0.5989999771118164, 0.39800000190734863, 0.7979999780654907, 0.5, 0.5] predicted R -1.263 MJX R SKIPPED valid S0 False survived False valid seconds 0.0
+scale_1 candidate 1 E [0.5, 0.5619999766349792, 0.949999988079071, 0.8569999933242798, 0.949999988079071, 0.7889999747276306, 0.597000002861023, 0.949999988079071, 0.05000000074505806, 0.1420000046491623, 0.05000000074505806, 0.5, 0.5] predicted R -0.054 MJX R SKIPPED valid S0 False survived False valid seconds 0.0
+scale_1 candidate 2 E [0.5, 0.05000000074505806, 0.1940000057220459, 0.949999988079071, 0.9160000085830688, 0.17499999701976776, 0.3659999966621399, 0.3230000138282776, 0.2409999966621399, 0.6850000023841858, 0.7310000061988831, 0.5, 0.5] predicted R -0.038 MJX R SKIPPED valid S0 False survived False valid seconds 0.0
+scale_1 candidate 3 E [0.5, 0.5450000166893005, 0.5360000133514404, 0.3720000088214874, 0.3160000145435333, 0.6819999814033508, 0.30300000309944153, 0.6570000052452087, 0.5899999737739563, 0.7329999804496765, 0.652999997138977, 0.5, 0.5] predicted R -0.962 MJX R -2.299 valid S0 True survived False valid seconds 0.5
+scale_0 nonzero E reward gradient: False window count: 4
+scale_1 nonzero E reward gradient: True window count: 4
+Caution: this is a direct software feasibility check; require real MJX score improvement and physically valid S0 before claiming co-design.
+Validating separately E, S, A gradients; generated changes; physical S0; MJX 2s/full execution...
+PASS real_checkpoint_joint_generation_finite
+PASS E_reward_gradient_nonzero
+PASS S_reward_gradient_nonzero
+PASS A_reward_gradient_nonzero
+PASS guidance_changes_generated_E
+PASS guidance_changes_generated_S
+PASS guidance_changes_generated_A
+PASS at_least_one_valid_initial_state
+FAIL at_least_one_complete_MJX_open_loop
+E/S/A change L2: {'E_l2': 0.6316484808921814, 'S_l2': 69.176513671875, 'A_l2': 10.522183418273926}
+Unmodified 2s completions: 0; projection-assisted completions: 0; airborne candidates: 1
+Valid S0: 1/4; MJX completed: 0/4
+Detailed report: runs/pipeline_v1/fast_mode24_v4_geometry_gate_try1/smoke_zigzag_joint/smoke_check.json
+2s MJX completed: 0
+Unmodified TT->MJX completions: 0
+Projection-assisted completions: 0
+Strict raw TT->MJX verified: False
+Airborne initial candidates: 1
+STOP: 2s validation failed. See runs/pipeline_v1/fast_mode24_v4_geometry_gate_try1/smoke_zigzag_joint/summary.json and smoke_check.json; no 10s run.
