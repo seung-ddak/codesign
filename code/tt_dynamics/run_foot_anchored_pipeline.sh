@@ -69,8 +69,11 @@ if not pairs:
     raise SystemExit("no D4 pairs were evaluated")
 if not any(int(v) > 0 for v in d4.get("pair_initial_contact_matched_groups", {}).values()):
     raise SystemExit("D4 has no pairwise contact-matched groups")
+# Audit only: existence of an evaluable D4 pair is NOT evidence of task-reward
+# ranking quality or of adequate dynamics prediction. Require manual review.
 (root / "dynamics_gate.json").write_text(json.dumps({
-    "passed": True, "strict_d4_pairs": list(pairs),
+    "passed": False, "reason": "Requires D4/D5 and predicted-vs-MJX task reward review before joint training",
+    "strict_d4_pairs": list(pairs),
     "pair_initial_contact_matched_groups": d4.get("pair_initial_contact_matched_groups", {}),
     "checkpoint": d4.get("checkpoint"),
 }, indent=2) + "\n")
@@ -80,9 +83,24 @@ PY
 fi
 
 if [[ "$stage" == joint ]]; then
-  [[ -f "$root/dynamics_gate.json" ]] || { echo "Dynamics gate missing; run dynamics first" >&2; exit 1; }
+  "$python" - "$root/dynamics_gate.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+if not p.is_file() or not json.loads(p.read_text()).get("passed", False):
+    raise SystemExit("Dynamics gate not passed; review D4/D5 and task ranking first")
+PY
+  # Optional primitive/transition rollouts prepared with compatible E, target_q,
+  # valid, and episode-level split arrays (see prepare_general_rollouts.py).
+  general=()
+  if [[ -d "$root/general_data" ]]; then
+    shopt -s nullglob
+    general=("$root"/general_data/*.npz)
+    shopt -u nullglob
+  fi
+  echo "Joint data: ${#all[@]} action files, ${#morph[@]} morphology files, ${#general[@]} general files"
   [[ -f "$root/tt_joint/checkpoint.pt" ]] || "$python" code/tt_dynamics/train_tt.py \
-    --data "${all[@]}" --out "$root/tt_joint" --horizon 32 --steps 20000 --batch 32 \
+    --data "${all[@]}" "${morph[@]}" "${general[@]}" --out "$root/tt_joint" --horizon 32 --steps 20000 --batch 32 \
     --modes 1 4 --diff-steps 5 --norm minmax --clip 1 --sampler ddim --split-key split \
     > "$root/train_joint.log" 2>&1
   [[ -f "$root/joint_32/summary.json" ]] || "$python" code/tt_dynamics/generate_task.py \
