@@ -64,6 +64,14 @@ def evaluate(root: Path, guided_scale: float, seconds: float):
             and any(v > 1e-12 for v in norms)
         )
 
+    raw_completed = [
+        ok and not row.get("initial_physics", {}).get("geometry_adjusted", False)
+        for ok, row in zip(no_fall_valid, gr)
+    ]
+    projected_completed = [
+        ok and row.get("initial_physics", {}).get("geometry_adjusted", False)
+        for ok, row in zip(no_fall_valid, gr)
+    ]
     checks = {
         "real_checkpoint_joint_generation_finite": bool(finite),
         "E_reward_gradient_nonzero": bool(components["e"]),
@@ -87,10 +95,21 @@ def evaluate(root: Path, guided_scale: float, seconds: float):
         "guided_candidates": len(gr),
         "guided_valid_s0_count": sum(bool(r.get("physically_valid_s0")) for r in gr),
         "guided_completed_MJX_count": sum(no_fall_valid),
+        "guided_completed_unmodified_MJX_count": sum(raw_completed),
+        "guided_completed_projection_assisted_MJX_count": sum(projected_completed),
+        "guided_geometry_adjusted_count": sum(
+            bool(r.get("initial_physics", {}).get("geometry_adjusted", False)) for r in gr),
+        "guided_airborne_start_count": sum(
+            r.get("initial_physics", {}).get("initial_support_mode") == "airborne_unverified"
+            for r in gr),
+        "strict_raw_TT_to_MJX_verified": bool(all(checks.values()) and any(raw_completed)),
         "guided_rejected_count": sum(bool(r.get("execution_skipped")) for r in gr),
         "guided_rewards": [r.get("mjx_total") for r in gr],
         "baseline_rewards": [r.get("mjx_total") for r in summary["runs"][base_tag]],
-        "note": "Passing confirms test wiring and at least one feasible 2s replay; it does not establish morphology-task optimality or 10s success.",
+        "note": ("The gate may pass with post-denoising geometry projection, in which case "
+                 "only projection-assisted MJX execution was verified, NOT raw TT physical "
+                 "generation. A zero-contact airborne start is a trial, not proof of stable "
+                 "flight. This cannot establish task-optimality or 10s success."),
     }
 
 
@@ -106,6 +125,9 @@ def main():
     for check, passed in report["checks"].items():
         print(f"{'PASS' if passed else 'FAIL'} {check}")
     print(f"E/S/A change L2: {report['guidance_change_l2']}")
+    print(f"Unmodified 2s completions: {report['guided_completed_unmodified_MJX_count']}; "
+          f"projection-assisted completions: {report['guided_completed_projection_assisted_MJX_count']}; "
+          f"airborne candidates: {report['guided_airborne_start_count']}")
     print(f"Valid S0: {report['guided_valid_s0_count']}/{report['guided_candidates']}; "
           f"MJX completed: {report['guided_completed_MJX_count']}/{report['guided_candidates']}")
     print(f"Detailed report: {args.out / 'smoke_check.json'}")
