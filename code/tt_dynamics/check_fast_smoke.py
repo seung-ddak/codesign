@@ -107,6 +107,11 @@ def evaluate(root: Path, guided_scale: float, seconds: float):
     }
     return {
         "stage": "FAST joint E/S/A generation plus MJX open-loop",
+        "evidence_levels": {
+            "gradient_checks": "computation graph connectivity only, NOT learned E-to-dynamics fidelity",
+            "physical_checks": "actual morphology-specific MuJoCo initial geometry",
+            "mjx_checks": "observed real open-loop survival/reward; only completed runs support the 2s feasibility claim",
+        },
         "task": summary.get("task"),
         "seconds": seconds,
         "guided_scale": guided_scale,
