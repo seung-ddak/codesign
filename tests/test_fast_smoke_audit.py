@@ -29,7 +29,10 @@ def _fixture(tmp_path, *, valid=True, e_grad=True, s_grad=True, a_grad=True, pro
             "mjx_valid_s": 0.0 if invalid else 2.0,
             "mjx_total": reward,
             "initial_physics": {"geometry_adjusted": projected,
-                                "initial_support_mode": "grounded"},
+                                "initial_support_mode": "grounded",
+                                "preprojection": {"body_height_m": 0.3},
+                                "executed_body_height_m": 0.32 if projected else 0.3,
+                                "applied_body_z_shift_m": 0.02 if projected else 0.0},
         }
 
     def g(on):
@@ -111,3 +114,26 @@ def test_unmodified_completion_is_strict_raw_success(tmp_path):
     assert r["all_pass"]
     assert r["guided_completed_unmodified_MJX_count"] == 1
     assert r["strict_raw_TT_to_MJX_verified"]
+
+
+def test_missing_provenance_never_claims_raw_generation(tmp_path):
+    _fixture(tmp_path)
+    p = tmp_path / "summary.json"
+    d = json.loads(p.read_text())
+    del d["runs"]["scale_1"][0]["initial_physics"]
+    p.write_text(json.dumps(d))
+    r = evaluate(tmp_path, guided_scale=1.0, seconds=2.0)
+    assert r["all_pass"]  # MJX replay history still says completion
+    assert not r["strict_raw_TT_to_MJX_verified"]
+    assert r["guided_completed_unmodified_MJX_count"] == 0
+    assert r["guided_completed_unknown_provenance_MJX_count"] == 1
+
+
+def test_inconsistent_shift_cannot_pass_raw_provenance(tmp_path):
+    _fixture(tmp_path)
+    p = tmp_path / "summary.json"
+    d = json.loads(p.read_text())
+    d["runs"]["scale_1"][0]["initial_physics"]["applied_body_z_shift_m"] = 0.01
+    p.write_text(json.dumps(d))
+    r = evaluate(tmp_path, guided_scale=1.0, seconds=2.0)
+    assert not r["strict_raw_TT_to_MJX_verified"]
