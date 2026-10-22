@@ -104,13 +104,17 @@ with np.load(Path(ecfg["reference_dir"]) / f"{motions[0]}.npz") as z:
 env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
                                                  torque_limit=cfg.get("torque_limit"), uniforms=uniforms), **ecfg)
 feet = jnp.asarray(env._foot_ids)
+floor_id = int(env.mj_model.geom("floor").id)
 n = env.n_ctrl
 branches = [lambda o, k, p=p: p(o, k)[0] for _, p in experts]
 
 
 def contact(data):
     geom, dist = data.contact.geom, data.contact.dist
-    return jnp.stack([((geom == f).any(1) & (dist < CONTACT_DIST)).any() for f in feet])
+    # S[38:42] = foot-FLOOR contact only, not foot touching any geom.
+    return jnp.stack([((((geom[:, 0] == f) & (geom[:, 1] == floor_id)) |
+                         ((geom[:, 1] == f) & (geom[:, 0] == floor_id))) &
+                        (dist <= CONTACT_DIST)).any() for f in feet])
 
 
 def obs(s):
@@ -172,6 +176,7 @@ for t in range(T):
 out = {k: np.asarray(jnp.stack(v, 1)) for k, v in rec.items()}
 out["target_q"] = np.asarray(env.action_offset[:n]) + np.clip(out["action"], *env.clip_actions) * env.action_scale
 out.update(fell=np.asarray(fell), E=np.asarray(uniforms), motions=np.array(motions), dt=env.dt, design=args.design, mode=args.mode,
+           contact_definition="foot_floor",
            clip_start=np.asarray(env.clip_start), clip_end=np.asarray(env.clip_end), seed=args.seed,
            match_vel_weight=args.match_vel_weight, switch_entry=args.switch_entry,
            checkpoint_paths=np.array(checkpoint_paths), action_offset=np.asarray(env.action_offset[:n]),
