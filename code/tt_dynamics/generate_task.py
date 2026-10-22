@@ -42,6 +42,7 @@ from omegaconf import OmegaConf  # noqa: E402
 from pd_replay import build_model  # noqa: E402
 from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
 from s0_geometry import s0_to_q  # noqa: E402
+from initial_geometry_gate import bounded_lift, classify_initial_support  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
 from task_reward import StraightReward, TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
@@ -67,6 +68,12 @@ parser.add_argument("--free-s0", action="store_true", help="s0 도 생성 (free 
 parser.add_argument("--anchor-s0", "--rest-s0", dest="rest_s0", action="store_true", help="Mode 4: anchor XY=(0,0), yaw=0; learn remaining S0 and E (old alias --rest-s0)")
 parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
 parser.add_argument("--no-s0-align", action="store_true", help="execute generated S0 exactly; do not shift body height")
+parser.add_argument("--geometry-s0", action="store_true",
+                    help="opt-in bounded post-denoising S0 floor-geometry projection; preserve raw TT prediction")
+parser.add_argument("--max-geometry-lift-m", type=float, default=0.04,
+                    help="maximum bounded vertical correction of generated S0 (metres)")
+parser.add_argument("--allow-airborne-s0", action="store_true",
+                    help="test geometry-clear zero-contact starts in MJX instead of rejecting as unsupported")
 parser.add_argument("--no-render", action="store_true")
 parser.add_argument("--joint-full-guidance", action="store_true",
                     help="per-denoising-step reward gradient guides noisy E and complete 10s S/A (not SPSA)")
@@ -113,6 +120,10 @@ if args.shared_e_guidance:
     if args.shared_e_iters < 0 or args.shared_e_perturb <= 0 or args.shared_e_step_size <= 0:
         parser.error("invalid shared-E optimizer parameters")
 GEN_S0 = args.free_s0 or args.rest_s0
+if args.geometry_s0 and (not GEN_S0 or not args.no_s0_align):
+    parser.error('--geometry-s0 requires generated S0 and --no-s0-align; legacy alignment must stay disabled')
+if args.max_geometry_lift_m <= 0 or not np.isfinite(args.max_geometry_lift_m):
+    parser.error('--max-geometry-lift-m must be positive and finite')
 H = ta["horizon"]
 net = Net(H, ta["d_model"], ta["layers"]).to(dev)
 net.load_state_dict(ck["net"])
@@ -312,7 +323,35 @@ def execute(E_np, tq, s0):
                     not (env.mj_model.jnt_range[j, 0] - 1e-3 <= q[int(env.mj_model.jnt_qposadr[j])]
                          <= env.mj_model.jnt_range[j, 1] + 1e-3)
                     for j in range(env.mj_model.njnt))
-    z_shift = 0.0
+    # Snapshot unmodified TT output before any optional, explicitly bounded
+    # geometry correction. `pred` NPZ and TT reward remain UNCHANGED.
+    preprojection = dict(body_height_m=float(q[2]),
+                         foot_clearance_m=raw_foot_z.tolist(),
+                         max_foot_penetration_m=float(max(0., -raw_foot_z.min())),
+                         nonfoot_penetration_m=float(raw_nonfoot_pen),
+                         self_penetration_m=float(raw_self_pen),
+                         cpu_foot_contacts=int(raw_contact.sum()))
+    projection = dict(needed=False, allowed=True, requested_lift_m=0.,
+                      applied_lift_m=0., reason="disabled", max_lift_m=float(args.max_geometry_lift_m))
+    if GEN_S0 and args.geometry_s0:
+        projection = bounded_lift(raw_foot_z, raw_nonfoot_pen,
+                                  max_lift_m=args.max_geometry_lift_m)
+        if projection["applied_lift_m"] > 0:
+            q = q.copy()
+            q[2] += projection["applied_lift_m"]
+            d.qpos[:] = q
+            mujoco.mj_forward(env.mj_model, d)
+            # Geometry MUST be rechecked after the corrected q is set.
+            raw_foot_z = d.geom_xpos[feet, 2] - env.mj_model.geom_size[feet, 0]
+            raw_contact = np.array([any(
+                floor in (c.geom1, c.geom2) and f in (c.geom1, c.geom2) and c.dist <= 1e-3
+                for c in d.contact[:d.ncon]) for f in feet])
+            raw_nonfoot_pen = max([max(0.0, -float(c.dist)) for c in d.contact[:d.ncon]
+                                   if floor in (c.geom1, c.geom2) and
+                                   (c.geom2 if c.geom1 == floor else c.geom1) not in feet] or [0.0])
+            raw_self_pen = max([max(0.0, -float(c.dist)) for c in d.contact[:d.ncon]
+                                if floor not in (c.geom1, c.geom2)] or [0.0])
+    z_shift = 0.0  # legacy mode only; --geometry-s0 never uses this alignment
     if not args.no_s0_align:
         z_shift = float(-raw_foot_z.min())
         q[2] += z_shift
@@ -326,7 +365,9 @@ def execute(E_np, tq, s0):
     # Requiring all four feet on the floor would recreate the rare-condition
     # mismatch. Demand >=2 supporting contacts and no deep penetration instead.
     # This is a feasibility heuristic, NOT a guarantee of stability.
-    initial_support_ok = (int(raw_contact.sum()) >= 2 and int(sum(mjx_floor_contact)) >= 2)
+    support = classify_initial_support(raw_contact, mjx_floor_contact, raw_foot_z,
+                                       allow_airborne=args.allow_airborne_s0)
+    initial_support_ok = support["support_ok"]
     feet_penetration_ok = bool(np.isfinite(raw_foot_z).all() and raw_foot_z.min() >= -2e-3)
     upright = float(1.0 - 2.0 * (q[4] * q[4] + q[5] * q[5])) if np.isfinite(q).all() else -1.0
     physically_valid = bool(np.isfinite(q).all() and np.isfinite(qv).all()
@@ -347,12 +388,18 @@ def execute(E_np, tq, s0):
                    mjx_four_foot_floor_contact=bool(all(mjx_floor_contact)),
                    mjx_foot_floor_contact=mjx_floor_contact,
                    mjx_foot_contact_count=int(sum(mjx_floor_contact)),
-                   physically_valid=physically_valid, applied_body_z_shift_m=z_shift)
+                   physically_valid=physically_valid,
+                   initial_support_mode=support["initial_support_mode"],
+                   preprojection=preprojection, geometry_projection=projection,
+                   geometry_adjusted=bool(projection["applied_lift_m"] > 0),
+                   executed_body_height_m=float(q[2]),
+                   applied_body_z_shift_m=z_shift + projection["applied_lift_m"])
     # Infeasible generated S0 is REJECTED, not passed into open-loop stepping.
     # A rejected run carries an empty validity mask, never a fake zero reward.
     if not physically_valid:
         initial["execution_skipped"] = True
-        initial["skip_reason"] = "invalid_initial_physics"
+        initial["skip_reason"] = ("geometry_correction_exceeds_limit" if not projection["allowed"]
+                                  else "invalid_initial_physics")
         return (np.zeros((EP, X_DIM), np.float32),
                 np.zeros(EP, bool), -2, np.asarray([q]), env.mj_model, initial)
     initial["execution_skipped"] = False
@@ -438,6 +485,8 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
 
 summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
                candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align,
+               geometry_s0=args.geometry_s0, max_geometry_lift_m=args.max_geometry_lift_m,
+               allow_airborne_s0=args.allow_airborne_s0,
                shared_e_guidance=args.shared_e_guidance, joint_full_guidance=args.joint_full_guidance,
                initial_condition=("xy-yaw-anchor-v4" if args.rest_s0 else "free" if args.free_s0 else "observed"),
                shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else
