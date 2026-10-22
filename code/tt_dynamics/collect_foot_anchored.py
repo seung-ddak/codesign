@@ -76,6 +76,7 @@ def initial_valid(env, q, v):
 
 def rollout(env, q0, v0, targets):
     B = len(q0); model, feet = env.mj_model, np.asarray(env._foot_ids)
+    floor = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
     data = jax.tree.map(lambda *xs: jnp.stack(xs), *[make_data(model, qpos=jnp.asarray(q), qvel=jnp.asarray(v), impl=env.impl,
         nconmax=env._nconmax, njmax=env._njmax) for q, v in zip(q0, v0)])
     data = jax.jit(jax.vmap(lambda x: mjx.forward(env.mjx_model, x)))(data)
@@ -83,7 +84,10 @@ def rollout(env, q0, v0, targets):
     record = {k: [] for k in ("qpos", "qvel", "contact", "valid")}; alive = np.ones(B, bool); initial_ok = np.zeros(B, bool)
     for t in range(args.horizon):
         q, v = np.asarray(data.qpos), np.asarray(data.qvel); geom, dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
-        touching = np.stack([((geom == foot).any(-1) & (dist <= 1e-3)).any(-1) for foot in feet], -1)
+        # Consistent with generate_task and initial_valid: FOOT against FLOOR.
+        touching = np.stack([(((((geom[..., 0] == foot) & (geom[..., 1] == floor)) |
+                                 ((geom[..., 1] == foot) & (geom[..., 0] == floor))) &
+                                (dist <= 1e-3)).any(-1)) for foot in feet], -1)
         if t == 0: initial_ok = touching.all(1) & np.isfinite(q).all(1) & np.isfinite(v).all(1)
         alive &= np.isfinite(q).all(1) & np.isfinite(v).all(1) & (1 - 2 * (q[:, 4] ** 2 + q[:, 5] ** 2) >= env.termination_fellover_threshold)
         for k, x in (("qpos", q), ("qvel", v), ("contact", touching), ("valid", alive.copy())): record[k].append(x)
