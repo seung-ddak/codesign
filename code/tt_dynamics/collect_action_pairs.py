@@ -147,13 +147,17 @@ data = jax.tree.map(lambda *xs: jnp.stack(xs), *[
 ])
 data = jax.jit(jax.vmap(lambda state: mjx.forward(env.mjx_model, state)))(data)
 vstep = jax.jit(jax.vmap(lambda state, ctrl: step(env.mjx_model, state, ctrl, env.n_substeps)))
+floor = mujoco.mj_name2id(env.mj_model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
 record = {k: [] for k in ("qpos", "qvel", "contact", "valid")}
 alive = np.ones(B, bool)
 for ti in range(args.horizon):
     q = np.asarray(data.qpos)
     v = np.asarray(data.qvel)
     geom, dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
-    contact = np.stack([((geom == foot).any(-1) & (dist < 1e-3)).any(-1) for foot in feet], -1)
+    # Contact token is foot-FLOOR, never foot-any-geometry.
+    contact = np.stack([((((geom[..., 0] == foot) & (geom[..., 1] == floor)) |
+                          ((geom[..., 1] == foot) & (geom[..., 0] == floor))) &
+                         (dist <= 1e-3)).any(-1) for foot in feet], -1)
     up = 1 - 2 * (q[:, 4] ** 2 + q[:, 5] ** 2)
     alive &= np.isfinite(q).all(1) & np.isfinite(v).all(1) & (up >= env.termination_fellover_threshold)
     for key, value in (("qpos", q), ("qvel", v), ("contact", contact), ("valid", alive.copy())):
