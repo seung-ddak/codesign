@@ -239,6 +239,14 @@ if not args.eval_only:
 ck = torch.load(ckpt_path, weights_only=False)
 net.load_state_dict(ck["net"])
 net.eval()
+# The historical post-training evaluation requires Mode 1 (E+s0+A -> S).
+# With joint-only Modes 2+4, it would test an UNTRAINED conditioning mode
+# and mislabel an unconditional action sample as dynamics reconstruction.
+# Validate joint-only checkpoints with task generation and MJX instead.
+if 1 not in ck["args"]["modes"]:
+    print("Joint-only checkpoint: Modes 2/4; skipping Mode-1 dynamics diagnostics. "
+          "Check val_loss in progress.jsonl, then run FAST joint generation + MJX.", flush=True)
+    raise SystemExit(0)
 if args.diag:
     # 검증 episode 마다 시작점 8 개 (window 전체 유효), 실제 s0 에서 window 하나만 예측
     torch.manual_seed(args.seed)
