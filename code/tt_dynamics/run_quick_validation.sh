@@ -40,7 +40,7 @@ if [[ ! -f "$ckpt/checkpoint.pt" ]]; then
       data+=("$p")
     done
   fi
-  printf 'Quick training data: %s\\n' "${data[@]}"
+  printf 'Quick training data: %s\n' "${data[@]}"
   echo "Training a small smoke joint model (Mode 1,2,4), no PPO training"
   "$python" code/tt_dynamics/train_tt.py --data "${data[@]}" \
     --out "$ckpt" --horizon 32 --steps "${QUICK_STEPS:-3000}" \
