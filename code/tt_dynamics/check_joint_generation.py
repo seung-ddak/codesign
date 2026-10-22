@@ -15,9 +15,9 @@ d = json.loads(args.summary.read_text())
 rows = [row for values in d["runs"].values() for row in values]
 if not rows:
     raise ValueError("no generated candidates")
-raw_valid = [r["initial_physics"]["raw_four_foot_contact"] and
-             r["initial_physics"]["raw_nonfoot_penetration_m"] <= 0.002 and
-             abs(r["initial_physics"]["applied_body_z_shift_m"]) <= 1e-9 for r in rows]
+# New summaries include all initial physical checks, including the MJX
+# foot-ground audit. Older summaries lack this information and fail closed.
+raw_valid = [bool(r["initial_physics"].get("physically_valid", False)) for r in rows]
 survived = [r["mjx_fell_step"] < 0 for r in rows]
 consistent = [r["path_err_m"] <= args.max_path_error for r in rows]
 joint_valid = [a and b and c for a, b, c in zip(raw_valid, survived, consistent)]
