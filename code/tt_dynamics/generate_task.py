@@ -289,12 +289,23 @@ def execute(E_np, tq, s0):
     raw_nonfoot_pen = max([max(0.0, -float(c.dist)) for c in d.contact[:d.ncon]
                            if floor in (c.geom1, c.geom2) and
                            (c.geom2 if c.geom1 == floor else c.geom1) not in feet] or [0.0])
+    raw_self_pen = max([max(0.0, -float(c.dist)) for c in d.contact[:d.ncon]
+                        if floor not in (c.geom1, c.geom2)] or [0.0])
+    qnorm = float(np.linalg.norm(q[3:7]))
+    joint_bad = any(env.mj_model.jnt_limited[j] and
+                    not (env.mj_model.jnt_range[j, 0] - 1e-3 <= q[int(env.mj_model.jnt_qposadr[j])]
+                         <= env.mj_model.jnt_range[j, 1] + 1e-3)
+                    for j in range(env.mj_model.njnt))
     z_shift = 0.0
     if not args.no_s0_align:
         z_shift = float(-raw_foot_z.min())
         q[2] += z_shift
     data = mjx.forward(env.mjx_model, make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(qv), impl=env.impl,
                                                nconmax=env._nconmax, njmax=env._njmax))
+    initial_geom, initial_dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
+    mjx_floor_contact = [bool((((initial_geom[:, 0] == f) & (initial_geom[:, 1] == floor)) |
+                               ((initial_geom[:, 1] == f) & (initial_geom[:, 0] == floor)))
+                               .__and__(initial_dist <= 1e-3).any()) for f in feet]
     off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
     qs, vs, cs = [], [], []
     fell = -1
@@ -318,8 +329,16 @@ def execute(E_np, tq, s0):
     x[:L, A] = tq[:L]
     m = np.zeros(EP, bool)
     m[:L] = True
+    physically_valid = bool(np.isfinite(q).all() and np.isfinite(qv).all() and abs(qnorm - 1.0) <= 1e-3
+                            and not joint_bad and raw_contact.all()
+                            and np.max(np.abs(raw_foot_z)) <= 1.5e-3
+                            and raw_nonfoot_pen <= 2e-3 and raw_self_pen <= 2e-3
+                            and all(mjx_floor_contact) and abs(z_shift) <= 1e-9)
     initial = dict(raw_four_foot_contact=bool(raw_contact.all()), raw_contact=raw_contact.tolist(),
                    raw_foot_z_m=raw_foot_z.tolist(), raw_nonfoot_penetration_m=raw_nonfoot_pen,
+                   raw_self_penetration_m=raw_self_pen, raw_joint_limit_violation=bool(joint_bad),
+                   raw_quaternion_norm=qnorm, mjx_four_foot_floor_contact=bool(all(mjx_floor_contact)),
+                   mjx_foot_floor_contact=mjx_floor_contact, physically_valid=physically_valid,
                    applied_body_z_shift_m=z_shift)
     return x, m, fell, np.array(qs), env.mj_model, initial
 
@@ -428,6 +447,7 @@ for si, scale in enumerate(args.scales):
                         mjx_total=float(r_total[i]), mjx_progress=float(r_terms["r_progress"][i] * reward.unit_scale),
                         mjx_fell_step=int(rows[i][0]), mjx_valid_s=float(L[i] * 0.02), path_err_m=path_err[i],
                         initial_physics=rows[i][1],
+                        physically_valid_s0=bool(rows[i][1]["physically_valid"]),
                         pred_terms={k: float(v[i]) for k, v in p_terms.items()}, mjx_terms={k: float(v[i]) for k, v in r_terms.items()}))
         print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_progress']:.2f} {reward.unit} "
               f"(R {r_total[i]:.2f}), 낙상 {rows[i][0]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
