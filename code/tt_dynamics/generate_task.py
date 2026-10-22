@@ -40,7 +40,7 @@ from omegaconf import OmegaConf  # noqa: E402
 from pd_replay import build_model  # noqa: E402
 from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
-from task_reward import TrackReward, ZigzagReward  # noqa: E402
+from task_reward import StraightReward, TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
 from tt_model import Net, check_free_checkpoint, check_rest_checkpoint, condition_masks, rest_s0, schedule, unbase  # noqa: E402
 
@@ -52,9 +52,9 @@ parser.add_argument("--out", type=Path, required=True)
 parser.add_argument("--candidates", type=int, default=8)
 parser.add_argument("--scales", type=float, nargs="+", default=[0.0, 1.0, 5.0], help="guidance 세기 (0 = 없음)")
 parser.add_argument("--s0-motion", default="walkForwardSlow__r00")
-parser.add_argument("--task", choices=("circle", "zigzag"), default="circle")
+parser.add_argument("--task", choices=("circle", "zigzag", "straight"), default="circle")
 parser.add_argument("--radius", type=float, default=1.0, help="circle")
-parser.add_argument("--half-width", type=float, default=0.3, help="트랙 반폭 (m)")
+parser.add_argument("--half-width", type=float, default=None, help="corridor half-width (m); task-specific defaults when omitted")
 parser.add_argument("--amp", type=float, default=0.3, help="zigzag 진폭 (m)")
 parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)")
 parser.add_argument("--seed", type=int, default=0)
@@ -70,8 +70,11 @@ if EP < 2:
     parser.error("--seconds must contain at least two 50 Hz states")
 dev = "cuda"
 args.out.mkdir(parents=True, exist_ok=True)
+if args.half_width is None:
+    args.half_width = 0.15 if args.task in ("zigzag", "straight") else 0.3
 reward = (TrackReward(radius=args.radius, half_width=args.half_width) if args.task == "circle"
-          else ZigzagReward(amp=args.amp, period=args.period, half_width=args.half_width))
+          else ZigzagReward(amp=args.amp, period=args.period, half_width=args.half_width) if args.task == "zigzag"
+          else StraightReward(half_width=args.half_width))
 
 # ---- TT ----
 ck = torch.load(args.ckpt / "checkpoint.pt", weights_only=False)
