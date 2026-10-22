@@ -87,22 +87,36 @@ def schedule(n, dev):
     return beta.float().to(dev), torch.cumprod(1 - beta, 0).float().to(dev)
 
 
+def unit_yaw(c, s, eps=1e-6):
+    """Use only SO(2) rotation when stitching TT windows.
+
+    Predicted cos/sin channels are unconstrained by diffusion. Fall back to
+    identity for near-zero headings, rather than scaling travelled distances.
+    This helper preserves autograd for non-degenerate predictions.
+    """
+    norm = torch.sqrt(c.square() + s.square()).clamp_min(eps)
+    good = (c.square() + s.square()) > eps * eps
+    return torch.where(good, c / norm, torch.ones_like(c)), torch.where(
+        good, s / norm, torch.zeros_like(s))
+
+
 def rebase(x):
-    """episode 시작 기준 [B,H,X] -> 각 window 첫 state 기준 (위치·yaw 만 바뀐다)."""
+    """Episode frame -> first-state frame; yaw must be a UNIT rotation."""
     x = x.clone()
-    c0, s0 = x[:, :1, 3], x[:, :1, 4]
+    c0, s0 = unit_yaw(x[:, :1, 3], x[:, :1, 4])
     d = x[..., 0:2] - x[:, :1, 0:2]
-    c, s = x[..., 3].clone(), x[..., 4].clone()
+    c, s = unit_yaw(x[..., 3].clone(), x[..., 4].clone())
     x[..., 0], x[..., 1] = c0 * d[..., 0] + s0 * d[..., 1], -s0 * d[..., 0] + c0 * d[..., 1]
     x[..., 3], x[..., 4] = c * c0 + s * s0, s * c0 - c * s0
     return x
 
 
 def unbase(w, start):
-    """window 기준 [B,H,X] -> episode 시작 기준. start = window 첫 state 의 episode 기준 값 [B,X]."""
+    """Window frame -> episode frame; never scale positions via yaw magnitude."""
     w = w.clone()
-    c0, s0 = start[:, None, 3], start[:, None, 4]
-    px, py, c, s = w[..., 0].clone(), w[..., 1].clone(), w[..., 3].clone(), w[..., 4].clone()
+    c0, s0 = unit_yaw(start[:, None, 3], start[:, None, 4])
+    px, py = w[..., 0].clone(), w[..., 1].clone()
+    c, s = unit_yaw(w[..., 3].clone(), w[..., 4].clone())
     w[..., 0], w[..., 1] = start[:, None, 0] + c0 * px - s0 * py, start[:, None, 1] + s0 * px + c0 * py
     w[..., 3], w[..., 4] = c * c0 - s * s0, s * c0 + c * s0
     return w
