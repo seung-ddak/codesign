@@ -35,6 +35,7 @@ import mujoco  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
 from shared_e_guidance import optimize_shared_e  # noqa: E402
+from joint_diffusion_guidance import joint_diffusion_full_reward  # noqa: E402
 from mujoco import mjx  # noqa: E402
 from omegaconf import OmegaConf  # noqa: E402
 
@@ -66,6 +67,8 @@ parser.add_argument("--rest-s0", action="store_true", help="s0 의 형상 무관
 parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
 parser.add_argument("--no-s0-align", action="store_true", help="execute generated S0 exactly; do not shift body height")
 parser.add_argument("--no-render", action="store_true")
+parser.add_argument("--joint-full-guidance", action="store_true",
+                    help="per-denoising-step reward gradient guides noisy E and complete 10s S/A (not SPSA)")
 parser.add_argument("--shared-e-guidance", action="store_true",
                     help="estimate full-horizon reward gradient for one E shared across TT windows (SPSA)")
 parser.add_argument("--shared-e-iters", type=int, default=4, help="SPSA outer iterations per guidance scale")
@@ -93,6 +96,13 @@ if args.free_s0:
 if args.rest_s0:
     check_rest_checkpoint(ta)
 assert not (args.free_s0 and args.rest_s0)
+if args.shared_e_guidance and args.joint_full_guidance:
+    parser.error("select one of --shared-e-guidance (SPSA) and --joint-full-guidance (joint diffusion)")
+if args.joint_full_guidance:
+    if not args.rest_s0 or args.free_s0:
+        parser.error("--joint-full-guidance requires --rest-s0")
+    if 2 not in ta.get("modes", []):
+        parser.error("--joint-full-guidance requires checkpoint trained with Mode 2")
 if args.shared_e_guidance:
     if not args.rest_s0 or args.free_s0:
         parser.error("--shared-e-guidance currently requires --rest-s0 (mode 4 initial E, mode 5 fixed-E rest S0)")
@@ -400,7 +410,7 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
 
 summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
                candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align,
-               shared_e_guidance=args.shared_e_guidance,
+               shared_e_guidance=args.shared_e_guidance, joint_full_guidance=args.joint_full_guidance,
                shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else "first-window E only"),
                shared_e_settings=(dict(iters=args.shared_e_iters, perturb=args.shared_e_perturb,
                                        step_size=args.shared_e_step_size, noise_seed=args.seed + 731)
@@ -409,7 +419,18 @@ fig, axes = plt.subplots(1, len(args.scales), figsize=(5 * len(args.scales), 5),
 for si, scale in enumerate(args.scales):
     optimizer_history = None
     E_initial = None
-    if args.shared_e_guidance:
+    joint_audit = None
+    if args.joint_full_guidance:
+        # E is not chosen first or optimized after generation. At *each*
+        # reverse diffusion step, the full-episode differentiable reward
+        # guides the still-noisy morphology token and all S/A tokens.
+        traj, E, joint_audit = joint_diffusion_full_reward(
+            net, reward, n=args.candidates, episode_states=EP,
+            horizon=H, state_dim=S_DIM, action_dim=X_DIM - S_DIM, e_dim=E_DIM,
+            mu=mu, sd=sd, beta=beta, abar=abar, emu=emu, esd=esd,
+            guidance_scale=scale, clip=CLIP, seed=args.seed,
+            no_guide_s=args.no_guide_s)
+    elif args.shared_e_guidance:
         # Scale 0 is the unoptimized baseline. All other scales start from
         # exactly the same prior morphology E, and compare full 10s rewards.
         E_initial = sample_rest_morphology(args.candidates, args.seed)
@@ -455,6 +476,8 @@ for si, scale in enumerate(args.scales):
         print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_progress']:.2f} {reward.unit} "
               f"(R {r_total[i]:.2f}), 낙상 {rows[i][0]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
     summary["runs"][f"scale_{scale:g}"] = res
+    if joint_audit is not None:
+        summary.setdefault("joint_full_guidance_audit", {})[f"scale_{scale:g}"] = joint_audit
     # Controlled same-scale comparison: changes ONLY the shared E search,
     # not reward weights, local DDIM guidance, noise seed, or candidate prior.
     if args.shared_e_guidance and args.shared_e_eval_baseline and scale > 0:
