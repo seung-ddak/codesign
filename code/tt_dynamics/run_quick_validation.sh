@@ -87,11 +87,18 @@ if [[ -f "$out/summary.json" ]]; then
   exit 1
 fi
 echo "TT joint diffusion generation + MJX: stage=$stage task=$task seconds=$seconds"
+physics_flags=()
+if [[ "${QUICK_GEOMETRY_S0:-0}" == 1 ]]; then
+  physics_flags+=(--geometry-s0 --max-geometry-lift-m "${QUICK_MAX_GEOMETRY_LIFT_M:-0.04}")
+fi
+if [[ "${QUICK_ALLOW_AIRBORNE_S0:-0}" == 1 ]]; then
+  physics_flags+=(--allow-airborne-s0)
+fi
 "$python" code/tt_dynamics/generate_task.py \
   --ckpt "$ckpt" --out "$out" --expert-config "$expert" \
   --anchor-s0 --joint-full-guidance --no-s0-align --no-render \
   --seconds "$seconds" --candidates "${QUICK_CANDIDATES:-1}" \
-  --task "$task" --scales 0 "$guidance"
+  --task "$task" --scales 0 "$guidance" "${physics_flags[@]}"
 "$python" - "$out/summary.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
