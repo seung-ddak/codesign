@@ -427,7 +427,9 @@ summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0
                candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align,
                shared_e_guidance=args.shared_e_guidance, joint_full_guidance=args.joint_full_guidance,
                initial_condition=("xy-yaw-anchor-v4" if args.rest_s0 else "free" if args.free_s0 else "observed"),
-               shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else "first-window E only"),
+               shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else
+                                "per-step full-horizon gradient on shared noisy E and S/A" if args.joint_full_guidance
+                                else "first-window E only"),
                shared_e_settings=(dict(iters=args.shared_e_iters, perturb=args.shared_e_perturb,
                                        step_size=args.shared_e_step_size, noise_seed=args.seed + 731)
                                   if args.shared_e_guidance else None), runs={})
