@@ -265,9 +265,13 @@ def run(args):
         print("STOP: see " + str(args.out / "diagnosis.md"), file=sys.stderr)
         return 1
     except Exception as err:
-        recorder.stage(active, False, type(err).__name__ + ": " + str(err),
-                       dict(traceback=traceback.format_exc()),
-                       "Resolve this stage error before continuing to later tests.")
+        try:
+            recorder.stage(active, False, type(err).__name__ + ": " + str(err),
+                           dict(traceback=traceback.format_exc()),
+                           "Resolve this stage error before continuing to later tests.")
+        except StageFailed:
+            pass
+        print("STOP: see " + str(args.out / "diagnosis.md"), file=sys.stderr)
         return 2
 
 
