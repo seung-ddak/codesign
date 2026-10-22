@@ -288,6 +288,17 @@ def execute(E_np, tq, s0):
                                                      torque_limit=cfg.get("torque_limit"), uniforms=E_np), **ecfg)
     if jit_step is None:
         jit_step = jax.jit(lambda model, d, c: step(model, d, c, env.n_substeps))
+    # Reject obviously invalid generated starts BEFORE forward dynamics.
+    if GEN_S0:
+        s0 = np.asarray(s0, dtype=np.float64)
+        gnorm = float(np.linalg.norm(s0[5:8]))
+        if (not np.isfinite(s0).all() or not np.isfinite(tq).all()
+                or not np.isfinite(gnorm) or not 0.9 <= gnorm <= 1.1
+                or s0[2] <= 0):
+            return (np.zeros((EP, X_DIM), np.float32), np.zeros(EP, bool),
+                    -2, np.zeros((0, 19), np.float64), env.mj_model,
+                    {"physically_valid": False, "execution_skipped": True,
+                     "skip_reason": "nonfinite_or_invalid_generated_s0"})
     q, qv = s0_to_q(s0) if GEN_S0 else (qpos0.copy(), qvel0)
     d = mujoco.MjData(env.mj_model)
     d.qpos[:] = q
@@ -318,29 +329,6 @@ def execute(E_np, tq, s0):
     mjx_floor_contact = [bool(((((initial_geom[:, 0] == f) & (initial_geom[:, 1] == floor)) |
                                  ((initial_geom[:, 1] == f) & (initial_geom[:, 0] == floor))) &
                                 (initial_dist <= 1e-3)).any()) for f in feet]
-    off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
-    qs, vs, cs = [], [], []
-    fell = -1
-    for t in range(EP):
-        qs.append(np.asarray(data.qpos)), vs.append(np.asarray(data.qvel))
-        geom, dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
-        cs.append([((geom == f).any(1) & (dist < 1e-3)).any() for f in feet])
-        w, x, y, _ = qs[-1][3:7]
-        if 1 - 2 * (x * x + y * y) < env.termination_fellover_threshold:  # 몸통 z 축의 world z 성분
-            fell = t
-            break
-        if t == EP - 1:
-            break
-        a = np.clip((tq[t] - off[:12]) / sc, lo, hi)
-        ctrl = off.copy()
-        ctrl[:12] = off[:12] + a * sc
-        data = jit_step(env.mjx_model, data, jnp.asarray(ctrl))
-    L = len(qs)
-    x = np.zeros((EP, X_DIM), np.float32)
-    x[:L, :S_DIM] = features(np.array(qs), np.array(vs), np.array(cs))
-    x[:L, A] = tq[:L]
-    m = np.zeros(EP, bool)
-    m[:L] = True
     # Mode 4 now generates a moving initial state from the expert distribution.
     # Requiring all four feet on the floor would recreate the rare-condition
     # mismatch. Demand >=2 supporting contacts and no deep penetration instead.
@@ -367,6 +355,38 @@ def execute(E_np, tq, s0):
                    mjx_foot_floor_contact=mjx_floor_contact,
                    mjx_foot_contact_count=int(sum(mjx_floor_contact)),
                    physically_valid=physically_valid, applied_body_z_shift_m=z_shift)
+    # Infeasible generated S0 is REJECTED, not passed into open-loop stepping.
+    # A rejected run carries an empty validity mask, never a fake zero reward.
+    if not physically_valid:
+        initial["execution_skipped"] = True
+        initial["skip_reason"] = "invalid_initial_physics"
+        return (np.zeros((EP, X_DIM), np.float32),
+                np.zeros(EP, bool), -2, np.asarray([q]), env.mj_model, initial)
+    initial["execution_skipped"] = False
+    initial["skip_reason"] = None
+    off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
+    qs, vs, cs = [], [], []
+    fell = -1
+    for t in range(EP):
+        qs.append(np.asarray(data.qpos)), vs.append(np.asarray(data.qvel))
+        geom, dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
+        cs.append([((geom == f).any(1) & (dist < 1e-3)).any() for f in feet])
+        w, x, y, _ = qs[-1][3:7]
+        if 1 - 2 * (x * x + y * y) < env.termination_fellover_threshold:  # 몸통 z 축의 world z 성분
+            fell = t
+            break
+        if t == EP - 1:
+            break
+        a = np.clip((tq[t] - off[:12]) / sc, lo, hi)
+        ctrl = off.copy()
+        ctrl[:12] = off[:12] + a * sc
+        data = jit_step(env.mjx_model, data, jnp.asarray(ctrl))
+    L = len(qs)
+    x = np.zeros((EP, X_DIM), np.float32)
+    x[:L, :S_DIM] = features(np.array(qs), np.array(vs), np.array(cs))
+    x[:L, A] = tq[:L]
+    m = np.zeros(EP, bool)
+    m[:L] = True
     return x, m, fell, np.array(qs), env.mj_model, initial
 
 
@@ -476,23 +496,35 @@ for si, scale in enumerate(args.scales):
         mj[i], mm[i], fell, qraw, model, initial = execute(E[i].cpu().numpy(), pred[i, :, A], pred[i, 0, :S_DIM])
         name = f"scale_{scale:g}_cand{i}"
         save_design(model, E[i].cpu().numpy(), name)
-        if not args.no_render:
+        if not args.no_render and not initial.get("execution_skipped"):
             render(model, qraw, pred[i], args.out / "videos" / f"{name}.mp4")
         rows.append((fell, initial))
     r_total, r_terms = score(mj, mm)
     L = mm.sum(1)
-    path_err = [float(np.linalg.norm(pred[i, :L[i], :2] - mj[i, :L[i], :2], axis=-1).mean()) for i in range(args.candidates)]
+    path_err = [float(np.linalg.norm(pred[i, :L[i], :2] - mj[i, :L[i], :2], axis=-1).mean())
+                if L[i] > 0 else None for i in range(args.candidates)]
     res = []
     for i in range(args.candidates):
+        invalid = bool(rows[i][1].get("execution_skipped", False))
         res.append(dict(E=E[i].cpu().numpy().round(3).tolist(),
                         pred_total=float(p_total[i]), pred_progress=float(p_terms["r_progress"][i] * reward.unit_scale),
-                        mjx_total=float(r_total[i]), mjx_progress=float(r_terms["r_progress"][i] * reward.unit_scale),
-                        mjx_fell_step=int(rows[i][0]), mjx_valid_s=float(L[i] * 0.02), path_err_m=path_err[i],
+                        mjx_total=None if invalid else float(r_total[i]),
+                        mjx_progress=None if invalid else float(r_terms["r_progress"][i] * reward.unit_scale),
+                        mjx_fell_step=None if invalid else int(rows[i][0]),
+                        mjx_valid_s=float(L[i] * 0.02), path_err_m=path_err[i],
                         initial_physics=rows[i][1],
                         physically_valid_s0=bool(rows[i][1]["physically_valid"]),
-                        pred_terms={k: float(v[i]) for k, v in p_terms.items()}, mjx_terms={k: float(v[i]) for k, v in r_terms.items()}))
-        print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_progress']:.2f} {reward.unit} "
-              f"(R {r_total[i]:.2f}), 낙상 {rows[i][0]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
+                        execution_skipped=invalid,
+                        skip_reason=rows[i][1].get("skip_reason"),
+                        pred_terms={k: float(v[i]) for k, v in p_terms.items()},
+                        mjx_terms=None if invalid else {k: float(v[i]) for k, v in r_terms.items()}))
+        if invalid:
+            print(f"scale {scale:g} #{i}: MJX 실행 제외 - {res[-1]['skip_reason']} | "
+                  f"TT 예상 Reward {p_total[i]:.2f} (실제 Reward는 평가하지 않음)", flush=True)
+        else:
+            print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | "
+                  f"MJX {res[-1]['mjx_progress']:.2f} {reward.unit} (R {r_total[i]:.2f}), "
+                  f"낙상 {rows[i][0]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
     summary["runs"][f"scale_{scale:g}"] = res
     if joint_audit is not None:
         summary.setdefault("joint_full_guidance_audit", {})[f"scale_{scale:g}"] = joint_audit
