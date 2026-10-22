@@ -39,9 +39,15 @@ class TrackReward:
 
     def p_fall(self, x, m):
         """몸통 기울기 (1 + body 중력 z, 수직 = 0) + 출발 높이의 min_height_frac 아래로 내려간 높이² 의 평균."""
-        tilt = 1 + x[..., GRAV][..., 2]
+        # Diffusion predicts three unconstrained gravity channels. Interpret
+        # their DIRECTION as body orientation and penalize invalid magnitude.
+        # A z component < -1 must not create a negative fall penalty / reward.
+        gravity = x[..., GRAV]
+        magnitude = torch.linalg.vector_norm(gravity, dim=-1)
+        tilt = (1 + gravity[..., 2] / magnitude.clamp_min(1e-6)).clamp_min(0)
+        gravity_invalid = (magnitude - 1).square()
         low = torch.relu(self.min_height_frac * x[:, :1, Z] - x[..., Z]) ** 2
-        return ((tilt + low) * m).sum(1) / m.sum(1).clamp(min=1)
+        return ((tilt + gravity_invalid + low) * m).sum(1) / m.sum(1).clamp(min=1)
 
     def p_action_rate(self, x, m):
         """연속 step 목표 관절각 변화² 의 평균 (rad²)."""
