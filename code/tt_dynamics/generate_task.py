@@ -410,7 +410,10 @@ def execute(E_np, tq, s0):
     for t in range(EP):
         qs.append(np.asarray(data.qpos)), vs.append(np.asarray(data.qvel))
         geom, dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
-        cs.append([((geom == f).any(1) & (dist < 1e-3)).any() for f in feet])
+        # S[38:42] contact means FOOT-FLOOR, not foot-any-geometry.
+        cs.append([((((geom[:, 0] == f) & (geom[:, 1] == floor)) |
+                      ((geom[:, 1] == f) & (geom[:, 0] == floor))) &
+                     (dist <= 1e-3)).any() for f in feet])
         w, x, y, _ = qs[-1][3:7]
         if 1 - 2 * (x * x + y * y) < env.termination_fellover_threshold:  # 몸통 z 축의 world z 성분
             fell = t
