@@ -62,6 +62,8 @@ def joint_diffusion_full_reward(
     known_mode4 = torch.full((n,), 4, dtype=torch.long, device=dev)
     known_mode2 = torch.full((n,), 2, dtype=torch.long, device=dev)
     grad_e_norms = []
+    grad_s_norms = []
+    grad_a_norms = []
     guide_history = []
     inactive = list(inactive_e)
 
@@ -139,7 +141,15 @@ def joint_diffusion_full_reward(
                 if no_guide_s:
                     gx = [torch.cat((torch.zeros_like(g[..., :state_dim]),
                                      g[..., state_dim:]), dim=-1) for g in gx]
+                # Audit each gradient component independently. E is one
+                # shared morphology token; S/A span all generated windows.
                 grad_e_norms.append(float(torch.linalg.vector_norm(g_e).detach().cpu()))
+                grad_s_norms.append(float(torch.linalg.vector_norm(
+                    torch.cat([g[..., :state_dim].reshape(n, -1) for g in gx], dim=1)
+                ).detach().cpu()))
+                grad_a_norms.append(float(torch.linalg.vector_norm(
+                    torch.cat([g[..., state_dim:].reshape(n, -1) for g in gx], dim=1)
+                ).detach().cpu()))
                 guide_history.append(float(score.detach().mean().cpu()))
             else:
                 g_e = torch.zeros_like(et)
@@ -192,6 +202,10 @@ def joint_diffusion_full_reward(
         "windows": len(windows),
         "diffusion_steps": len(beta),
         "e_gradient_norm_per_step": grad_e_norms,
+        "s_gradient_norm_per_step": grad_s_norms,
+        "a_gradient_norm_per_step": grad_a_norms,
         "predicted_reward_during_guidance": guide_history,
-        "e_gradient_nonzero": bool(any(x > 1e-12 for x in grad_e_norms))
+        "e_gradient_nonzero": bool(any(x > 1e-12 for x in grad_e_norms)),
+        "s_gradient_nonzero": bool(any(x > 1e-12 for x in grad_s_norms)),
+        "a_gradient_nonzero": bool(any(x > 1e-12 for x in grad_a_norms))
     }
