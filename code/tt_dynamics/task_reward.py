@@ -109,6 +109,32 @@ class ZigzagReward(TrackReward):
         return [(np.stack([px, y + o], 1), o == 0) for o in (0.0, -self.half_width, self.half_width)]
 
 
+class StraightReward(TrackReward):
+    """Forward progress in a straight corridor, with the same stability and action regularizers."""
+
+    unit, unit_scale = "m", 1.0
+
+    def __init__(self, half_width=0.15, **kw):
+        super().__init__(half_width=half_width, **kw)
+
+    def r_progress(self, x, m):
+        dx = x[:, 1:, 0] - x[:, :-1, 0]
+        return (dx * (m[:, 1:] & m[:, :-1])).sum(1)
+
+    def p_lane(self, x, m):
+        outside = torch.relu(x[..., 1].abs() - self.half_width) ** 2
+        return (outside * m).sum(1) / m.sum(1).clamp(min=1)
+
+    def describe(self):
+        return dict(task="straight", half_width=self.half_width,
+                    rewards=self.rewards, penalties=self.penalties,
+                    min_height_frac=self.min_height_frac, unit=self.unit)
+
+    def guide_lines(self, length=6.0):
+        return [(np.array([[0.0, y], [length, y]]), y == 0.0)
+                for y in (0.0, -self.half_width, self.half_width)]
+
+
 if __name__ == "__main__":
     # 점검: 반지름 1 m 원을 반시계로 반 바퀴 돌면 progress = π, lane = 0
     th = torch.linspace(0, math.pi, 100)
