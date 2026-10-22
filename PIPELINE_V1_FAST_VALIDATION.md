@@ -36,7 +36,8 @@ Joint Co-design을 그대로 재현하는 실험이 아니다. 진단으로 유�
    rollouts를 그대로 사용. PPO 재학습, 새 Foot-Anchored, D4 pair 생성,
    16개 전체 재수집을 우선 진행하지 않는다.
 2. **작은 TT joint training:** 기존 `train_tt.py`의 H=32,
-   `--modes 2 4`, DDIM 5로 작은 smoke checkpoint 작성.\n   첫 Window는 Mode 4에서 E·S₀·S·A 생성, 다음 Window부터\n   Mode 2에서 E·S₀ 조건으로 S·A 생성. Mode 1은 초기 FAST에 불필요.
+   `--modes 2 4`, DDIM 5로 작은 smoke checkpoint 작성.
+   첫 Window Mode 4: E·S₀·S·A 생성, 이후 Mode 2: 동일 E와 직전 S₀ 조건으로 S·A 생성. Mode 1은 초기 FAST에 불필요.
    **Reward는 TT pretraining에 넣지 않는다.**
 3. **Reward-guided joint diffusion:** `--joint-full-guidance`가
    `joint_diffusion_guidance.py`를 호출. 각 reverse diffusion step에서
@@ -62,7 +63,7 @@ cd ~/quad_ws/codesign
 git fetch origin
 git switch experiment/cp-design-generalization
 ../transformer-transformer/.venv/bin/python -m pytest \
-  tests/test_cp_task_reward.py tests/test_joint_diffusion_guidance.py
+  tests/test_cp_task_reward.py tests/test_joint_diffusion_guidance.py tests/test_mode4_anchor.py
 
 # 3개 형상의 기존 데이터로 작은 smoke 모델 (기존 ckpt 있으면 학습 생략)
 QUICK_STEPS=3000 bash code/tt_dynamics/run_quick_validation.sh train
@@ -87,11 +88,11 @@ QUICK_ROOT=runs/pipeline_v1/quick_joint_wide16 \
 bash code/tt_dynamics/run_quick_validation.sh smoke
 ```
 
-재학습 없이 이전 Mode 2 + Mode 4 checkpoint를 시험한다면
-`QUICK_CKPT=<existing compatible checkpoint dir>`를 지정한다.
+Mode 4 v4는 기존의 정지·4발접촉 조건과 다른 모델이므로
+**conditioning_version=4 checkpoint를 새로 학습**해야 한다.
+기존 Mode 4 v3 checkpoint는 호환되지 않으며 FAST가 차단한다.
+입력 데이터/조건 코드는 새 파일에 남기고 과거 모델은 보존한다.
 실행용 Expert config 경로는 `QUICK_EXPERT_CONFIG`로 지정할 수 있다.
-예전 100k checkpoint도 모델 조건이 맞으면 재사용할 수 있지만,
-실제 파일이 이 머신에 있는지 확인해야 한다.
 
 `QUICK_CANDIDATES=1` 기본값으로 GPU 비용을 최소화했고,
 예상 score가 불안정하면 scale을 낮춘다.
@@ -105,13 +106,36 @@ Joint 생성과 실제 MJX 재생으로 검증한다. `--modes 2 4`는
 필요한 조건의 수를 줄일 뿐, E에 대한 물리적인 인과 모델이
 완성되었음을 보장하지 않는다.
 
+## Mode 4 초기 상태 변경 (2026-10-22)
+
+- 원인: 기존 Mode 4는 학습 중 임의 window를 선택하면서도 추론 시
+  정지·4발 접촉 상태를 고정했다. 사용자가 별도 진단한 정지·4발접촉
+  timestep은 약 0.59%(4,860개)로 보고됨. 파일 정상 여부와 다른 문제.
+- 수정: `tt_model.py` **conditioning_version=4**.
+  첫 S0에서 고정값은 position XY=(0,0), heading yaw=(cos,sin)=(1,0)
+  네 요소만; 이는 `rebase()`가 모든 학습 window에서 사용하는 좌표 기준.
+  높이·중력 방향·선속도·각속도·관절각·관절속도·발 접촉은 모두
+  **실제 MJX 데이터 분포에서 생성**, 정지 상태 강제 없음.
+- 생성: `--anchor-s0` 사용. 이전 `--rest-s0`는 호환용 alias이지만
+  더 이상 정지 모드가 아님. Mode 2는 기존과 동일.
+- 초기 물리 검사: 기존 4발 접촉 + 4발 높이 일치 대신
+  최소 2발 접촉(CPU MuJoCo 및 MJX), 발 관통 2mm 이내, 비발 관통,
+  자체 충돌, 관절 한계, 몸체 방향 검사. 동역학적 안정/10초 생존 보장
+  없음; 실제 MJX의 낙상·Reward 결과만 성공 근거.
+- 기존 Version 3 모델 재사용 금지. 새로운 `QUICK_ROOT`에 학습하고
+  `tests/test_mode4_anchor.py`로 mask/조건 버전 확인.
+- **중요한 한계:** 16개 형상 데이터가 동적 S0 분포를 충분히
+  포함하더라도, E와 S0가 서로 물리적으로 맞는 조합인지 학습하지
+  못할 수 있다. 검사 실패 시 재수집 전 생성된 시작 상태의
+  분포와 joint model 출력을 확인할 것.
+
 ## 실패 시 한 가지만 수정한다
 
 - 데이터/Checkpoint 누락 → 이전 서버의 기존 Rollout/Checkpoint 복사.
 - Gradient가 E로 0 → 조건 마스크, e-token 경로, clamp, 생성 코드 점검.
-- 생성 초기 S0 invalid → 생성 시작 상태 학습 분포 수정. Mode 4는
-  정지·4발접지 S0를 조건으로 주지만, 기존 데이터에는 움직이는 RSI
-  시작 상태도 있으므로 **Mode 4 학습/생성 조건 불일치 가능성**이 있다.
+- 생성 초기 S0 invalid → Mode 4 v4는 위치·Yaw만 고정하고 초기 속도·자세·접촉을
+  데이터 분포에서 생성한다. 관절 한계·지면 관통·최소 2발 접촉 감사 실패 시
+  결과를 성공으로 취급하지 않는다. 기본 동작 S0 데이터 확장 여부를 이후 판단.
 - S0 정상, MJX 움직임 불일치 → 1~32 state A→S Dynamics 확인(D5).
 - 실제 Reward가 예측보다 매우 낮음 → TT 예측 오차/Reward hacking 확인.
 - Task별 E 차이 없음 → 우선 서로 분리된 Reward와 여러 seed에서
