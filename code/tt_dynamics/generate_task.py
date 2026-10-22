@@ -69,6 +69,8 @@ parser.add_argument("--no-render", action="store_true")
 parser.add_argument("--shared-e-guidance", action="store_true",
                     help="estimate full-horizon reward gradient for one E shared across TT windows (SPSA)")
 parser.add_argument("--shared-e-iters", type=int, default=4, help="SPSA outer iterations per guidance scale")
+parser.add_argument("--shared-e-eval-baseline", action="store_true",
+                    help="also MJX-evaluate same-scale, same-noise pre-optimization E and action (extra compute)")
 parser.add_argument("--shared-e-perturb", type=float, default=0.04, help="morphology finite-difference probe (E in [0,1])")
 parser.add_argument("--shared-e-step-size", type=float, default=0.08, help="maximum normalized morphology update")
 args = parser.parse_args()
@@ -406,6 +408,7 @@ summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0
 fig, axes = plt.subplots(1, len(args.scales), figsize=(5 * len(args.scales), 5), squeeze=False)
 for si, scale in enumerate(args.scales):
     optimizer_history = None
+    E_initial = None
     if args.shared_e_guidance:
         # Scale 0 is the unoptimized baseline. All other scales start from
         # exactly the same prior morphology E, and compare full 10s rewards.
@@ -452,6 +455,27 @@ for si, scale in enumerate(args.scales):
         print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_progress']:.2f} {reward.unit} "
               f"(R {r_total[i]:.2f}), 낙상 {rows[i][0]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
     summary["runs"][f"scale_{scale:g}"] = res
+    # Controlled same-scale comparison: changes ONLY the shared E search,
+    # not reward weights, local DDIM guidance, noise seed, or candidate prior.
+    if args.shared_e_guidance and args.shared_e_eval_baseline and scale > 0:
+        baseline_traj = generate_fixed_e(E_initial, scale, args.seed + 731)
+        base_pred = baseline_traj.cpu().numpy()
+        base_p, _ = score(base_pred, np.ones((args.candidates, EP), bool))
+        base_mjx = np.zeros_like(base_pred)
+        base_mask = np.zeros((args.candidates, EP), bool)
+        baseline_rows = []
+        for i in range(args.candidates):
+            base_mjx[i], base_mask[i], base_fell, _, _, base_initial = execute(
+                E_initial[i].cpu().numpy(), base_pred[i, :, A], base_pred[i, 0, :S_DIM])
+            baseline_rows.append(dict(pred_total=float(base_p[i]), fell_step=int(base_fell),
+                                      physically_valid_s0=bool(base_initial["physically_valid"])))
+        base_r, _ = score(base_mjx, base_mask)
+        for i in range(args.candidates):
+            baseline_rows[i]["mjx_total"] = float(base_r[i])
+        summary.setdefault("shared_e_control", {})[f"scale_{scale:g}"] = baseline_rows
+        np.savez_compressed(args.out / f"scale_{scale:g}_unoptimized_same_scale.npz",
+                            pred=base_pred, mjx=base_mjx, mjx_mask=base_mask,
+                            E=E_initial.cpu().numpy())
     if optimizer_history is not None:
         summary.setdefault("shared_e_history", {})[f"scale_{scale:g}"] = optimizer_history
         summary.setdefault("shared_e_initial", {})[f"scale_{scale:g}"] = E_initial.cpu().numpy().tolist()
