@@ -17,7 +17,15 @@ if [[ -e "$out/summary.json" ]]; then
   exit 2
 fi
 echo "1/2: verify CPU geometry and raw-vs-assisted report contracts"
-"$python" -m pytest -q tests/test_initial_geometry_gate.py tests/test_fast_smoke_audit.py || {
+"$python" -m pytest -q \
+  tests/test_tt_physics_semantics.py \
+  tests/test_fast_smoke_audit.py \
+  tests/test_joint_generation_gate.py \
+  tests/test_tt_rollout_loader.py \
+  tests/test_initial_geometry_gate.py \
+  tests/test_shared_e_guidance.py \
+  tests/test_s0_geometry.py \
+  tests/test_s0_height_clamp.py || {
   echo "STOP: CPU regression tests failed; no GPU simulation launched" >&2
   exit 1
 }
