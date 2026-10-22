@@ -111,6 +111,41 @@ PY
   exit
 fi
 
+
+if [[ "$stage" == shared ]]; then
+  # Exploratory smoke runs can use FOOT_EXPLORATORY_SHARED=1 without claiming
+  # Dynamics passed. Formal runs still require a manually reviewed gate.
+  if [[ "${FOOT_EXPLORATORY_SHARED:-0}" != 1 ]]; then
+    "$python" - "$root/dynamics_gate.json" <<'PY'
+import json, sys
+from pathlib import Path
+p = Path(sys.argv[1])
+if not p.is_file() or not json.loads(p.read_text()).get("passed", False):
+    raise SystemExit("Shared-E formal evaluation requires a reviewed Dynamics gate; exploratory: FOOT_EXPLORATORY_SHARED=1")
+PY
+  fi
+  general=()
+  if [[ -d "$root/general_data" ]]; then
+    shopt -s nullglob
+    general=("$root"/general_data/*.npz)
+    shopt -u nullglob
+  fi
+  [[ -f "$root/tt_joint_shared/checkpoint.pt" ]] || "$python" code/tt_dynamics/train_tt.py \
+    --data "${all[@]}" "${morph[@]}" "${general[@]}" --out "$root/tt_joint_shared" \
+    --horizon 32 --steps 20000 --batch 32 --modes 1 2 4 5 \
+    --diff-steps 5 --norm minmax --clip 1 --sampler ddim --split-key split \
+    --norm-from "$root/tt_intervention/checkpoint.pt" > "$root/train_joint_shared.log" 2>&1
+  [[ -f "$root/composite_10s_shared/summary.json" ]] || "$python" code/tt_dynamics/generate_task.py \
+    --ckpt "$root/tt_joint_shared" --out "$root/composite_10s_shared" \
+    --expert-config "$expert_config" --rest-s0 --shared-e-guidance \
+    --shared-e-iters "${FOOT_SHARED_ITERS:-4}" --shared-e-perturb "${FOOT_SHARED_PERTURB:-0.04}" \
+    --shared-e-step-size "${FOOT_SHARED_STEP:-0.08}" \
+    --no-s0-align --no-render --seconds 10 --candidates "${FOOT_SHARED_CANDIDATES:-4}" \
+    --scales 0 1 --task zigzag
+  echo "Shared-E 10s full-horizon predicted-reward search (not verified by training): $root/composite_10s_shared"
+  exit
+fi
+
 if [[ "$stage" == guidance ]]; then
   "$python" -c 'import json,sys; assert json.load(open(sys.argv[1]))["passed"], "joint generation gate did not pass"' "$root/joint_gate.json"
   [[ -f "$root/composite_10s/summary.json" ]] || "$python" code/tt_dynamics/generate_task.py \
@@ -120,5 +155,5 @@ if [[ "$stage" == guidance ]]; then
   exit
 fi
 
-echo "usage: $0 {prepare|dynamics|joint|guidance}" >&2
+echo "usage: $0 {prepare|dynamics|joint|shared|guidance}" >&2
 exit 2
