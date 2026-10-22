@@ -39,10 +39,11 @@ def bounded_lift(foot_clearances_m, nonfoot_penetration_m, *,
 
 def classify_initial_support(cpu_contacts, mjx_contacts, foot_clearances_m, *,
                              allow_airborne=False, flight_clearance_m=0.005):
-    """Allow a physically clear, contact-free start to face real MJX dynamics.
+    """Classify static support separately from collision geometry.
 
-    This does NOT guarantee controlled flight: the subsequent 2s rollout must
-    still survive; single-foot/ambiguous contact starts remain rejected.
+    Opt-in dynamic trials permit ambiguous/mixed contact counts, but only
+    after the caller has independently checked penetration/collision. Their
+    status is unverified until MJX dynamics runs.
     """
     c = np.asarray(cpu_contacts, dtype=bool)
     j = np.asarray(mjx_contacts, dtype=bool)
@@ -52,6 +53,12 @@ def classify_initial_support(cpu_contacts, mjx_contacts, foot_clearances_m, *,
     grounded = int(c.sum()) >= 2 and int(j.sum()) >= 2
     airborne = (bool(allow_airborne) and not c.any() and not j.any()
                 and float(h.min()) >= flight_clearance_m)
-    status = "grounded" if grounded else "airborne_unverified" if airborne else "insufficient_support"
-    return {"support_ok": bool(grounded or airborne), "initial_support_mode": status,
+    # Geometry validity is checked separately in execute() (penetration,
+    # non-foot collision, joint limits, upright). Contact COUNT is only a
+    # static support heuristic: a transient moving posture with 0/1 contact
+    # must be judged by MJX stepping, not automatically called impossible.
+    transient = bool(allow_airborne) and not grounded and not airborne
+    status = ("grounded" if grounded else "airborne_unverified" if airborne
+              else "transient_unverified" if transient else "insufficient_support")
+    return {"support_ok": bool(grounded or airborne or transient), "initial_support_mode": status,
             "cpu_contacts": int(c.sum()), "mjx_contacts": int(j.sum())}
