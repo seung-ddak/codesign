@@ -17,6 +17,7 @@ parser.add_argument("--source", type=Path, required=True)
 parser.add_argument("--out-dir", type=Path, required=True)
 parser.add_argument("--paired", type=Path)
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--episode-split", type=Path, help="shared episode-to-split mapping across morphologies")
 args = parser.parse_args()
 args.out_dir.mkdir(parents=True, exist_ok=True)
 manifest_path = args.out_dir / "split_manifest.json"
@@ -28,11 +29,17 @@ with np.load(args.source) as z:
 unique = np.unique(episodes)
 if len(unique) < 7:
     raise ValueError("too few source episodes for train/val/test split")
-rng = np.random.default_rng(args.seed)
-shuffled = rng.permutation(unique)
-n_train, n_val = round(0.70 * len(unique)), round(0.15 * len(unique))
-episode_split = {int(e): ("train" if i < n_train else "val" if i < n_train + n_val else "test")
-                 for i, e in enumerate(shuffled)}
+if args.episode_split:
+    shared = json.loads(args.episode_split.read_text())["episodes"]
+    if set(shared.values()) - {"train", "val", "test"} or any(str(int(e)) not in shared for e in unique):
+        raise ValueError("invalid or incomplete shared episode split")
+    episode_split = {int(e): shared[str(int(e))] for e in unique}
+else:
+    rng = np.random.default_rng(args.seed)
+    shuffled = rng.permutation(unique)
+    n_train, n_val = round(0.70 * len(unique)), round(0.15 * len(unique))
+    episode_split = {int(e): ("train" if i < n_train else "val" if i < n_train + n_val else "test")
+                     for i, e in enumerate(shuffled)}
 splits = np.array([episode_split[int(e)] for e in episodes])
 donor = np.empty(len(ids), int)
 for split in ("train", "val", "test"):
@@ -43,6 +50,8 @@ for split in ("train", "val", "test"):
 rows = [dict(group_id=int(g), source_episode=int(e), source_t=int(t), split=str(s),
              swap_donor_group_id=int(d)) for g, e, t, s, d in zip(ids, episodes, times, splits, donor)]
 manifest = dict(seed=args.seed, source=str(args.source), episodes={str(k): v for k, v in episode_split.items()}, starts=rows)
+if args.episode_split:
+    manifest["shared_episode_split"] = str(args.episode_split)
 if manifest_path.exists():
     if json.loads(manifest_path.read_text()) != manifest:
         raise ValueError(f"existing manifest differs: {manifest_path}")

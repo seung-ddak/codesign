@@ -29,7 +29,9 @@ from start_align import align_height, foot_clearance
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--source", type=Path, default=ROOT / "runs/pipeline_v1/rollouts/e000/seq_seed0.npz")
-parser.add_argument("--design", choices=("e000", "e001", "e002"), default="e000")
+parser.add_argument("--design", choices=sorted(p.name for p in (ROOT / "runs/pipeline_v1/retargeting").glob("e*")), default="e000")
+parser.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts/walkForwardSlow__r00",
+                    help="expert motion folder supplying the PD and MJX configuration")
 parser.add_argument("--starts-from", type=Path, help="reuse exact starts and orig/offset commands from a prior paired NPZ")
 parser.add_argument("--manifest", type=Path, help="episode split and within-split swap donors")
 parser.add_argument("--out", type=Path, required=True)
@@ -94,8 +96,10 @@ else:
         tq = np.stack([z["target_q"][bi, ti:ti + args.horizon] for bi, ti in zip(b, t)]).astype(np.float32)
         E = z["E"].astype(np.float32)
 
-expert = ROOT / "runs/pipeline_v1/experts/walkForwardSlow__r00"
-with open(sorted(expert.glob("wandb/offline-run-*/files/config.pkl"))[-1], "rb") as f:
+configs = sorted(args.expert_config.glob("wandb/offline-run-*/files/config.pkl"))
+if not configs:
+    raise FileNotFoundError(f"No expert config under {args.expert_config}")
+with open(configs[-1], "rb") as f:
     cfg = pickle.load(f)
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")

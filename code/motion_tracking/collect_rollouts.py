@@ -9,7 +9,7 @@ DeepMimic composite 방식: 별도 전환 정책 없이 고정된 primitive expe
 usage (codesign/ 에서):
   CUDA_VISIBLE_DEVICES=0 MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false ../transformer-transformer/.venv/bin/python \
       code/motion_tracking/collect_rollouts.py runs/pipeline_v1/experts/*__r00 --design e000 --episodes 64
-인자 = expert 모션 폴더 (가장 최근 wandb offline-run 의 마지막 checkpoint) 또는 offline-run 폴더.
+인자 = expert 모션 폴더 또는 offline-run 폴더. checkpoint_selection.json 이 있으면 선택된 checkpoint 사용.
 출력: <out>/<design>/seq_seed<seed>.npz
   qpos [B,T+1,nq], qvel [B,T+1,nv]  MJX 물리 state (root pos·quat·vel + 관절)
   contact [B,T+1,4]                 발 접지 (geom 거리 < CONTACT_DIST)
@@ -23,6 +23,7 @@ usage (codesign/ 에서):
 
 import argparse
 import glob
+import json
 import os
 import sys
 from pathlib import Path
@@ -73,7 +74,14 @@ def resolve(run):
 checkpoint_paths = []
 experts = []  # (모션, policy)
 for r in args.runs:
-    ckpt = sorted(glob.glob(str(resolve(r) / "files/checkpoints/*")), key=lambda p: int(os.path.basename(p)))[-1]
+    run = resolve(r)
+    selection = run / "checkpoint_selection.json"
+    if selection.is_file():
+        ckpt = run / "files/checkpoints" / str(json.loads(selection.read_text())["selected_step"])
+        if not (ckpt / "_CHECKPOINT_METADATA").is_file():
+            raise FileNotFoundError(f"Selected checkpoint missing: {ckpt}")
+    else:
+        ckpt = Path(sorted(glob.glob(str(run / "files/checkpoints/*")), key=lambda p: int(os.path.basename(p)))[-1])
     checkpoint_paths.append(str(Path(ckpt).resolve()))
     cfg, policy = load_run(ckpt)
     (name,) = cfg.eval_env.clips  # expert 1 개 = 모션 1 개

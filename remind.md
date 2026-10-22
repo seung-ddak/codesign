@@ -184,4 +184,11 @@
 
 ### 8-22. 다음 S₀ 생성 진단 및 wide16 expert 재학습 (2026-10-20)
 - 생성 E–S₀의 초기 물리 유효성·접촉·짧은 안정성을 확인하는 실험은 `runs/pipeline_v1/diag/S0_GENERATION_PLAN.md`에 별도로 기록하고 wide16 expert 재학습 이후 진행한다.
+
+### 8-23. Foot-Anchored 연속 형상 파이프라인 구현 (2026-10-22)
+- 실행 문서: `runs/pipeline_v1/foot_anchored_v1/README.md`, 단계 실행기: `code/tt_dynamics/run_foot_anchored_pipeline.sh`.
+- `prepare`: 연속 E별 여러 S₀를 생성하고 4발 접촉·관절 한계·자체 충돌·지면 관통·지지 다각형·짧은 안정화를 검사한 뒤, 동일 E·S₀에서 Orig/Swap/Offset을 MJX로 수집한다. E 단위 train/val/test 분할을 사용한다.
+- `dynamics`: Orig-only와 intervention Mode 1을 같은 정규화로 비교하고, 미학습 E의 D5 및 strict-S₀ 가능성 audit와 height-aligned D4를 기록한다.
+- `joint`: mode 1+4로 E·S₀·S·A 공동 생성을 학습한다. 생성 S₀를 보정 없이 MJX에 넣어 4발 접촉·생존·경로 오차 gate를 통과해야 한다.
+- `guidance`: gate 통과 뒤에만 미학습 zigzag reward guidance를 10초로 평가한다.
 - 기존 wide16에서 관찰된 후반 정책 붕괴에 대응해 낮은 PPO 학습률과 학습 형상 기반 중간 체크포인트 선택을 적용한 재학습은 `runs/pipeline_v1/experts_wide16_v2/README.md` 참조. 기존 결과를 덮어쓰지 않는다.
