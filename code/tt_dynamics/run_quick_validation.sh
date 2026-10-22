@@ -55,6 +55,10 @@ import sys, torch
 ck = torch.load(sys.argv[1], map_location="cpu", weights_only=False)
 modes = set(ck["args"]["modes"])
 assert {2, 4} <= modes, f"Joint gradient sampler requires Modes 2+4, got {sorted(modes)}"
+assert ck["args"].get("conditioning_version") == 4, (
+    "Mode 4 changed to XY/yaw-only anchor in version 4. "
+    "Use a new QUICK_ROOT to retrain; do not reuse old stationary-rest checkpoint."
+)
 assert ck["args"]["horizon"] >= 2
 print("Compatible checkpoint:", sys.argv[1], "modes", sorted(modes))
 PY
@@ -84,7 +88,7 @@ fi
 echo "TT joint diffusion generation + MJX: stage=$stage task=$task seconds=$seconds"
 "$python" code/tt_dynamics/generate_task.py \
   --ckpt "$ckpt" --out "$out" --expert-config "$expert" \
-  --rest-s0 --joint-full-guidance --no-s0-align --no-render \
+  --anchor-s0 --joint-full-guidance --no-s0-align --no-render \
   --seconds "$seconds" --candidates "${QUICK_CANDIDATES:-1}" \
   --task "$task" --scales 0 "${QUICK_GUIDANCE_SCALE:-1}"
 "$python" - "$out/summary.json" <<'PY'
