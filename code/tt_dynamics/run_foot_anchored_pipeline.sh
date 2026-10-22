@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# LEGACY / EXPERIMENTAL foot-anchored branch, NOT the active FAST Mode-2/4 path.
+# Pose-heldout within trained morphologies: no unseen-morphology generalization claims.
 # Staged pipeline: prepare -> dynamics -> joint -> guidance. Each stage is resumable.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
@@ -41,14 +43,26 @@ if [[ "$stage" == dynamics ]]; then
     --norm-from "$root/tt_intervention/checkpoint.pt" > "$root/train_morph.log" 2>&1
   for data in "${all[@]}"; do
     design=$(basename "$data" .npz)
-    split=$("$python" -c 'import numpy as np,sys; z=np.load(sys.argv[1]); print(str(z["split"][0]))' "$data")
-    [[ "$split" == test ]] || continue
+    # Every E has interleaved train/val/test POSES. Do not inspect row zero.
+    test_rows=$("$python" -c 'import numpy as np,sys; z=np.load(sys.argv[1]); print(int((z["split"] == "test").sum()))' "$data")
+    (( test_rows > 0 )) || continue
     [[ -f "$root/data/${design}_comparison.json" ]] || "$python" code/tt_dynamics/eval_action_pairs.py \
       --data "$data" --old "$root/tt_orig" --new "$root/tt_intervention" --split test \
       --out "$root/data/${design}_comparison.json" --plot "$root/data/${design}_comparison.png"
   done
-  mapfile -t test_designs < <("$python" -c 'import numpy as np,sys; z=np.load(sys.argv[1]); print(*[f"f{i:03d}" for i in np.unique(z["design_id"])[:3]], sep="\n")' "$root/s0.npz")
-  [[ ${#test_designs[@]} -eq 3 ]] || { echo "Need three held-out morphologies for D4" >&2; exit 1; }
+  # D4 compares within-training-morphology POSE holdouts, not unseen E.
+  mapfile -t test_designs < <("$python" - "$root/data" <<'PY'
+from pathlib import Path
+import numpy as np, sys
+for path in sorted(Path(sys.argv[1]).glob("f[0-9][0-9][0-9].npz")):
+    with np.load(path) as z:
+        if (z["split"] == "test").any():
+            print(path.stem)
+PY
+)
+  test_designs=("${test_designs[@]:0:3}")
+  [[ ${#test_designs[@]} -eq 3 ]] || { echo "Need three trained morphologies with held-out test poses for D4" >&2; exit 1; }
+  echo "D4 tests held-out POSES within trained morphologies, NOT unseen E designs."
   files=(); manifests=()
   for design in "${test_designs[@]}"; do files+=("$root/data/${design}_orig.npz"); manifests+=("$root/data/${design}_manifest.json"); done
   [[ -f "$root/d4_strict_audit/selection.json" ]] || "$python" code/tt_dynamics/d4_morphology.py \
@@ -78,7 +92,7 @@ if not any(int(v) > 0 for v in d4.get("pair_initial_contact_matched_groups", {})
     "checkpoint": d4.get("checkpoint"),
 }, indent=2) + "\n")
 PY
-  echo "Dynamics evaluation complete in $root"
+  echo "Dynamics evaluation complete in $root; D4 shape selection is trained-E/pose-heldout only."
   exit
 fi
 
