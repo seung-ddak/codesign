@@ -1,0 +1,35 @@
+{
+  "stage": "FAST joint E/S/A generation plus MJX open-loop",
+  "task": "zigzag",
+  "seconds": 2.0,
+  "guided_scale": 1.0,
+  "checkpoint": "runs/pipeline_v1/fast_mode24_v4/tt_joint",
+  "checks": {
+    "real_checkpoint_joint_generation_finite": true,
+    "E_reward_gradient_nonzero": true,
+    "S_reward_gradient_nonzero": true,
+    "A_reward_gradient_nonzero": true,
+    "guidance_changes_generated_E": true,
+    "guidance_changes_generated_S": true,
+    "guidance_changes_generated_A": true,
+    "at_least_one_valid_initial_state": false,
+    "at_least_one_complete_MJX_open_loop": false
+  },
+  "all_pass": false,
+  "guidance_change_l2": {
+    "E_l2": 0.14717614650726318,
+    "S_l2": 34.683162689208984,
+    "A_l2": 4.441989898681641
+  },
+  "guided_candidates": 1,
+  "guided_valid_s0_count": 0,
+  "guided_completed_MJX_count": 0,
+  "guided_rejected_count": 1,
+  "guided_rewards": [
+    null
+  ],
+  "baseline_rewards": [
+    null
+  ],
+  "note": "Passing confirms test wiring and at least one feasible 2s replay; it does not establish morphology-task optimality or 10s success."
+}
