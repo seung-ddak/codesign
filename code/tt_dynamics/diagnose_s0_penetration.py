@@ -239,10 +239,30 @@ def run(args):
                     pa = dict(valid=False, reasons=["invalid_generated_morphology_or_S0"],
                               error=str(err))
                 prior = smoke_summary.get("runs", {}).get(tag, [])
+                prior_row = prior[i] if i < len(prior) else {}
+                prior_feet = prior_row.get("initial_physics", {}).get("raw_foot_z_m")
+                reproduced_error = None
+                if prior_feet is not None and "foot_clearance_mm" in pa:
+                    reproduced_error = float(np.max(np.abs(
+                        np.asarray(prior_feet) * 1000 - np.asarray(pa["foot_clearance_mm"]))))
                 generated.append(dict(scale=scale, candidate=i, E=e.tolist(),
                                       S0_height_m=float(s[2]), physics=pa,
-                                      prior_smoke_physics_valid=(prior[i].get("physically_valid_s0")
-                                                                 if i < len(prior) else None)))
+                                      prior_smoke_physics_valid=prior_row.get("physically_valid_s0"),
+                                      reproduction_foot_height_error_mm=reproduced_error))
+        # Reproduce the saved run's foot geometry before assigning a source.
+        reproduce_bad = [x for x in generated
+                         if x["reproduction_foot_height_error_mm"] is None
+                         or not np.isfinite(x["reproduction_foot_height_error_mm"])
+                         or x["reproduction_foot_height_error_mm"] > args.conversion_tolerance_mm]
+        recorder.stage("3a-reproduce-saved-geometry", not reproduce_bad,
+                       "Current model reproduces the saved smoke feet geometry"
+                       if not reproduce_bad else "Current model and saved smoke disagree on foot geometry",
+                       dict(candidates=generated,
+                            max_allowed_error_mm=args.conversion_tolerance_mm,
+                            disagreement_count=len(reproduce_bad)),
+                       "Check choice, model assets, generated E, decoder and saved smoke run "
+                       "before interpreting generated failures.")
+        active = "3b-generated-E-S0-physics"
         failures = [x for x in generated if not x["physics"]["valid"]]
         recorder.stage(active, not failures,
                        "Generated morphology/S0 pairs pass the same geometry audit"
