@@ -19,15 +19,28 @@ if [[ ! -f "$ckpt/checkpoint.pt" ]]; then
   # Default to the original pipeline's physically simulated primitive rollouts
   # on three different morphologies. No data regeneration or expert training.
   data=()
-  for shape in e000 e001 e002; do
-    p="runs/pipeline_v1/rollouts/$shape/primitive_seed0.npz"
-    if [[ ! -f "$p" ]]; then
-      echo "Missing existing MJX rollouts: $p" >&2
-      echo "Copy your previous runs/pipeline_v1/rollouts/ files here, or set QUICK_CKPT to an already-trained compatible checkpoint." >&2
+  if [[ -n "${QUICK_DATA_DIR:-}" ]]; then
+    shopt -s nullglob
+    data=("${QUICK_DATA_DIR}"/e*/primitive_seed0.npz)
+    shopt -u nullglob
+    if (( ${#data[@]} < 2 )); then
+      echo "QUICK_DATA_DIR needs at least two per-morphology MJX rollout NPZs: $QUICK_DATA_DIR/e*/primitive_seed0.npz" >&2
       exit 1
     fi
-    data+=("$p")
-  done
+    max=${QUICK_MAX_FILES:-16}
+    data=("${data[@]:0:max}")
+  else
+    for shape in e000 e001 e002; do
+      p="runs/pipeline_v1/rollouts/$shape/primitive_seed0.npz"
+      if [[ ! -f "$p" ]]; then
+        echo "Missing existing MJX rollouts: $p" >&2
+        echo "Copy previous runs/pipeline_v1/rollouts/ files here, or use QUICK_DATA_DIR for 16 shapes, or set QUICK_CKPT." >&2
+        exit 1
+      fi
+      data+=("$p")
+    done
+  fi
+  printf 'Quick training data: %s\\n' "${data[@]}"
   echo "Training a small smoke joint model (Mode 1,2,4), no PPO training"
   "$python" code/tt_dynamics/train_tt.py --data "${data[@]}" \
     --out "$ckpt" --horizon 32 --steps "${QUICK_STEPS:-3000}" \
