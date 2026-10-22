@@ -137,7 +137,7 @@ PY
     --norm-from "$root/tt_intervention/checkpoint.pt" > "$root/train_joint_shared.log" 2>&1
   [[ -f "$root/composite_10s_shared/summary.json" ]] || "$python" code/tt_dynamics/generate_task.py \
     --ckpt "$root/tt_joint_shared" --out "$root/composite_10s_shared" \
-    --expert-config "$expert_config" --rest-s0 --shared-e-guidance \
+    --expert-config "$expert_config" --rest-s0 --shared-e-guidance --shared-e-eval-baseline \
     --shared-e-iters "${FOOT_SHARED_ITERS:-4}" --shared-e-perturb "${FOOT_SHARED_PERTURB:-0.04}" \
     --shared-e-step-size "${FOOT_SHARED_STEP:-0.08}" \
     --no-s0-align --no-render --seconds 10 --candidates "${FOOT_SHARED_CANDIDATES:-4}" \
