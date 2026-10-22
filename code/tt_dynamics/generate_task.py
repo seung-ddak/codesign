@@ -34,6 +34,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import mujoco  # noqa: E402
 import numpy as np  # noqa: E402
 import torch  # noqa: E402
+from shared_e_guidance import optimize_shared_e  # noqa: E402
 from mujoco import mjx  # noqa: E402
 from omegaconf import OmegaConf  # noqa: E402
 
@@ -42,7 +43,7 @@ from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
 from task_reward import StraightReward, TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
-from tt_model import Net, check_free_checkpoint, check_rest_checkpoint, condition_masks, rest_s0, schedule, unbase  # noqa: E402
+from tt_model import Net, check_fixed_e_rest_checkpoint, check_free_checkpoint, check_rest_checkpoint, condition_masks, rest_s0, schedule, unbase  # noqa: E402
 
 EP, FOOT_R, A = 500, 0.02, slice(S_DIM, X_DIM)
 
@@ -64,6 +65,11 @@ parser.add_argument("--rest-s0", action="store_true", help="s0 의 형상 무관
 parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
 parser.add_argument("--no-s0-align", action="store_true", help="execute generated S0 exactly; do not shift body height")
 parser.add_argument("--no-render", action="store_true")
+parser.add_argument("--shared-e-guidance", action="store_true",
+                    help="estimate full-horizon reward gradient for one E shared across TT windows (SPSA)")
+parser.add_argument("--shared-e-iters", type=int, default=4, help="SPSA outer iterations per guidance scale")
+parser.add_argument("--shared-e-perturb", type=float, default=0.04, help="morphology finite-difference probe (E in [0,1])")
+parser.add_argument("--shared-e-step-size", type=float, default=0.08, help="maximum normalized morphology update")
 args = parser.parse_args()
 EP = round(args.seconds / 0.02)
 if EP < 2:
@@ -84,6 +90,14 @@ if args.free_s0:
 if args.rest_s0:
     check_rest_checkpoint(ta)
 assert not (args.free_s0 and args.rest_s0)
+if args.shared_e_guidance:
+    if not args.rest_s0 or args.free_s0:
+        parser.error("--shared-e-guidance currently requires --rest-s0 (mode 4 initial E, mode 5 fixed-E rest S0)")
+    check_fixed_e_rest_checkpoint(ta)
+    if 2 not in ta.get("modes", []):
+        parser.error("--shared-e-guidance requires Mode 2 for subsequent windows")
+    if args.shared_e_iters < 0 or args.shared_e_perturb <= 0 or args.shared_e_step_size <= 0:
+        parser.error("invalid shared-E optimizer parameters")
 GEN_S0 = args.free_s0 or args.rest_s0
 H = ta["horizon"]
 net = Net(H, ta["d_model"], ta["layers"]).to(dev)
@@ -127,7 +141,13 @@ def ddim(x0, e0, kx, ke, pad, cur, m, scale):
             if scale > 0:
                 x0h = torch.where(kx > 0, x0, ((xr - (1 - ab).sqrt() * ex) / ab.sqrt()).clamp(-CLIP, CLIP))
                 R, _ = reward(unbase(x0h * sd + mu, cur), m)
-                gx, ge = torch.autograd.grad(R.sum(), [xr, er])
+                # When E is conditioned (modes 1/2/5), er is unused by the
+                # network. Do not fail just because E is fixed in this window.
+                gx, ge = torch.autograd.grad(R.sum(), [xr, er], allow_unused=True)
+                if gx is None:
+                    gx = torch.zeros_like(xr)
+                if ge is None:
+                    ge = torch.zeros_like(er)
                 if args.no_guide_s:
                     gx[..., :S_DIM] = 0
                 ex, ee = ex - scale * (1 - ab).sqrt() * gx, ee - scale * (1 - ab).sqrt() * ge
@@ -173,6 +193,60 @@ def generate(scale, n, seed):
         cur = ep[:, w - 1].clone()
         t0 += w - 1
     return traj, (e_norm * esd + emu).clamp(0, 1)
+
+
+@torch.no_grad()
+def sample_rest_morphology(n, seed):
+    """Draw E from learned Mode 4 prior once, before 10s task optimization."""
+    torch.manual_seed(seed)
+    cur = torch.zeros(n, X_DIM, device=dev)
+    cur[:, :S_DIM] = rest_s0().to(device=dev)
+    m = (torch.arange(H, device=dev) < min(H, EP)).expand(n, H)
+    x0 = torch.zeros(n, H, X_DIM, device=dev)
+    x0[:, 0] = (cur - mu) / sd
+    kx, ke = condition_masks(torch.full((n,), 4, dtype=torch.long, device=dev), m)
+    _, e = ddim(x0 * m[..., None], torch.zeros(n, E_DIM, device=dev),
+                kx, ke, ~m, cur, m, 0.0)
+    physical = (e * esd + emu).clamp(0.05, 0.95)
+    physical[:, [0, 11, 12]] = 0.5  # inert under current arm-free A1 topology
+    return physical
+
+
+@torch.no_grad()
+def generate_fixed_e(E_physical, scale, seed):
+    """Roll out the entire horizon under one FIXED E.
+
+    First window uses Mode 5: E known, rest S0 partially known. All later
+    windows use Mode 2: E and the generated preceding-window S0 known.
+    Same seed provides common diffusion noise across finite-difference
+    morphology probes. E is never re-sampled between windows.
+    """
+    torch.manual_seed(seed)
+    n = len(E_physical)
+    e0 = (E_physical - emu) / esd
+    traj = torch.zeros(n, EP, X_DIM, device=dev)
+    traj[:, 0, :S_DIM] = rest_s0().to(device=dev)
+    cur = traj[:, 0].clone()
+    t0 = 0
+    while t0 < EP - 1:
+        w = min(H, EP - t0)
+        m = (torch.arange(H, device=dev) < w).expand(n, H)
+        x0 = torch.zeros(n, H, X_DIM, device=dev)
+        s = cur.clone()
+        s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0
+        x0[:, 0] = (s - mu) / sd
+        mode = 5 if t0 == 0 else 2
+        kx, ke = condition_masks(torch.full((n,), mode, device=dev), m)
+        xw, _ = ddim(x0 * m[..., None], e0, kx, ke, ~m, cur, m, scale)
+        ep = unbase(xw * sd + mu, cur)
+        if t0 == 0:
+            traj[:, 0, 5:S_DIM] = ep[:, 0, 5:S_DIM]
+            traj[:, 0, 2] = ep[:, 0, 2]
+        traj[:, t0 + 1:t0 + w, :S_DIM] = ep[:, 1:w, :S_DIM]
+        traj[:, t0:t0 + w, A] = ep[:, :w, A]
+        cur = ep[:, w - 1].clone()
+        t0 += w - 1
+    return traj
 
 
 # ---- MJX 실행 ----
@@ -295,10 +369,33 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
 
 
 summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
-               candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align, runs={})
+               candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align,
+               shared_e_guidance=args.shared_e_guidance,
+               shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else "first-window E only"),
+               shared_e_settings=(dict(iters=args.shared_e_iters, perturb=args.shared_e_perturb,
+                                       step_size=args.shared_e_step_size, noise_seed=args.seed + 731)
+                                  if args.shared_e_guidance else None), runs={})
 fig, axes = plt.subplots(1, len(args.scales), figsize=(5 * len(args.scales), 5), squeeze=False)
 for si, scale in enumerate(args.scales):
-    traj, E = generate(scale, args.candidates, args.seed)
+    optimizer_history = None
+    if args.shared_e_guidance:
+        # Scale 0 is the unoptimized baseline. All other scales start from
+        # exactly the same prior morphology E, and compare full 10s rewards.
+        E_initial = sample_rest_morphology(args.candidates, args.seed)
+        eval_seed = args.seed + 731
+        def full_horizon_scores(e):
+            sample = generate_fixed_e(e, scale, eval_seed)
+            mask = torch.ones(len(e), EP, dtype=torch.bool, device=dev)
+            return reward(sample, mask)[0]
+        E, best_score, optimizer_history = optimize_shared_e(
+            E_initial, full_horizon_scores,
+            steps=(args.shared_e_iters if scale > 0 else 0),
+            perturb=args.shared_e_perturb, step_size=args.shared_e_step_size,
+            seed=args.seed + 2718)
+        traj = generate_fixed_e(E, scale, eval_seed)
+        print(f"shared E scale={scale:g}: full-horizon predicted rewards {best_score.cpu().tolist()}", flush=True)
+    else:
+        traj, E = generate(scale, args.candidates, args.seed)
     pred = traj.cpu().numpy()
     pm = np.ones((args.candidates, EP), bool)
     p_total, p_terms = score(pred, pm)
@@ -326,6 +423,9 @@ for si, scale in enumerate(args.scales):
         print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_progress']:.2f} {reward.unit} "
               f"(R {r_total[i]:.2f}), 낙상 {rows[i][0]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
     summary["runs"][f"scale_{scale:g}"] = res
+    if optimizer_history is not None:
+        summary.setdefault("shared_e_history", {})[f"scale_{scale:g}"] = optimizer_history
+        summary.setdefault("shared_e_initial", {})[f"scale_{scale:g}"] = E_initial.cpu().numpy().tolist()
     np.savez_compressed(args.out / f"scale_{scale:g}.npz", pred=pred, mjx=mj, mjx_mask=mm, E=E.cpu().numpy())
     ax = axes[0, si]
     for pts, center in reward.guide_lines():
