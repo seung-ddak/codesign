@@ -36,7 +36,7 @@ Joint Co-design을 그대로 재현하는 실험이 아니다. 진단으로 유�
    rollouts를 그대로 사용. PPO 재학습, 새 Foot-Anchored, D4 pair 생성,
    16개 전체 재수집을 우선 진행하지 않는다.
 2. **작은 TT joint training:** 기존 `train_tt.py`의 H=32,
-   `--modes 1 2 4`, DDIM 5로 작은 smoke checkpoint 작성.
+   `--modes 2 4`, DDIM 5로 작은 smoke checkpoint 작성.\n   첫 Window는 Mode 4에서 E·S₀·S·A 생성, 다음 Window부터\n   Mode 2에서 E·S₀ 조건으로 S·A 생성. Mode 1은 초기 FAST에 불필요.
    **Reward는 TT pretraining에 넣지 않는다.**
 3. **Reward-guided joint diffusion:** `--joint-full-guidance`가
    `joint_diffusion_guidance.py`를 호출. 각 reverse diffusion step에서
@@ -97,6 +97,13 @@ bash code/tt_dynamics/run_quick_validation.sh smoke
 예상 score가 불안정하면 scale을 낮춘다.
 출력은 별도 `runs/pipeline_v1/quick_joint/`에만 기록하며
 기존 run/checkpoint를 덮어쓰지 않는다.
+
+학습 로그의 `val_loss`는 Mode 2·4 혼합 검증 손실이다.
+과거 `train_tt.py`의 학습 후 `eval_dynamics`는 Mode 1을 사용하므로,
+Mode 1을 학습하지 않는 FAST에서는 자동 평가를 건너뛴다.
+Joint 생성과 실제 MJX 재생으로 검증한다. `--modes 2 4`는
+필요한 조건의 수를 줄일 뿐, E에 대한 물리적인 인과 모델이
+완성되었음을 보장하지 않는다.
 
 ## 실패 시 한 가지만 수정한다
 
