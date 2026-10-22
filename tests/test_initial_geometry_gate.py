@@ -41,17 +41,21 @@ def test_flight_is_a_candidate_not_grounded_support():
     assert allowed["initial_support_mode"] == "airborne_unverified"
 
 
-def test_zero_contact_ground_collision_is_not_flight():
+def test_zero_contact_ground_collision_is_transient_not_flight():
     c = [False] * 4
     r = classify_initial_support(c, c, [-0.01, 0.02, 0.04, 0.03], allow_airborne=True)
-    assert not r["support_ok"]
+    assert r["support_ok"]
+    assert r["initial_support_mode"] == "transient_unverified"
+    # The independent penetration check must still reject the -1cm case.
+    assert min([-0.01, 0.02, 0.04, 0.03]) < -0.002
 
 
-def test_one_foot_ambiguous_contact_is_not_accepted_as_flight():
+def test_one_foot_ambiguous_contact_is_transient():
     r = classify_initial_support([True, False, False, False],
                                  [True, False, False, False],
                                  [0, 0.02, 0.03, 0.04], allow_airborne=True)
-    assert not r["support_ok"]
+    assert r["support_ok"]
+    assert r["initial_support_mode"] == "transient_unverified"
 
 
 def test_two_contacts_still_count_as_grounded():
