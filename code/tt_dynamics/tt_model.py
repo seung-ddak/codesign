@@ -8,7 +8,7 @@ import torch.nn as nn
 from rollout_data import E_DIM, S_DIM, X_DIM
 
 
-CONDITIONING_VERSION = 2
+CONDITIONING_VERSION = 3
 
 
 # mode 4 의 s0 에서 아는 칸 = 형상과 무관한 물리 사실 (위치·yaw 원점, 중력, 선·각속도, 관절속도, 접지). 높이 2 와 관절각 14:26 은 E 와 함께 생성
@@ -25,13 +25,13 @@ def rest_s0():
 
 
 def condition_masks(mode, valid):
-    """Known-value masks: 0=s0, 1=E+s0+A, 2=E+s0, 3=nothing, 4=s0 의 REST_KNOWN 칸만 (E·높이·관절각·S·A 생성)."""
+    """Known-value masks: 0=s0, 1=E+s0+A, 2=E+s0, 3=free, 4=rest (generate E), 5=E+rest (fix E, generate s0/S/A)."""
     n, horizon = valid.shape
     kx = torch.zeros(n, horizon, X_DIM, device=valid.device)
-    s0_known = torch.where((mode == 4)[:, None], REST_KNOWN.to(valid.device), torch.ones(S_DIM, device=valid.device))
+    s0_known = torch.where(((mode == 4) | (mode == 5))[:, None], REST_KNOWN.to(valid.device), torch.ones(S_DIM, device=valid.device))
     kx[:, 0, :S_DIM] = (mode != 3).float()[:, None] * s0_known
     kx[:, :, S_DIM:] = (mode == 1).float()[:, None, None]
-    ke = ((mode == 1) | (mode == 2)).float()[:, None].expand(n, E_DIM)
+    ke = ((mode == 1) | (mode == 2) | (mode == 5)).float()[:, None].expand(n, E_DIM)
     return kx * valid[..., None], ke
 
 
@@ -43,6 +43,10 @@ def check_free_checkpoint(config):
 def check_rest_checkpoint(config):
     if 4 not in config.get("modes", []):
         raise ValueError("--rest-s0 requires a checkpoint trained with mode 4 (--modes ... 4)")
+
+def check_fixed_e_rest_checkpoint(config):
+    if 5 not in config.get("modes", []) or config.get("conditioning_version", 1) < 3:
+        raise ValueError("--shared-e-guidance requires mode 5 (known E + rest S0); retrain with --modes ... 4 5")
 
 
 class Net(nn.Module):
