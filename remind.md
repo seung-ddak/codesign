@@ -192,3 +192,7 @@
 - `joint`: mode 1+4로 E·S₀·S·A 공동 생성을 학습한다. 생성 S₀를 보정 없이 MJX에 넣어 4발 접촉·생존·경로 오차 gate를 통과해야 한다.
 - `guidance`: gate 통과 뒤에만 미학습 zigzag reward guidance를 10초로 평가한다.
 - 기존 wide16에서 관찰된 후반 정책 붕괴에 대응해 낮은 PPO 학습률과 학습 형상 기반 중간 체크포인트 선택을 적용한 재학습은 `runs/pipeline_v1/experts_wide16_v2/README.md` 참조. 기존 결과를 덮어쓰지 않는다.
+
+### 보고서 형식 선호 (2026-10-22)
+- 이후 실험 보고서는 `runs/pipeline_v1/final/report.html`의 시각적 HTML 구성(요약, 탐색, 결과 표, 그래프, 해석과 한계)을 기본으로 사용한다. Markdown 보고서 대신 브라우저에서 볼 수 있는 `report.html`을 생성한다.
+- Mode 2·4 FAST 학습 보고서: `runs/pipeline_v1/fast_mode24_v4/report.html`. 기존 `REPORT.md`는 사용자 요청으로 삭제했다.
