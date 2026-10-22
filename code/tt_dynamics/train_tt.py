@@ -51,7 +51,7 @@ parser.add_argument("--norm", choices=("zscore", "minmax"), default="zscore", he
 parser.add_argument("--clip", type=float, default=10.0, help="정규화 공간 x0_hat clip (TT 원본 clip_sample = 1)")
 parser.add_argument("--stride", type=int, default=0, help="평가 시 window 당 전진 step (0 = horizon-1, 겹침 없음)")
 parser.add_argument("--pose", choices=("abs", "delta"), default="abs", help="delta = S 의 위치·yaw 4 칸을 직전 step 대비 변화량 (dx, dy: 직전 heading frame, dyaw, 0) 으로")
-parser.add_argument("--modes", type=int, nargs="+", choices=(0, 1, 2, 3, 4), default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음), 4 rest (s0 의 형상 무관 칸만)")
+parser.add_argument("--modes", type=int, nargs="+", choices=(0, 1, 2, 3, 4), default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음), 4 anchor (s0 XY/yaw만 고정; 초기 속도·접촉 등 생성)")
 parser.add_argument("--diag", action="store_true", help="이어 붙이지 않은 단일 window 예측의 몸통 yaw·속도 오차를 모션 종류별로 (eval-only)")
 parser.add_argument("--sampler", choices=("ddpm", "ddim"), default="ddpm", help="평가 샘플링. ddim = 결정적 (eta 0)")
 args = parser.parse_args()
