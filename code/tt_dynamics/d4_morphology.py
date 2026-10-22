@@ -51,6 +51,12 @@ PENETRATION_LIMIT = 0.005
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--ckpt", type=Path, default=ROOT / "runs/pipeline_v1/tt/h32_multishape_B")
 parser.add_argument("--out", type=Path, required=True)
+parser.add_argument("--shapes", nargs=3, default=SHAPES, help="three morphology IDs to compare")
+parser.add_argument("--rollouts-root", type=Path, default=ROOT / "runs/pipeline_v1/rollouts")
+parser.add_argument("--rollout-name", default="seq_seed0.npz")
+parser.add_argument("--rollout-files", type=Path, nargs=3, help="explicit files matching --shapes")
+parser.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts/walkForwardSlow__r00")
+parser.add_argument("--reference-design", default="e000", help="reference assets used only to construct the controller environment")
 parser.add_argument("--starts-per-source", type=int, default=192)
 parser.add_argument("--pool-factor", type=int, default=4, help="initially inspect this multiple to allow filtering")
 parser.add_argument("--tt-seeds", type=int, default=8)
@@ -64,6 +70,10 @@ parser.add_argument("--manifests", type=Path, nargs=3, default=[
     ROOT / "runs/pipeline_v1/action_ablation/e002/split_manifest.json",
 ])
 args = parser.parse_args()
+SHAPES = tuple(args.shapes)
+PAIRS = ((1, 0), (2, 0), (2, 1))
+if len(set(SHAPES)) != 3:
+    parser.error("--shapes must contain three different morphologies")
 if args.starts_per_source < 1 or args.pool_factor < 1 or args.tt_seeds < 1:
     parser.error("starts-per-source, pool-factor and tt-seeds must be positive")
 if len(args.manifests) != 3:
@@ -96,12 +106,12 @@ beta, abar = schedule(config["diff_steps"], device)
 # ---- Held-out source windows; each source morphology contributes equally ----
 data_by_shape: dict[str, Any] = {}
 manifest_by_shape: dict[str, dict[str, str]] = {}
-for shape, manifest_path in zip(SHAPES, args.manifests):
+for shape_i, (shape, manifest_path) in enumerate(zip(SHAPES, args.manifests)):
     manifest = json.loads(manifest_path.read_text())
     episodes = {int(k) for k, split in manifest["episodes"].items() if split == "test"}
     if not episodes:
         raise ValueError(f"no test source episodes in {manifest_path}")
-    d = np.load(ROOT / f"runs/pipeline_v1/rollouts/{shape}/seq_seed0.npz")
+    d = np.load(args.rollout_files[shape_i] if args.rollout_files else args.rollouts_root / shape / args.rollout_name)
     if int(d["target_q"].shape[2]) != 12 or float(d["dt"]) != 0.02:
         raise ValueError(f"unexpected rollout action shape/control period for {shape}")
     if d["E"].shape != (E_DIM,) or not np.isfinite(d["E"]).all():
@@ -110,7 +120,7 @@ for shape, manifest_path in zip(SHAPES, args.manifests):
     manifest_by_shape[shape] = {"path": str(manifest_path), "test_episodes": sorted(episodes)}
 
 # Expert environment settings are used only to build the same MJX model/controller.
-expert = ROOT / "runs/pipeline_v1/experts/walkForwardSlow__r00"
+expert = args.expert_config
 configs = sorted(expert.glob("wandb/offline-run-*/files/config.pkl"))
 if not configs:
     raise FileNotFoundError(f"no expert config.pkl under {expert}")
@@ -126,7 +136,8 @@ envs: dict[str, TrackMjxEnv] = {}
 for shape in SHAPES:
     E = np.asarray(data_by_shape[shape]["E"], np.float32)
     cfg = dict(env_cfg)
-    cfg["reference_dir"] = str(ROOT / f"runs/pipeline_v1/retargeting/{shape}/{choice}")
+    reference_design = shape if (ROOT / f"runs/pipeline_v1/retargeting/{shape}/{choice}").is_dir() else args.reference_design
+    cfg["reference_dir"] = str(ROOT / f"runs/pipeline_v1/retargeting/{reference_design}/{choice}")
     cfg["clips"] = ["walkForwardSlow__r00"]
     envs[shape] = TrackMjxEnv(
         mj_model_fn=lambda E=E: build_model(choice, kp=expert_cfg.get("kp"),
@@ -291,10 +302,10 @@ if args.audit_only:
                             for src in SHAPES}}, indent=2))
     sys.exit(0)
 
-if sum(selection_counts[s]["selected"] for s in SHAPES) < 32:
-    raise ValueError(f"fewer than 32 shared physically valid starts across source strata: {selection_counts}")
+if not all(selection_counts[s]["selected"] for s in SHAPES):
+    raise ValueError(f"at least one source morphology has no shared physically valid start: {selection_counts}")
 
-# Flatten in fixed source order. Every group shares the same qpos0/qvel0/target_q
+# Flatten in fixed source order. With alignment, qpos0 body z differs by E.
 # across e000/e001/e002 executions; source_shape identifies the held-out corpus.
 starts = [r for source_shape in SHAPES for r in audited[source_shape]]
 source_shape = np.array([r["source_shape"] for r in starts])
@@ -460,11 +471,16 @@ tt_metric = {shape: final_metrics(pred_mean[shape]) for shape in SHAPES}
 source_masks = {shape: source_shape == shape for shape in SHAPES}
 cpu_contact_matched = np.array([bool(r["contact_matched"]) for r in starts])
 contact_matched = np.all(mjx_initial_contact == mjx_initial_contact[:, :1], axis=(1, 2))
-subsets = {"all": np.ones(N, bool), "initial_contact_matched": contact_matched}
 
 pair_results: dict[str, Any] = {}
+pair_contact_counts = {}
 for pair_i, pair_j in PAIRS:
     pair_key = f"{SHAPES[pair_i]}-{SHAPES[pair_j]}"
+    pair_contact = np.all(mjx_initial_contact[:, pair_i] == mjx_initial_contact[:, pair_j], axis=1)
+    assert np.all(~contact_matched | pair_contact)
+    pair_contact_counts[pair_key] = int(pair_contact.sum())
+    subsets = {"all": np.ones(N, bool), "initial_contact_matched": contact_matched,
+               "pair_initial_contact_matched": pair_contact}
     pair_results[pair_key] = {}
     for subset_name, subset in subsets.items():
         result_metrics = {}
@@ -538,14 +554,14 @@ for pair_i, pair_j in PAIRS:
                                          "per_seed": per_seed}
 
 summary = {
-    "experiment": "D4 morphology sensitivity, fixed qpos/qvel/action",
+    "experiment": "D4 morphology sensitivity, fixed qvel/action and shape-aligned qpos" if args.align_height else "D4 morphology sensitivity, fixed qpos/qvel/action",
     "checkpoint": str(checkpoint_path),
     "checkpoint_sha256": __import__("hashlib").sha256(checkpoint_path.read_bytes()).hexdigest(),
     "checkpoint_config": {"horizon": int(config["horizon"]), "modes": list(config["modes"]),
                            "diff_steps": int(config["diff_steps"]), "sampler": str(config["sampler"]),
                            "norm": str(config["norm"]), "clip": float(config["clip"])},
     "control_period_s": 0.02, "states_per_window": H, "executed_control_intervals": H - 1,
-    "same_initial_qpos_qvel_and_target_q": True,
+    "same_initial_qpos_qvel_and_target_q": not args.align_height,
     "no_initial_pose_or_height_correction": not args.align_height,
     "height_alignment": "body z per E, source lowest-foot clearance kept" if args.align_height else None,
     "source_split": "test episodes only",
@@ -556,6 +572,7 @@ summary = {
     "group_count": N, "group_count_by_source_shape": {s: int(source_masks[s].sum()) for s in SHAPES},
     "selection": selection_counts,
     "initial_contact_matched_groups": int(contact_matched.sum()),
+    "pair_initial_contact_matched_groups": pair_contact_counts,
     "initial_contact_mismatch_groups": int((~contact_matched).sum()),
     "cpu_contact_matched_groups": int(cpu_contact_matched.sum()),
     "tt_s0_contact_source": ("each E's own MJX s0 contact" if args.align_height
@@ -601,7 +618,7 @@ np.savez_compressed(
 
 # ---- Five requested figures ----
 plt.rcParams.update({"font.size": 9, "axes.grid": True, "grid.alpha": 0.25})
-colors = {"e000": "#4477AA", "e001": "#EE6677", "e002": "#228833"}
+colors = dict(zip(SHAPES, ("#4477AA", "#EE6677", "#228833")))
 metric_names = ("dx_m", "dy_m", "yaw_deg", "height_m", "joint_rad")
 metric_labels = ("Δx (m)", "Δy (m)", "Δyaw (deg)", "Δheight (m)", "Δjoint RMS (rad)")
 

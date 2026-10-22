@@ -58,10 +58,16 @@ parser.add_argument("--half-width", type=float, default=0.3, help="트랙 반폭
 parser.add_argument("--amp", type=float, default=0.3, help="zigzag 진폭 (m)")
 parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)")
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--seconds", type=float, default=10.0)
 parser.add_argument("--free-s0", action="store_true", help="s0 도 생성 (free 조건)")
 parser.add_argument("--rest-s0", action="store_true", help="s0 의 형상 무관 칸만 고정, 높이·관절각 생성 (mode 4)")
 parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
+parser.add_argument("--no-s0-align", action="store_true", help="execute generated S0 exactly; do not shift body height")
+parser.add_argument("--no-render", action="store_true")
 args = parser.parse_args()
+EP = round(args.seconds / 0.02)
+if EP < 2:
+    parser.error("--seconds must contain at least two 50 Hz states")
 dev = "cuda"
 args.out.mkdir(parents=True, exist_ok=True)
 reward = (TrackReward(radius=args.radius, half_width=args.half_width) if args.task == "circle"
@@ -187,12 +193,23 @@ def execute(E_np, tq, s0):
     q, qv = s0_to_q(s0) if GEN_S0 else (qpos0.copy(), qvel0)
     d = mujoco.MjData(env.mj_model)
     d.qpos[:] = q
-    mujoco.mj_kinematics(env.mj_model, d)
-    q[2] -= d.geom_xpos[np.asarray(env._foot_ids), 2].min() - FOOT_R  # 발이 바닥에 닿게
+    d.qvel[:] = qv
+    mujoco.mj_forward(env.mj_model, d)
+    feet = np.asarray(env._foot_ids)
+    floor = mujoco.mj_name2id(env.mj_model, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+    raw_foot_z = d.geom_xpos[feet, 2] - env.mj_model.geom_size[feet, 0]
+    raw_contact = np.array([any(floor in (c.geom1, c.geom2) and f in (c.geom1, c.geom2) and c.dist <= 1e-3
+                                for c in d.contact[:d.ncon]) for f in feet])
+    raw_nonfoot_pen = max([max(0.0, -float(c.dist)) for c in d.contact[:d.ncon]
+                           if floor in (c.geom1, c.geom2) and
+                           (c.geom2 if c.geom1 == floor else c.geom1) not in feet] or [0.0])
+    z_shift = 0.0
+    if not args.no_s0_align:
+        z_shift = float(-raw_foot_z.min())
+        q[2] += z_shift
     data = mjx.forward(env.mjx_model, make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(qv), impl=env.impl,
                                                nconmax=env._nconmax, njmax=env._njmax))
     off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
-    feet = np.asarray(env._foot_ids)
     qs, vs, cs = [], [], []
     fell = -1
     for t in range(EP):
@@ -215,7 +232,10 @@ def execute(E_np, tq, s0):
     x[:L, A] = tq[:L]
     m = np.zeros(EP, bool)
     m[:L] = True
-    return x, m, fell, np.array(qs), env.mj_model
+    initial = dict(raw_four_foot_contact=bool(raw_contact.all()), raw_contact=raw_contact.tolist(),
+                   raw_foot_z_m=raw_foot_z.tolist(), raw_nonfoot_penetration_m=raw_nonfoot_pen,
+                   applied_body_z_shift_m=z_shift)
+    return x, m, fell, np.array(qs), env.mj_model, initial
 
 
 def score(x, m):
@@ -271,7 +291,8 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
     r.close()
 
 
-summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion, candidates=args.candidates, runs={})
+summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
+               candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align, runs={})
 fig, axes = plt.subplots(1, len(args.scales), figsize=(5 * len(args.scales), 5), squeeze=False)
 for si, scale in enumerate(args.scales):
     traj, E = generate(scale, args.candidates, args.seed)
@@ -282,11 +303,12 @@ for si, scale in enumerate(args.scales):
     mj = np.zeros_like(pred)
     mm = np.zeros_like(pm)
     for i in range(args.candidates):
-        mj[i], mm[i], fell, qraw, model = execute(E[i].cpu().numpy(), pred[i, :, A], pred[i, 0, :S_DIM])
+        mj[i], mm[i], fell, qraw, model, initial = execute(E[i].cpu().numpy(), pred[i, :, A], pred[i, 0, :S_DIM])
         name = f"scale_{scale:g}_cand{i}"
         save_design(model, E[i].cpu().numpy(), name)
-        render(model, qraw, pred[i], args.out / "videos" / f"{name}.mp4")
-        rows.append(fell)
+        if not args.no_render:
+            render(model, qraw, pred[i], args.out / "videos" / f"{name}.mp4")
+        rows.append((fell, initial))
     r_total, r_terms = score(mj, mm)
     L = mm.sum(1)
     path_err = [float(np.linalg.norm(pred[i, :L[i], :2] - mj[i, :L[i], :2], axis=-1).mean()) for i in range(args.candidates)]
@@ -295,10 +317,11 @@ for si, scale in enumerate(args.scales):
         res.append(dict(E=E[i].cpu().numpy().round(3).tolist(),
                         pred_total=float(p_total[i]), pred_progress=float(p_terms["r_progress"][i] * reward.unit_scale),
                         mjx_total=float(r_total[i]), mjx_progress=float(r_terms["r_progress"][i] * reward.unit_scale),
-                        mjx_fell_step=int(rows[i]), mjx_valid_s=float(L[i] * 0.02), path_err_m=path_err[i],
+                        mjx_fell_step=int(rows[i][0]), mjx_valid_s=float(L[i] * 0.02), path_err_m=path_err[i],
+                        initial_physics=rows[i][1],
                         pred_terms={k: float(v[i]) for k, v in p_terms.items()}, mjx_terms={k: float(v[i]) for k, v in r_terms.items()}))
         print(f"scale {scale:g} #{i}: TT 예측 {res[-1]['pred_progress']:.2f} {reward.unit} (R {p_total[i]:.2f}) | MJX {res[-1]['mjx_progress']:.2f} {reward.unit} "
-              f"(R {r_total[i]:.2f}), 낙상 {rows[i]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
+              f"(R {r_total[i]:.2f}), 낙상 {rows[i][0]}, 경로 차 {path_err[i]:.2f} m | E[:3] {res[-1]['E'][:3]}", flush=True)
     summary["runs"][f"scale_{scale:g}"] = res
     np.savez_compressed(args.out / f"scale_{scale:g}.npz", pred=pred, mjx=mj, mjx_mask=mm, E=E.cpu().numpy())
     ax = axes[0, si]
@@ -308,7 +331,7 @@ for si, scale in enumerate(args.scales):
         c = plt.cm.tab10(i % 10)
         ax.plot(pred[i, :, 0], pred[i, :, 1], "--", color=c, lw=1)
         ax.plot(mj[i, :L[i], 0], mj[i, :L[i], 1], "-", color=c, lw=1.5)
-        if rows[i] >= 0:
+        if rows[i][0] >= 0:
             ax.plot(mj[i, L[i] - 1, 0], mj[i, L[i] - 1, 1], "x", color=c, ms=8)
     ax.set_aspect("equal")
     ax.set_title(f"guidance {scale:g} (dashed: TT, solid: MJX, x: fall)")
