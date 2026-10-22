@@ -64,13 +64,35 @@ def evaluate(root: Path, guided_scale: float, seconds: float):
             and any(v > 1e-12 for v in norms)
         )
 
-    raw_completed = [
-        ok and not row.get("initial_physics", {}).get("geometry_adjusted", False)
+    def raw_provenance(row):
+        """Missing/legacy correction history is UNKNOWN, never raw success."""
+        info = row.get("initial_physics")
+        if not isinstance(info, dict) or info.get("geometry_adjusted") is not False:
+            return False
+        before, executed, shift = (info.get("preprojection"),
+                                   info.get("executed_body_height_m"),
+                                   info.get("applied_body_z_shift_m"))
+        if not isinstance(before, dict):
+            return False
+        original = before.get("body_height_m")
+        vals = [original, executed, shift]
+        try:
+            return (all(v is not None and math.isfinite(float(v)) for v in vals)
+                    and abs(float(shift)) < 1e-8
+                    and abs(float(original) - float(executed)) < 1e-8)
+        except (TypeError, ValueError, OverflowError):
+            return False
+
+    raw_completed = [ok and raw_provenance(row)
+                     for ok, row in zip(no_fall_valid, gr)]
+    projected_completed = [
+        ok and isinstance(row.get("initial_physics"), dict)
+        and row["initial_physics"].get("geometry_adjusted") is True
         for ok, row in zip(no_fall_valid, gr)
     ]
-    projected_completed = [
-        ok and row.get("initial_physics", {}).get("geometry_adjusted", False)
-        for ok, row in zip(no_fall_valid, gr)
+    unknown_provenance = [
+        ok and not raw and not projected
+        for ok, raw, projected in zip(no_fall_valid, raw_completed, projected_completed)
     ]
     checks = {
         "real_checkpoint_joint_generation_finite": bool(finite),
@@ -97,6 +119,7 @@ def evaluate(root: Path, guided_scale: float, seconds: float):
         "guided_completed_MJX_count": sum(no_fall_valid),
         "guided_completed_unmodified_MJX_count": sum(raw_completed),
         "guided_completed_projection_assisted_MJX_count": sum(projected_completed),
+        "guided_completed_unknown_provenance_MJX_count": sum(unknown_provenance),
         "guided_geometry_adjusted_count": sum(
             bool(r.get("initial_physics", {}).get("geometry_adjusted", False)) for r in gr),
         "guided_airborne_start_count": sum(
