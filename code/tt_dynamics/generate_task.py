@@ -41,6 +41,7 @@ from omegaconf import OmegaConf  # noqa: E402
 
 from pd_replay import build_model  # noqa: E402
 from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
+from s0_geometry import s0_to_q  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
 from task_reward import StraightReward, TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
@@ -133,14 +134,6 @@ else:
         qpos0, qvel0 = z["qpos"][b0, 0], z["qvel"][b0, 0]
         S0 = torch.tensor(features(z["qpos"][b0, :1], z["qvel"][b0, :1], z["contact"][b0, :1])[0], device=dev)
 
-
-def s0_to_q(s):
-    """S token [42] -> MJX qpos [19], qvel [18] (xy=0, yaw=0). Dynamic starts allowed."""
-    g = s[5:8] / np.linalg.norm(s[5:8])  # body frame 중력 = (sinθ, -sinφ·cosθ, -cosφ·cosθ)
-    th, ph = np.arcsin(np.clip(g[0], -1, 1)), np.arctan2(-g[1], -g[2])
-    ch, sh, cp, sp = np.cos(th / 2), np.sin(th / 2), np.cos(ph / 2), np.sin(ph / 2)
-    q = np.concatenate([[0, 0, s[2]], [ch * cp, ch * sp, sh * cp, -sh * sp], s[14:26]])  # q_y(θ)·q_x(φ)
-    return q, np.concatenate([s[8:14], s[26:38]])
 
 
 if not GEN_S0:
