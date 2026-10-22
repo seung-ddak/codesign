@@ -30,21 +30,51 @@ def features(qpos, qvel, contact):
                            qpos[:, 7:19], qvel[:, 6:18], contact.astype(np.float32)], 1).astype(np.float32)
 
 
+def source_group_keys(path, archive, *, length):
+    """Split physically linked episodes together across morphology files.
+
+    Explicit intervention `group_id` wins. Otherwise `source_episode`
+    (or row index) is qualified by NPZ stem, NOT morphology directory.
+    This prevents e000/e001/... replicas of the same seeded source
+    episode from landing in train and val separately.
+    """
+    stem = Path(path).stem
+    if "group_id" in archive:
+        return [f"group:{int(x)}" for x in archive["group_id"][:length]]
+    if "source_episode" in archive:
+        return [f"source:{stem}:{int(x)}" for x in archive["source_episode"][:length]]
+    return [f"source:{stem}:{i}" for i in range(length)]
+
+
 def load(paths, H):
+    """Load each compressed NPZ array only once per file, not per episode."""
     X, E, M, src, CL = [], [], [], [], []
     for p in paths:
-        d = np.load(p)
-        for b in range(len(d["valid"])):
-            L = min(int(d["valid"][b].sum()), H)
-            if L < 2:
-                continue
-            x = np.zeros((H, X_DIM), np.float32)
-            x[:L, :S_DIM] = features(d["qpos"][b, :L], d["qvel"][b, :L], d["contact"][b, :L])
-            x[:L, S_DIM:] = d["target_q"][b, :L]
-            m = np.zeros(H, bool)
-            m[:L] = True
-            X.append(x), M.append(m), E.append(d["E"].astype(np.float32)), src.append(f"{Path(p).parent.name}/{Path(p).stem}")
-            cl = np.full(H, "", dtype=object)  # step 별 모션 이름 (진단용)
-            cl[:L] = d["motions"][d["clip"][b, :L]] if "motions" in d else d["variant"][b]
-            CL.append(cl)
+        with np.load(p) as d:
+            valid = d["valid"]
+            qpos, qvel = d["qpos"], d["qvel"]
+            contact, target_q, physical_e = d["contact"], d["target_q"], d["E"]
+            motions = d["motions"] if "motions" in d else None
+            clips = d["clip"] if motions is not None else None
+            variants = d["variant"] if motions is None else None
+            for b in range(len(valid)):
+                L = min(int(valid[b].sum()), H)
+                if L < 2:
+                    continue
+                x = np.zeros((H, X_DIM), np.float32)
+                x[:L, :S_DIM] = features(qpos[b, :L], qvel[b, :L], contact[b, :L])
+                x[:L, S_DIM:] = target_q[b, :L]
+                m = np.zeros(H, bool)
+                m[:L] = True
+                X.append(x)
+                M.append(m)
+                e = physical_e if physical_e.ndim == 1 else physical_e[b]
+                E.append(np.asarray(e, dtype=np.float32))
+                src.append(f"{Path(p).parent.name}/{Path(p).stem}")
+                cl = np.full(H, "", dtype=object)
+                if motions is not None:
+                    cl[:L] = motions[clips[b, :L]]
+                else:
+                    cl[:L] = variants[b]
+                CL.append(cl)
     return np.stack(X), np.stack(E), np.stack(M), np.array(src), np.stack(CL)
