@@ -68,9 +68,14 @@ analytical 10-second gradient backpropagation or MJX reward optimization.
 The algorithm proposes candidate changes to the same E shared by all
 windows, regenerates the entire action/state sequence with common diffusion
 noise, and accepts a change only when **full predicted** reward rises.
-Scale 0 is the unoptimized baseline. Only final candidates are physically
-replayed in MJX. Reward improvements can be illusory if the learned dynamics
-are inaccurate; compare predicted-vs-MJX reward and initial physical validity.
+Scale 0 is the unoptimized baseline. Only final optimized candidates are replayed in MJX by default. With
+`--shared-e-eval-baseline` (enabled in the `shared` pipeline stage), the
+same-scale **unoptimized** morphology and its independently generated
+task-specific action are also replayed in MJX, using the same TT noise.
+Look for `shared_e_control` and `shared_e_history` in `summary.json`.
+Reward improvements can be illusory if the learned dynamics are inaccurate;
+compare the two MJX rewards, survival, predicted-vs-MJX reward and initial
+physical validity.
 No claim of globally optimal morphology is justified.
 
 ## Shared-E experiment (after prepare/dynamics; no GPU run done here)
