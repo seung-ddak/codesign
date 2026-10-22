@@ -26,7 +26,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, load  # noqa: F401
+from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, load, source_group_keys  # noqa: F401
 from tt_model import CONDITIONING_VERSION, Net, condition_masks, rebase, schedule, unbase
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
@@ -92,15 +92,14 @@ def sample(net, x0, e0, kx, ke, pad, beta, abar):
 X, E, M, src, CL = load(args.data, EP)
 H = args.horizon
 rng = np.random.default_rng(args.seed)
-# Counterfactual variants from one physical s0 must stay in the same split.
+# Split by physical source episode across morphologies, not the file path.
+# group_id (when supplied) also groups counterfactual actions/morphology.
 groups = []
 for path in args.data:
     with np.load(path) as z:
-        if "group_id" in z:
-            valid_rows = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
-            groups.extend([f"{path}:{int(z['group_id'][b])}" for b in valid_rows])
-        else:
-            groups.extend([f"{path}:{b}" for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2])
+        rows = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
+        keys = source_group_keys(path, z, length=len(z["valid"]))
+        groups.extend(keys[b] for b in rows)
 assert len(groups) == len(X)
 unique, inverse = np.unique(groups, return_inverse=True)
 if args.split_key:
@@ -121,6 +120,22 @@ else:
 assert len(tr) and len(val), "train and val must both be nonempty"
 n_val = len(val)
 assert not np.intersect1d(inverse[val], inverse[tr]).size
+# Count distinct start feature vectors, not merely the number of episodes.
+# Raw S0 includes morphology-dependent joint/base poses, but this statistic
+# does not prove real-world start diversity.
+distinct_s0 = len(np.unique(np.round(X[:, 0, 2:38], decimals=5), axis=0))
+split_meta = {
+    "episodes": int(len(X)),
+    "train_episodes": int(len(tr)),
+    "validation_episodes": int(n_val),
+    "independent_source_groups": int(len(unique)),
+    "train_source_groups": int(len(np.unique(inverse[tr]))),
+    "validation_source_groups": int(len(np.unique(inverse[val]))),
+    "distinct_s0_feature_vectors_rounded_1e-5": int(distinct_s0),
+    "split_group_contract": "cross-morphology source_episode or group_id; see rollout_data.source_group_keys",
+    "validation_loss_scope": "all validation episodes, batched; random-window/noise, fixed evaluation RNG seed",
+}
+print("split metadata:", split_meta, flush=True)
 Xt, Mt = torch.tensor(X, device=dev), torch.tensor(M, device=dev)
 Lt = Mt.sum(1)
 
@@ -198,7 +213,9 @@ print(f"params={sum(p.numel() for p in net.parameters()) / 1e6:.2f}M")
 
 if not args.eval_only:
     json.dump({**{k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
-               "episodes": len(X), "train": len(tr), "val": n_val}, open(args.out / "config.json", "w"), indent=1)
+               "episodes": len(X), "train": len(tr), "val": n_val,
+               "data_split_audit": split_meta}, open(args.out / "config.json", "w"), indent=1)
+    (args.out / "split_audit.json").write_text(json.dumps(split_meta, indent=2) + "\\n")
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.steps)
     log = open(args.out / "progress.jsonl", "w")
@@ -228,9 +245,19 @@ if not args.eval_only:
         opt.step()
         sched.step()
         if step % 200 == 0 or step == args.steps:
-            with torch.no_grad():  # 검증 loss 는 고정 seed 로 같은 window·noise
-                vl = loss_on(valt[:args.batch], torch.Generator(device=dev).manual_seed(1)).item()
-            rec = dict(step=step, loss=loss.item(), val_loss=vl, lr=sched.get_last_lr()[0], min=(time.time() - t0) / 60)
+            # Evaluate ALL validation episodes, not just valt[:batch].
+            # Each batch receives deterministic random windows/noise under
+            # one generator per checkpoint evaluation; weight by row count.
+            with torch.no_grad():
+                val_gen = torch.Generator(device=dev).manual_seed(1)
+                total_v = 0.0
+                for j in range(0, len(valt), args.batch):
+                    vb = valt[j:j + args.batch]
+                    total_v += float(loss_on(vb, val_gen)) * len(vb)
+                vl = total_v / len(valt)
+            rec = dict(step=step, loss=loss.item(), val_loss=vl,
+                       val_episodes_evaluated=len(valt), val_batches=(len(valt) + args.batch - 1) // args.batch,
+                       lr=sched.get_last_lr()[0], min=(time.time() - t0) / 60)
             log.write(json.dumps(rec) + "\n")
             log.flush()
             print(rec, flush=True)
