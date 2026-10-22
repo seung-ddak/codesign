@@ -303,9 +303,9 @@ def execute(E_np, tq, s0):
     data = mjx.forward(env.mjx_model, make_data(env.mj_model, qpos=jnp.asarray(q), qvel=jnp.asarray(qv), impl=env.impl,
                                                nconmax=env._nconmax, njmax=env._njmax))
     initial_geom, initial_dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
-    mjx_floor_contact = [bool((((initial_geom[:, 0] == f) & (initial_geom[:, 1] == floor)) |
-                               ((initial_geom[:, 1] == f) & (initial_geom[:, 0] == floor)))
-                               .__and__(initial_dist <= 1e-3).any()) for f in feet]
+    mjx_floor_contact = [bool(((((initial_geom[:, 0] == f) & (initial_geom[:, 1] == floor)) |
+                                 ((initial_geom[:, 1] == f) & (initial_geom[:, 0] == floor))) &
+                                (initial_dist <= 1e-3)).any()) for f in feet]
     off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
     qs, vs, cs = [], [], []
     fell = -1
