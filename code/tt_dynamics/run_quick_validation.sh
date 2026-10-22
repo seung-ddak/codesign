@@ -41,11 +41,11 @@ if [[ ! -f "$ckpt/checkpoint.pt" ]]; then
     done
   fi
   printf 'Quick training data: %s\n' "${data[@]}"
-  echo "Training a small smoke joint model (Mode 1,2,4), no PPO training"
+  echo "Training a small smoke joint model (Mode 2,4 only), no PPO training"
   "$python" code/tt_dynamics/train_tt.py --data "${data[@]}" \
     --out "$ckpt" --horizon 32 --steps "${QUICK_STEPS:-3000}" \
     --batch "${QUICK_BATCH:-16}" --eval-episodes 8 \
-    --modes 1 2 4 --diff-steps 5 --norm minmax --clip 1 --sampler ddim \
+    --modes 2 4 --diff-steps 5 --norm minmax --clip 1 --sampler ddim \
     > "$root/train.log" 2>&1 || {
       tail -n 35 "$root/train.log" >&2; exit 1;
     }
