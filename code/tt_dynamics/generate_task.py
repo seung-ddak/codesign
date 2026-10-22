@@ -53,6 +53,7 @@ parser.add_argument("--out", type=Path, required=True)
 parser.add_argument("--candidates", type=int, default=8)
 parser.add_argument("--scales", type=float, nargs="+", default=[0.0, 1.0, 5.0], help="guidance 세기 (0 = 없음)")
 parser.add_argument("--s0-motion", default="walkForwardSlow__r00")
+parser.add_argument("--expert-config", type=Path, help="expert config directory (used to instantiate MJX controller; defaults to original expert)")
 parser.add_argument("--task", choices=("circle", "zigzag", "straight"), default="circle")
 parser.add_argument("--radius", type=float, default=1.0, help="circle")
 parser.add_argument("--half-width", type=float, default=None, help="corridor half-width (m); task-specific defaults when omitted")
@@ -108,11 +109,17 @@ emu, esd = (0.5, 0.5) if ta["norm"] == "minmax" else (0.5, 0.25)
 beta, abar = schedule(ta["diff_steps"], dev)
 CLIP = ta["clip"]
 
-# ---- s0: 데이터의 실제 state ----
-z = np.load(CODESIGN / "runs/pipeline_v1/rollouts/e000/primitive_seed0.npz")
-b0 = int(np.where(z["motions"][z["clip"][:, 0]] == args.s0_motion)[0][0])
-qpos0, qvel0 = z["qpos"][b0, 0], z["qvel"][b0, 0]
-S0 = torch.tensor(features(z["qpos"][b0, :1], z["qvel"][b0, :1], z["contact"][b0, :1])[0], device=dev)
+# ---- S0: legacy primitive start for fixed-S0 mode only ----
+# Rest-S0 samples its own morphology-dependent start; it must not require an
+# unrelated original e000 rollout file to exist on the evaluation machine.
+if GEN_S0:
+    qpos0 = qvel0 = None
+    S0 = torch.zeros(S_DIM, device=dev)
+else:
+    with np.load(CODESIGN / "runs/pipeline_v1/rollouts/e000/primitive_seed0.npz") as z:
+        b0 = int(np.where(z["motions"][z["clip"][:, 0]] == args.s0_motion)[0][0])
+        qpos0, qvel0 = z["qpos"][b0, 0], z["qvel"][b0, 0]
+        S0 = torch.tensor(features(z["qpos"][b0, :1], z["qvel"][b0, :1], z["contact"][b0, :1])[0], device=dev)
 
 
 def s0_to_q(s):
@@ -124,8 +131,10 @@ def s0_to_q(s):
     return q, np.concatenate([s[8:14], s[26:38]])
 
 
-_q, _v = s0_to_q(S0.cpu().numpy())  # 자체 점검: 데이터 s0 왕복 (xy·yaw 는 기준 원점이라 이미 0)
-assert np.allclose(features(_q[None], _v[None], np.zeros((1, 4)))[0, 2:38], S0.cpu().numpy()[2:38], atol=1e-4)
+if not GEN_S0:
+    _q, _v = s0_to_q(S0.cpu().numpy())
+    assert np.allclose(features(_q[None], _v[None], np.zeros((1, 4)))[0, 2:38],
+                       S0.cpu().numpy()[2:38], atol=1e-4)
 
 
 def ddim(x0, e0, kx, ke, pad, cur, m, scale):
@@ -250,7 +259,7 @@ def generate_fixed_e(E_physical, scale, seed):
 
 
 # ---- MJX 실행 ----
-expert = CODESIGN / "runs/pipeline_v1/experts" / args.s0_motion
+expert = args.expert_config if args.expert_config is not None else CODESIGN / "runs/pipeline_v1/experts" / args.s0_motion
 cfg = pickle.load(open(sorted(expert.glob("wandb/offline-run-*/files/config.pkl"))[-1], "rb"))
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
