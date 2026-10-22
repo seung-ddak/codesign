@@ -56,11 +56,78 @@ existence of contact-matched D4 pairs. A training-capable supervisor may
 approve the gate after reviewing results; do not bypass to produce claims
 without actual evaluation.
 
-The joint generation stage still uses Mode 1+4 and the first-window E is
-still fixed for later windows. Therefore the current 10-second guidance
-**does not optimize E against the complete 10-second reward**. Treat it as
-a smoke experiment, not proof of task-optimal morphology. This patch
-does not implement shared-E long-horizon optimization.
+The original `joint`/`guidance` stages still retain the historical
+first-window-only morphology approach. The **new `shared` stage** uses
+Mode 5 (fixed E + partially known rest S0) for the first window and Mode 2
+(fixed E + known subsequent S0) for later windows. Its shared morphology is
+optimized by **SPSA finite-difference estimates from the complete 10-second
+TT-predicted task reward**. This is a memory-bounded alternative to exact
+end-to-end diffusion gradient backpropagation; do **not** describe it as
+analytical 10-second gradient backpropagation or MJX reward optimization.
+
+The algorithm proposes candidate changes to the same E shared by all
+windows, regenerates the entire action/state sequence with common diffusion
+noise, and accepts a change only when **full predicted** reward rises.
+Scale 0 is the unoptimized baseline. Only final candidates are physically
+replayed in MJX. Reward improvements can be illusory if the learned dynamics
+are inaccurate; compare predicted-vs-MJX reward and initial physical validity.
+No claim of globally optimal morphology is justified.
+
+## Shared-E experiment (after prepare/dynamics; no GPU run done here)
+
+`shared` uses a **new** checkpoint `tt_joint_shared`, trained with
+`--modes 1 2 4 5`. Old Mode-4 checkpoints do not support fixed-E rest
+conditioning and must not be reused. Initial morphology is sampled from
+Mode 4, with inert E coordinates [0, 11, 12] fixed at 0.5. Search stays
+in [0.05, 0.95] to avoid extrapolating outside the v2 morphology prior.
+
+For a controlled exploratory experiment, when diagnostics have not been
+approved yet:
+
+```bash
+FOOT_ROOT=runs/pipeline_v1/foot_anchored_v2 \
+FOOT_EXPLORATORY_SHARED=1 \
+FOOT_SHARED_CANDIDATES=4 FOOT_SHARED_ITERS=4 \
+bash code/tt_dynamics/run_foot_anchored_pipeline.sh shared
+```
+
+This flag authorizes **exploration only**: it does not mark Dynamics or
+joint generation as validated. Without it, a reviewed dynamics gate is
+required. The output directory is
+`runs/pipeline_v1/foot_anchored_v2/composite_10s_shared/`.
+
+The new inference flag is `--rest-s0 --shared-e-guidance`. Important
+flags: `--shared-e-iters`, `--shared-e-perturb`,
+`--shared-e-step-size`, `--expert-config`. Because SPSA evaluates
+multiple full-horizon TT rollouts, start with `--candidates 1` and
+`--shared-e-iters 1` when checking V100 memory and runtime.
+
+Tests to run on your machine before training:
+
+```bash
+../transformer-transformer/.venv/bin/python -m pytest \
+  tests/test_cp_task_reward.py tests/test_shared_e_guidance.py
+```
+
+The implementation records initial S0's joint limits, collision penetration,
+foot height, quaternion norm and MJX foot-ground contact. Physically invalid
+generated starts do not establish successful co-design and should be filtered
+from reported task performance.
+
+## Research direction: stop treating D4 as the final objective
+
+Keep the existing CP-Design pipeline and separate evidence into (A)
+broad multi-morphology primitive/transition dynamics, (B) physical
+joint-generation feasibility and short-horizon accuracy, (C) **end-to-end
+task reward in MJX**. D4/D5 remain diagnostics. Evaluate straight, zigzag
+and circle with the **same fixed TT checkpoint and comparable candidate
+budgets**, compare unoptimized and shared-E approaches, and inspect reward
+ranking and survival. Do not reward morphology difference itself: different
+E per task is a testable hypothesis, not a required result.
+
+A full task-specific morphology benefit claim additionally requires
+cross-evaluation where each morphology receives task-appropriate newly
+generated actions, rather than merely replaying another task's controls.
 
 ## Scientific guardrails
 
