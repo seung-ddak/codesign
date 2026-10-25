@@ -208,12 +208,14 @@
 - 조건: v5_orig = v4 데이터 (wide16 primitive 16 형상), v5_paired = + `wide16_action_shared` Orig/Swap/Offset. 둘 다 20000 step × batch 32, Mode 2/4. paired 는 유효 step 1.4 배라 단독 효과 분리 불가.
 - v5_orig guidance 효과 있음 (MJX R 중앙값 −1.33 → −0.76, 완주 12 → 14). 예측-MJX R 차 중앙값 1.1~1.3 잔존. `runs/pipeline_v1/fast_mode24_v5_compare/report.html`.
 
-### 8-27. 진행 중: 학습량 60000 step (2026-10-25, v5_orig 대비 step 만 변경)
-- `runs/pipeline_v1/fast_mode24_v6_steps60k/` (실행 스크립트 `fast_mode24_v6_steps60k.sh`, tmux `tt_v6_60k`), 학습 후 후보 16 smoke 자동.
-- 통과: scale 0 경로 차 중앙값 ≤ 0.15 m, 완주 ≥ 12/16 → 학습량 추가 여지. 미달 → 학습량 한계, 다음 후보 = 데이터 양 / 모델 구조 / DDIM 5 step.
+### 8-27. 학습량 60000 step (2026-10-25, v5_orig 대비 step 만 변경) — 통과
+- 결론: 후보 16 scale 0 경로 차 중앙값 0.20 → 0.05 m, 완주 12/16 → 16/16, 예측-MJX R 차 1.27 → 0.05. val loss 0.032 → 0.012. TT 부정확의 주원인 = 학습 부족.
+- 주의: 이동 거리 중앙값 0.41 → 0.25 m (데이터 ~0.35 m) 로 덜 움직이나 상대 오차도 49 → 20 % 로 개선. zigzag progress 는 여전히 ~0 (예측도 ~0).
+- 결과 `runs/pipeline_v1/fast_mode24_v6_steps60k/`, 비교 `runs/pipeline_v1/fast_mode24_v5_compare/report.html`.
 
 ### 8-28. 미해결 (2026-10-25)
-- TT 예측 R 이 MJX 보다 낙관적 (차 중앙값 ~1.2): 생성 S 직접 guidance (`--no-guide-s` 미적용) 와 A→S 결합 약함 (D5) 이 남은 후보. 10 s 단계에서는 window 단위 MJX 재계획 (8-18) 필요.
+- 병목이 TT 정확도 → guidance 로 이동: TT 가 정확해졌지만 guidance 가 전진 동작을 만들지 못함 (예측 progress ~0). action_rate penalty 가 progress 보다 큰지 등 reward 구성 점검 필요 (미검증).
+- 10 s 단계에서는 window 단위 MJX 재계획 (8-18) 필요.
 
 ### 보고서 형식 선호 (2026-10-22)
 - 이후 실험 보고서는 `runs/pipeline_v1/final/report.html`의 시각적 HTML 구성(요약, 탐색, 결과 표, 그래프, 해석과 한계)을 기본으로 사용한다. Markdown 보고서 대신 브라우저에서 볼 수 있는 `report.html`을 생성한다.

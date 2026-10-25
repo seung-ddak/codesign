@@ -71,6 +71,16 @@ dt { color: var(--muted); font-size: .85rem; } dd { margin: 0; font-family: var(
 <tr><td>v5_paired</td><td>guidance 적용</td><td>8/16</td><td>0.20 m</td><td>0</td><td>−1.89</td><td>1.18</td></tr>
 </table></div>
 <p>미리 정한 판정 기준(v5_paired 경로 차 중앙값이 더 작고 완주 수가 같거나 많음)을 둘 다 못 맞췄다. v5_orig 에서는 guidance 가 MJX R 중앙값을 −1.33 → −0.76, 완주를 12 → 14 로 개선했다.</p>
+<p><b>v6 (학습량 60000 step, v5_orig 대비 step 만 변경): 통과. 예측-실제 경로 차 중앙값 0.20 → 0.05 m, 2 s 완주 12/16 → 16/16.</b></p>
+<div class="scroll"><table>
+<tr><th>모델</th><th>조건</th><th>2 s 완주</th><th>경로 차 중앙값</th><th>&lt; 0.1 m</th><th>|예측 R − MJX R| 중앙값</th><th>MJX 이동 거리 중앙값</th><th>MJX progress 중앙값</th></tr>
+<tr><td>v5_orig</td><td>guidance 없음</td><td>12/16</td><td>0.20 m</td><td>2</td><td>1.27</td><td>0.41 m</td><td>−0.10</td></tr>
+<tr><td>v5_orig</td><td>guidance 적용</td><td>14/16</td><td>0.25 m</td><td>0</td><td>1.09</td><td>0.30 m</td><td>−0.06</td></tr>
+<tr><td>v6_60k</td><td>guidance 없음</td><td>16/16</td><td>0.05 m</td><td>12</td><td>0.05</td><td>0.25 m</td><td>−0.07</td></tr>
+<tr><td>v6_60k</td><td>guidance 적용</td><td>16/16</td><td>0.08 m</td><td>10</td><td>0.20</td><td>0.23 m</td><td>−0.05</td></tr>
+</table></div>
+<p>TT 가 자기 행동의 결과를 MJX 와 거의 같게 예측하게 됐다 (예측-실제 R 차 1.27 → 0.05). val loss 도 0.032 → 0.012 로 계속 내려갔다.</p>
+<p>주의: v6 로봇은 v5 보다 덜 움직인다 (2 s 이동 거리 중앙값 0.41 → 0.25 m, 학습 데이터 걸음은 약 0.35 m). 경로 차 0.05 m 는 이동 거리의 약 20 % 로, v5 의 약 49 % 보다 상대적으로도 개선됐다. 그러나 zigzag progress 는 여전히 0 근처 (−0.05) 로, TT 예측 progress 도 0 근처다. 즉 TT 는 정확해졌지만 guidance 가 앞으로 가는 동작을 만들지 못한다. 다음 문제는 TT 정확도가 아니라 guidance 다.</p>
 </div>
 </section>
 
