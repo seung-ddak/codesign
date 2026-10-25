@@ -91,6 +91,9 @@ physics_flags=()
 if [[ "${QUICK_GEOMETRY_S0:-0}" == 1 ]]; then
   physics_flags+=(--geometry-s0 --max-geometry-lift-m "${QUICK_MAX_GEOMETRY_LIFT_M:-0.04}")
 fi
+if [[ "${QUICK_E_REST_S0:-0}" == 1 ]]; then
+  physics_flags+=(--e-rest-s0)
+fi
 if [[ "${QUICK_ALLOW_AIRBORNE_S0:-0}" == 1 ]]; then
   physics_flags+=(--allow-airborne-s0)
 fi

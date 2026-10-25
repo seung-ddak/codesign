@@ -77,6 +77,11 @@ parser.add_argument("--allow-airborne-s0", action="store_true",
 parser.add_argument("--no-render", action="store_true")
 parser.add_argument("--joint-full-guidance", action="store_true",
                     help="per-denoising-step reward gradient guides noisy E and complete 10s S/A (not SPSA)")
+parser.add_argument("--e-rest-s0", action="store_true",
+                    help="with --joint-full-guidance: S0 = home stance of the current E (feet on floor), not generated")
+parser.add_argument("--expert-warmup-s0", type=float, default=0.0, metavar="SEC",
+                    help="with --e-rest-s0: expert walks closed-loop on the current E for up to SEC s; S0 = first "
+                         "balanced state after 0.5 s (same process as TT training data, so S0 is in-distribution)")
 parser.add_argument("--shared-e-guidance", action="store_true",
                     help="estimate full-horizon reward gradient for one E shared across TT windows (SPSA)")
 parser.add_argument("--shared-e-iters", type=int, default=4, help="SPSA outer iterations per guidance scale")
@@ -111,6 +116,10 @@ if args.joint_full_guidance:
         parser.error("--joint-full-guidance requires --rest-s0")
     if 2 not in ta.get("modes", []):
         parser.error("--joint-full-guidance requires checkpoint trained with Mode 2")
+if args.e_rest_s0 and (not args.joint_full_guidance or args.geometry_s0):
+    parser.error("--e-rest-s0 requires --joint-full-guidance and no --geometry-s0 (S0 already touches the floor)")
+if args.expert_warmup_s0 > 0 and not args.e_rest_s0:
+    parser.error("--expert-warmup-s0 requires --e-rest-s0")
 if args.shared_e_guidance:
     if not args.rest_s0 or args.free_s0:
         parser.error("--shared-e-guidance currently requires --rest-s0 (mode 4 initial E, mode 5 fixed-E rest S0)")
@@ -283,6 +292,102 @@ choice = cfg.get("choice")
 ecfg["reference_dir"] = str(CODESIGN / "runs/pipeline_v1/retargeting/e000" / choice)  # 보상 계산용 reference (실행에는 무관)
 ecfg["clips"] = [args.s0_motion]
 jit_step = None
+
+
+def rest_s0_of(E_batch, settle_s=1.0):
+    """S0 = g(E): home 자세 PD 목표로 settle_s 초 세워 둔 안착 상태 (실행과 같은 접촉 설정). E 가 바뀌면 S0 도 바뀐다."""
+    out = []
+    for e in E_batch.detach().cpu().numpy().astype(np.float64):
+        env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+                                                         torque_limit=cfg.get("torque_limit"), uniforms=e), **ecfg)
+        m = env.mj_model
+        d = mujoco.MjData(m)
+        d.qpos[:] = m.keyframe("home").qpos
+        d.qpos[2] = 1.0
+        mujoco.mj_forward(m, d)
+        feet = np.asarray(env._foot_ids)
+        d.qpos[2] -= float((d.geom_xpos[feet, 2] - m.geom_size[feet, 0]).min())
+        d.ctrl[:] = np.asarray(env.action_offset)
+        for _ in range(round(settle_s / m.opt.timestep)):
+            mujoco.mj_step(m, d)
+        floor = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, "floor")
+        contact = [any(floor in (c.geom1, c.geom2) and f in (c.geom1, c.geom2) and c.dist <= 1e-3
+                       for c in d.contact[:d.ncon]) for f in feet]
+        out.append(features(d.qpos[None].copy(), d.qvel[None].copy(), np.array([contact]))[0])
+    return torch.tensor(np.stack(out), device=dev, dtype=torch.float32)
+
+
+_warm = {}
+
+
+def warm_s0_of(E_batch):
+    """S0 = g(E): expert (multi-design, E 를 obs 로 받음) 를 E 위에서 closed-loop 로 걸린 뒤 상태.
+    TT 학습 데이터와 같은 생성 방식이라 분포 안. reference 는 E 가 가장 가까운 학습 형상의 retarget 을 쓴다.
+    env.step 은 base env 의 mjx_model·reference 속성을 trace 시점에 바꿔 끼워 한 번만 compile (multi_design.py 와 같은 방식)."""
+    from multi_design import REFERENCE_ATTRS
+    from policy_io import load_run
+    retarget = CODESIGN / "runs/pipeline_v1/retargeting"
+    mk = lambda u, name: TrackMjxEnv(  # noqa: E731
+        mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+                                        torque_limit=cfg.get("torque_limit"), uniforms=u),
+        **{**ecfg, "reference_dir": str(retarget / name / choice)})
+    if not _warm:
+        designs = json.loads((retarget / "designs.json").read_text())
+        names = list(cfg.train_designs)
+        ck = sorted(expert.glob("wandb/offline-run-*/files/checkpoints/*"), key=lambda p: int(p.name))[-1]
+        _, policy = load_run(ck)
+        base = mk(designs[names[0]], names[0])
+        base.mjx_model = base.mjx_model.replace(geom_sameframe=np.zeros_like(base.mjx_model.geom_sameframe))
+        feet, floor = jnp.asarray(base._foot_ids), int(base.mj_model.geom("floor").id)
+        foot_r = jnp.asarray(base.mj_model.geom_size[base._foot_ids, 0])
+        T = round(args.expert_warmup_s0 / base.dt)
+
+        def run(model, refs, u, key):
+            old = {k: getattr(base, k) for k in ("mjx_model", *REFERENCE_ATTRS)}
+            base.mjx_model = model
+            for k in REFERENCE_ATTRS:
+                setattr(base, k, refs[k])
+            def snap(d):
+                g, dist = d._impl.contact.geom, d._impl.contact.dist
+                c = jnp.stack([((((g[:, 0] == f) & (g[:, 1] == floor)) | ((g[:, 1] == f) & (g[:, 0] == floor)))
+                                & (dist <= 1e-3)).any() for f in feet])
+                return d.qpos, d.qvel, c, (d.geom_xpos[feet, 2] - foot_r).min()
+
+            def body(s, _):
+                s = base.step(s, policy(jnp.concatenate((s.obs, u)), key)[0])
+                return s, snap(s.data)
+
+            try:
+                s = base.reset_with_traj(key, 0, base.clip_start[0])
+                _, traj = jax.lax.scan(body, s, None, length=T)
+            finally:
+                for k, v in old.items():
+                    setattr(base, k, v)
+            return traj
+
+        _warm.update(base=base, run=jax.jit(run), names=names,
+                     bank=np.array([designs[n] for n in names], np.float32))
+    base, out = _warm["base"], []
+    for e in E_batch.detach().cpu().numpy().astype(np.float32):
+        near = _warm["names"][int(np.linalg.norm(_warm["bank"] - e, axis=1).argmin())]
+        env = mk(e, near)
+        # MJX compile-time metadata must match the base model (as in multi_design.make_bank).
+        model = env.mjx_model.replace(stat=base.mjx_model.stat, geom_sameframe=np.zeros_like(env.mjx_model.geom_sameframe),
+                                      _impl=env.mjx_model._impl.replace(
+                                          geom_rbound_hfield=base.mjx_model._impl.geom_rbound_hfield))
+        refs = {k: jnp.asarray(getattr(env, k)) for k in REFERENCE_ATTRS}
+        Q, V, Cn, fz = map(np.asarray, _warm["run"](model, refs, jnp.asarray(e), jax.random.PRNGKey(args.seed)))
+        # 균형 잡힌 첫 순간 (0.5 s 이후): execute() gate 와 같은 기준 (2발 이상 접지, 발 침투 ≤ 2 mm, 서 있음).
+        up = 1 - 2 * (Q[:, 4] ** 2 + Q[:, 5] ** 2)
+        ok = (Cn.sum(1) >= 2) & (fz >= -2e-3) & (up > base.termination_fellover_threshold)
+        ok[:round(0.5 / base.dt)] = False
+        t = int(ok.argmax()) if ok.any() else len(Q) - 1
+        q, v, c = Q[t], V[t], Cn[t]
+        print(f"  warmup S0: ref {near} | t {(t + 1) * base.dt:.2f}s {'balanced' if ok.any() else 'NONE (fell/unbalanced)'} | "
+              f"body z {q[2]:.3f} | upright {up[t]:.2f} | speed {np.linalg.norm(v[:3]):.2f} m/s | contacts {int(c.sum())} | "
+              f"foot z {fz[t] * 1000:.1f} mm", flush=True)
+        out.append(features(np.asarray(q)[None], np.asarray(v)[None], np.asarray(c)[None])[0])
+    return torch.tensor(np.stack(out), device=dev, dtype=torch.float32)
 
 
 def execute(E_np, tq, s0):
@@ -491,7 +596,9 @@ summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0
                geometry_s0=args.geometry_s0, max_geometry_lift_m=args.max_geometry_lift_m,
                allow_airborne_s0=args.allow_airborne_s0,
                shared_e_guidance=args.shared_e_guidance, joint_full_guidance=args.joint_full_guidance,
-               initial_condition=("xy-yaw-anchor-v4" if args.rest_s0 else "free" if args.free_s0 else "observed"),
+               initial_condition=(f"E-derived expert walk {args.expert_warmup_s0:g}s (S0 = g(E))" if args.expert_warmup_s0 > 0 else
+                                  "E-derived home stance (S0 = g(E))" if args.e_rest_s0 else
+                                  "xy-yaw-anchor-v4" if args.rest_s0 else "free" if args.free_s0 else "observed"),
                shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else
                                 "per-step full-horizon gradient on shared noisy E and S/A" if args.joint_full_guidance
                                 else "first-window E only"),
@@ -512,7 +619,8 @@ for si, scale in enumerate(args.scales):
             horizon=H, state_dim=S_DIM, action_dim=X_DIM - S_DIM, e_dim=E_DIM,
             mu=mu, sd=sd, beta=beta, abar=abar, emu=emu, esd=esd,
             guidance_scale=scale, clip=CLIP, seed=args.seed,
-            no_guide_s=args.no_guide_s)
+            no_guide_s=args.no_guide_s,
+            s0_fn=(warm_s0_of if args.expert_warmup_s0 > 0 else rest_s0_of) if args.e_rest_s0 else None)
     elif args.shared_e_guidance:
         # Scale 0 is the unoptimized baseline. All other scales start from
         # exactly the same prior morphology E, and compare full 10s rewards.

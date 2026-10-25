@@ -33,7 +33,7 @@ def joint_diffusion_full_reward(
     n, episode_states, horizon, state_dim, action_dim, e_dim,
     mu, sd, beta, abar, emu=0.5, esd=0.5,
     guidance_scale=1.0, clip=1.0, seed=0, no_guide_s=False,
-    e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12)
+    e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12), s0_fn=None
 ):
     """Return (trajectory[B,episode_states,S+A], E[B,e_dim], audit).
 
@@ -41,6 +41,10 @@ def joint_diffusion_full_reward(
     denoising step. Rewards depend on the *whole* predicted episode, and
     autograd sends the gradient into E's noisy token (not posthoc E search).
     DDIM noise is initialized once; gradient graphs are rebuilt per step.
+
+    s0_fn (optional): physical E [B,e_dim] -> S0 [B,state_dim]. When given,
+    S0 is NOT generated: the Mode-4 pass only denoises E, S0 = s0_fn(E) is
+    recomputed at every step, and every window runs Mode 2 (E + S0 known).
     """
     if n < 1 or horizon < 2 or episode_states < 2 or guidance_scale < 0:
         raise ValueError("invalid sampler sizes or reward guidance")
@@ -87,6 +91,16 @@ def joint_diffusion_full_reward(
         first_e0 = None
         sqrt_ab = abar[k].sqrt()
         sqrt_nm = (1 - abar[k]).sqrt()
+        kk = torch.full((n,), float(k), dtype=dtype, device=dev)
+        if s0_fn is not None:
+            # Mode 4 pass on window 0 only supplies the E prior (epsilon).
+            mask0 = (torch.arange(horizon, device=dev) < windows[0][1]).expand(n, horizon)
+            kx4, ke4 = condition_masks(known_mode4, mask0)
+            known4 = torch.zeros_like(xts[0])
+            known4[:, 0] = (cur - mu) / sd
+            _, first_epsilon = net(torch.where(kx4 > 0, known4, xts[0]), et, kx4, ke4, kk, ~mask0)
+            first_e0 = normalized_e(((et - sqrt_nm * first_epsilon) / sqrt_ab).clamp(-clip, clip))
+            cur[:, :state_dim] = s0_fn(physical_e(first_e0).detach())
         for i, ((t0, w), xt) in enumerate(zip(windows, xts)):
             mask = (torch.arange(horizon, device=dev) < w).expand(n, horizon)
             s = cur.clone()
@@ -94,15 +108,15 @@ def joint_diffusion_full_reward(
             s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0
             x_known = torch.zeros_like(xt)
             x_known[:, 0] = (s - mu) / sd
-            mode = known_mode4 if i == 0 else known_mode2
+            gen_e = i == 0 and s0_fn is None
+            mode = known_mode4 if gen_e else known_mode2
             kx, ke = condition_masks(mode, mask)
-            input_e = et if i == 0 else first_e0
+            input_e = et if gen_e else first_e0
             # The first E is genuinely noisy (mode 4). Later windows reuse
             # the *same denoised E* as a known condition (mode 2).
             x_in = torch.where(kx > 0, x_known, xt)
-            ex, ee = net(x_in, input_e, kx, ke,
-                         torch.full((n,), float(k), dtype=dtype, device=dev), ~mask)
-            if i == 0:
+            ex, ee = net(x_in, input_e, kx, ke, kk, ~mask)
+            if gen_e:
                 first_epsilon = ee
                 first_e0 = ((et - sqrt_nm * ee) / sqrt_ab).clamp(-clip, clip)
                 first_e0 = normalized_e(first_e0)
@@ -181,11 +195,11 @@ def joint_diffusion_full_reward(
     with torch.no_grad():
         ef = physical_e(e)
         cur = torch.zeros((n, xdim), dtype=dtype, device=dev)
-        cur[:, :state_dim] = initial_x
+        cur[:, :state_dim] = initial_x if s0_fn is None else s0_fn(ef)
         frames = []
         for i, ((_, w), xt) in enumerate(zip(windows, xs)):
             mask = (torch.arange(horizon, device=dev) < w).expand(n, horizon)
-            mode = known_mode4 if i == 0 else known_mode2
+            mode = known_mode4 if i == 0 and s0_fn is None else known_mode2
             kx, _ = condition_masks(mode, mask)
             s = cur.clone()
             s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0
@@ -199,6 +213,7 @@ def joint_diffusion_full_reward(
     return final_traj, ef, {
         "algorithm": "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X",
         "guidance_scale": float(guidance_scale),
+        "s0_source": "generated (Mode 4)" if s0_fn is None else "s0_fn(E) rest stance (Mode 2 only)",
         "windows": len(windows),
         "diffusion_steps": len(beta),
         "e_gradient_norm_per_step": grad_e_norms,

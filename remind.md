@@ -193,6 +193,28 @@
 - `guidance`: gate 통과 뒤에만 미학습 zigzag reward guidance를 10초로 평가한다.
 - 기존 wide16에서 관찰된 후반 정책 붕괴에 대응해 낮은 PPO 학습률과 학습 형상 기반 중간 체크포인트 선택을 적용한 재학습은 `runs/pipeline_v1/experts_wide16_v2/README.md` 참조. 기존 결과를 덮어쓰지 않는다.
 
+### 8-24. e_rest_s0 smoke 렌더 + 근본 원인 진단 (2026-10-25, v4 ckpt, zigzag 2 s, 후보 4)
+- 결론: gate 9/9 PASS 이나 scale 0 예측-MJX 경로 차 0.21~0.83 m, MJX R 전부 음수. 렌더 재실행(seed 재현 동일) `runs/pipeline_v1/fast_mode24_v4_e_rest_s0_try1/report.html`.
+- 배제: 실행 parity 정상 (데이터 target_q 재생 오차 0, 0.03 rad 노이즈 2 s 오차 3~5 cm, 낙상 0). zigzag 는 데이터 분포 안 (19 모션). Mode 4 E loss 정상.
+- 발견: home S0 가 데이터 분포 밖 (몸통 z p0~2 %, 관절 최근접 0.34~0.53 rad, 데이터에 관절 정지 0 %), guidance 가 생성 S 에 직접 gradient (S_l2 64 ≫ A_l2 13).
+
+### 8-25. expert warm-up S0 (`--expert-warmup-s0`, 2026-10-25, 8-24 대비 S0 만 변경)
+- 결론: S0 를 분포 안으로 넣어도 scale 0 경로 차 0.18~0.81 m 로 불변 → S0 는 주원인 아님. 8-24 의 "주원인" 판단 철회.
+- 구현: multi-design expert 를 생성 E 위에서 closed-loop 로 걸려 0.5 s 이후 첫 균형 상태 (2발 이상 접지, 발 침투 ≤ 2 mm, 직립) 를 S0 로. reference = E 최근접 학습 형상. gate 기준 불변.
+- try1 (1 s 끝 상태) 은 gate 2 mm 에 걸려 0/8 (데이터 걸음 상태도 30 % 가 2 mm 초과). try2 (균형 순간 선택) 유효 7/8. `runs/pipeline_v1/fast_mode24_v4_warmup_s0_try{1,2}/`.
+
+### 8-26. 교차 재실행 데이터로 joint TT 재학습 (2026-10-25, 8-19 의 A안을 Mode 2/4 에 적용)
+- 결론: 교차 재실행 효과 없음/악화. 후보 16 scale 0 경로 차 중앙값 v5_orig 0.20 m vs v5_paired 0.34 m, 완주 12/16 vs 9/16. 개선은 학습량 (v4 3000 → 20000 step, 평균 0.48 → 0.20 m) 효과.
+- 조건: v5_orig = v4 데이터 (wide16 primitive 16 형상), v5_paired = + `wide16_action_shared` Orig/Swap/Offset. 둘 다 20000 step × batch 32, Mode 2/4. paired 는 유효 step 1.4 배라 단독 효과 분리 불가.
+- v5_orig guidance 효과 있음 (MJX R 중앙값 −1.33 → −0.76, 완주 12 → 14). 예측-MJX R 차 중앙값 1.1~1.3 잔존. `runs/pipeline_v1/fast_mode24_v5_compare/report.html`.
+
+### 8-27. 진행 중: 학습량 60000 step (2026-10-25, v5_orig 대비 step 만 변경)
+- `runs/pipeline_v1/fast_mode24_v6_steps60k/` (실행 스크립트 `fast_mode24_v6_steps60k.sh`, tmux `tt_v6_60k`), 학습 후 후보 16 smoke 자동.
+- 통과: scale 0 경로 차 중앙값 ≤ 0.15 m, 완주 ≥ 12/16 → 학습량 추가 여지. 미달 → 학습량 한계, 다음 후보 = 데이터 양 / 모델 구조 / DDIM 5 step.
+
+### 8-28. 미해결 (2026-10-25)
+- TT 예측 R 이 MJX 보다 낙관적 (차 중앙값 ~1.2): 생성 S 직접 guidance (`--no-guide-s` 미적용) 와 A→S 결합 약함 (D5) 이 남은 후보. 10 s 단계에서는 window 단위 MJX 재계획 (8-18) 필요.
+
 ### 보고서 형식 선호 (2026-10-22)
 - 이후 실험 보고서는 `runs/pipeline_v1/final/report.html`의 시각적 HTML 구성(요약, 탐색, 결과 표, 그래프, 해석과 한계)을 기본으로 사용한다. Markdown 보고서 대신 브라우저에서 볼 수 있는 `report.html`을 생성한다.
 - Mode 2·4 FAST 학습 보고서: `runs/pipeline_v1/fast_mode24_v4/report.html`. 기존 `REPORT.md`는 사용자 요청으로 삭제했다.

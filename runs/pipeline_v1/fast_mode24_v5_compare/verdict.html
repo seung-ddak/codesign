@@ -1,0 +1,13 @@
+<p><b>결론: 통과 기준(경로 차 &lt; 0.1 m)은 못 맞췄지만, v4 대비 예측-실제 경로 차가 약 절반으로 줄었다. 개선 대부분은 교차 재실행 데이터가 아니라 학습량 증가(3000 → 20000 step)에서 왔다.</b></p>
+<p>guidance 없음(scale 0) 경로 차 평균: v4 0.48 m → v5_orig 0.20 m → v5_paired 0.28 m. 2 s 완주는 v4 1/4, v5_orig 2/4, v5_paired 3/4. 0.1 m 미만은 v5_orig 후보 1 (0.06 m) 하나뿐이다.</p>
+<p>guidance 적용(scale 1)에서 v5_orig 는 4 후보 중 3 개가 완주하고 MJX R 이 −0.12 ~ +0.09 로 0 근처에 왔다. 처음으로 양수 MJX R (+0.09) 이 나왔다. 다만 TT 예측 R (+0.36 ~ +0.62) 은 여전히 실제보다 낙관적이다.</p>
+<p>교차 재실행(v5_paired)이 v5_orig 보다 낫다는 증거는 이 smoke 에서 없다. 후보 4 개라 차이를 판정하기에는 표본이 작다.</p>
+<p><b>후보 16 개 재비교 (smoke_zigzag_joint_c16, 같은 조건, 렌더 끔): 교차 재실행 효과 없음. 오히려 v5_paired 가 나쁘다.</b></p>
+<div class="scroll"><table>
+<tr><th>모델</th><th>조건</th><th>2 s 완주</th><th>경로 차 중앙값</th><th>&lt; 0.1 m</th><th>MJX R 중앙값</th><th>|예측 R − MJX R| 중앙값</th></tr>
+<tr><td>v5_orig</td><td>guidance 없음</td><td>12/16</td><td>0.20 m</td><td>2</td><td>−1.33</td><td>1.27</td></tr>
+<tr><td>v5_orig</td><td>guidance 적용</td><td>14/16</td><td>0.25 m</td><td>0</td><td>−0.76</td><td>1.09</td></tr>
+<tr><td>v5_paired</td><td>guidance 없음</td><td>9/16</td><td>0.34 m</td><td>1</td><td>−1.28</td><td>1.28</td></tr>
+<tr><td>v5_paired</td><td>guidance 적용</td><td>8/16</td><td>0.20 m</td><td>0</td><td>−1.89</td><td>1.18</td></tr>
+</table></div>
+<p>미리 정한 판정 기준(v5_paired 경로 차 중앙값이 더 작고 완주 수가 같거나 많음)을 둘 다 못 맞췄다. v5_orig 에서는 guidance 가 MJX R 중앙값을 −1.33 → −0.76, 완주를 12 → 14 로 개선했다.</p>

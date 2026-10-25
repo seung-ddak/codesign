@@ -1,0 +1,52 @@
+{
+  "stage": "FAST joint E/S/A generation plus MJX open-loop",
+  "evidence_levels": {
+    "gradient_checks": "computation graph connectivity only, NOT learned E-to-dynamics fidelity",
+    "physical_checks": "actual morphology-specific MuJoCo initial geometry",
+    "mjx_checks": "observed real open-loop survival/reward; only completed runs support the 2s feasibility claim"
+  },
+  "task": "zigzag",
+  "seconds": 2.0,
+  "guided_scale": 1.0,
+  "checkpoint": "runs/pipeline_v1/fast_mode24_v5_paired/tt_joint",
+  "checks": {
+    "real_checkpoint_joint_generation_finite": true,
+    "E_reward_gradient_nonzero": true,
+    "S_reward_gradient_nonzero": true,
+    "A_reward_gradient_nonzero": true,
+    "guidance_changes_generated_E": true,
+    "guidance_changes_generated_S": true,
+    "guidance_changes_generated_A": true,
+    "at_least_one_valid_initial_state": true,
+    "at_least_one_complete_MJX_open_loop": true
+  },
+  "all_pass": true,
+  "guidance_change_l2": {
+    "E_l2": 1.0156211853027344,
+    "S_l2": 137.99742126464844,
+    "A_l2": 25.988046646118164
+  },
+  "guided_candidates": 4,
+  "guided_valid_s0_count": 4,
+  "guided_completed_MJX_count": 3,
+  "guided_completed_unmodified_MJX_count": 3,
+  "guided_completed_projection_assisted_MJX_count": 0,
+  "guided_completed_unknown_provenance_MJX_count": 0,
+  "guided_geometry_adjusted_count": 0,
+  "guided_airborne_start_count": 0,
+  "strict_raw_TT_to_MJX_verified": true,
+  "guided_rejected_count": 0,
+  "guided_rewards": [
+    -1.3250856399536133,
+    -0.17901742458343506,
+    -0.058014027774333954,
+    -1.8225737810134888
+  ],
+  "baseline_rewards": [
+    -0.4772477447986603,
+    -0.7537500858306885,
+    -0.6261094212532043,
+    -1.5437660217285156
+  ],
+  "note": "The gate may pass with post-denoising geometry projection, in which case only projection-assisted MJX execution was verified, NOT raw TT physical generation. A zero-contact airborne start is a trial, not proof of stable flight. This cannot establish task-optimality or 10s success."
+}

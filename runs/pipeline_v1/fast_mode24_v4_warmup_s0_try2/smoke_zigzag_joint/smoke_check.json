@@ -1,0 +1,52 @@
+{
+  "stage": "FAST joint E/S/A generation plus MJX open-loop",
+  "evidence_levels": {
+    "gradient_checks": "computation graph connectivity only, NOT learned E-to-dynamics fidelity",
+    "physical_checks": "actual morphology-specific MuJoCo initial geometry",
+    "mjx_checks": "observed real open-loop survival/reward; only completed runs support the 2s feasibility claim"
+  },
+  "task": "zigzag",
+  "seconds": 2.0,
+  "guided_scale": 1.0,
+  "checkpoint": "runs/pipeline_v1/fast_mode24_v4/tt_joint",
+  "checks": {
+    "real_checkpoint_joint_generation_finite": true,
+    "E_reward_gradient_nonzero": true,
+    "S_reward_gradient_nonzero": true,
+    "A_reward_gradient_nonzero": true,
+    "guidance_changes_generated_E": true,
+    "guidance_changes_generated_S": true,
+    "guidance_changes_generated_A": true,
+    "at_least_one_valid_initial_state": true,
+    "at_least_one_complete_MJX_open_loop": true
+  },
+  "all_pass": true,
+  "guidance_change_l2": {
+    "E_l2": 1.1322120428085327,
+    "S_l2": 68.01166534423828,
+    "A_l2": 13.212913513183594
+  },
+  "guided_candidates": 4,
+  "guided_valid_s0_count": 3,
+  "guided_completed_MJX_count": 2,
+  "guided_completed_unmodified_MJX_count": 2,
+  "guided_completed_projection_assisted_MJX_count": 0,
+  "guided_completed_unknown_provenance_MJX_count": 0,
+  "guided_geometry_adjusted_count": 0,
+  "guided_airborne_start_count": 0,
+  "strict_raw_TT_to_MJX_verified": true,
+  "guided_rejected_count": 1,
+  "guided_rewards": [
+    null,
+    -0.1895657181739807,
+    -0.45411476492881775,
+    -4.343585968017578
+  ],
+  "baseline_rewards": [
+    -3.599339246749878,
+    -0.1950511783361435,
+    -3.476417064666748,
+    -1.243738055229187
+  ],
+  "note": "The gate may pass with post-denoising geometry projection, in which case only projection-assisted MJX execution was verified, NOT raw TT physical generation. A zero-contact airborne start is a trial, not proof of stable flight. This cannot establish task-optimality or 10s success."
+}

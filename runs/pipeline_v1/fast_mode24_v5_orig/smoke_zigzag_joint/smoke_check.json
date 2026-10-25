@@ -1,0 +1,52 @@
+{
+  "stage": "FAST joint E/S/A generation plus MJX open-loop",
+  "evidence_levels": {
+    "gradient_checks": "computation graph connectivity only, NOT learned E-to-dynamics fidelity",
+    "physical_checks": "actual morphology-specific MuJoCo initial geometry",
+    "mjx_checks": "observed real open-loop survival/reward; only completed runs support the 2s feasibility claim"
+  },
+  "task": "zigzag",
+  "seconds": 2.0,
+  "guided_scale": 1.0,
+  "checkpoint": "runs/pipeline_v1/fast_mode24_v5_orig/tt_joint",
+  "checks": {
+    "real_checkpoint_joint_generation_finite": true,
+    "E_reward_gradient_nonzero": true,
+    "S_reward_gradient_nonzero": true,
+    "A_reward_gradient_nonzero": true,
+    "guidance_changes_generated_E": true,
+    "guidance_changes_generated_S": true,
+    "guidance_changes_generated_A": true,
+    "at_least_one_valid_initial_state": true,
+    "at_least_one_complete_MJX_open_loop": true
+  },
+  "all_pass": true,
+  "guidance_change_l2": {
+    "E_l2": 1.3393018245697021,
+    "S_l2": 103.34300994873047,
+    "A_l2": 15.130963325500488
+  },
+  "guided_candidates": 4,
+  "guided_valid_s0_count": 4,
+  "guided_completed_MJX_count": 3,
+  "guided_completed_unmodified_MJX_count": 3,
+  "guided_completed_projection_assisted_MJX_count": 0,
+  "guided_completed_unknown_provenance_MJX_count": 0,
+  "guided_geometry_adjusted_count": 0,
+  "guided_airborne_start_count": 0,
+  "strict_raw_TT_to_MJX_verified": true,
+  "guided_rejected_count": 0,
+  "guided_rewards": [
+    -0.04239437356591225,
+    0.08626829087734222,
+    -0.12067791074514389,
+    -3.4030404090881348
+  ],
+  "baseline_rewards": [
+    -4.911456108093262,
+    -0.39637964963912964,
+    -4.267832279205322,
+    -2.3744454383850098
+  ],
+  "note": "The gate may pass with post-denoising geometry projection, in which case only projection-assisted MJX execution was verified, NOT raw TT physical generation. A zero-contact airborne start is a trial, not proof of stable flight. This cannot establish task-optimality or 10s success."
+}
