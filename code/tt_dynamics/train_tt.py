@@ -15,6 +15,8 @@ usage (codesign/ 에서):
   horizon < 500: 마지막 예측 state 를 다음 window 의 s0 로 두고 이어 붙인다 (window 당 H-1 step 전진).
 """
 
+from ablation_sampling import balanced_sample, source_pools
+
 import argparse
 import glob
 import json
@@ -51,10 +53,17 @@ parser.add_argument("--norm", choices=("zscore", "minmax"), default="zscore", he
 parser.add_argument("--clip", type=float, default=10.0, help="정규화 공간 x0_hat clip (TT 원본 clip_sample = 1)")
 parser.add_argument("--stride", type=int, default=0, help="평가 시 window 당 전진 step (0 = horizon-1, 겹침 없음)")
 parser.add_argument("--pose", choices=("abs", "delta"), default="abs", help="delta = S 의 위치·yaw 4 칸을 직전 step 대비 변화량 (dx, dy: 직전 heading frame, dyaw, 0) 으로")
+parser.add_argument("--swap-fraction", type=float, help="training minibatch fraction from E-swap source_design/source_episode rows")
+parser.add_argument("--mode-weights", nargs="+", type=float, help="sampling weights in --modes order")
 parser.add_argument("--modes", type=int, nargs="+", choices=(0, 1, 2, 3, 4, 5), default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음), 4 anchor (s0 XY/yaw만 고정), 5 fixed-E anchor (E·s0 XY/yaw 고정)")
 parser.add_argument("--diag", action="store_true", help="이어 붙이지 않은 단일 window 예측의 몸통 yaw·속도 오차를 모션 종류별로 (eval-only)")
 parser.add_argument("--sampler", choices=("ddpm", "ddim"), default="ddpm", help="평가 샘플링. ddim = 결정적 (eta 0)")
 args = parser.parse_args()
+if args.swap_fraction is not None and (not math.isfinite(args.swap_fraction) or not 0 <= args.swap_fraction <= 1):
+    parser.error("--swap-fraction must be finite and between 0 and 1")
+if args.mode_weights is not None and (len(args.mode_weights) != len(args.modes) or
+        any(not math.isfinite(w) or w <= 0 for w in args.mode_weights)):
+    parser.error("--mode-weights must contain one finite positive weight per mode")
 args.conditioning_version = CONDITIONING_VERSION
 dev = "cuda"
 torch.manual_seed(args.seed)
@@ -95,11 +104,13 @@ rng = np.random.default_rng(args.seed)
 # Split by physical source episode across morphologies, not the file path.
 # group_id (when supplied) also groups counterfactual actions/morphology.
 groups = []
+swapped = []
 for path in args.data:
     with np.load(path) as z:
         rows = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
         keys = source_group_keys(path, z, length=len(z["valid"]))
         groups.extend(keys[b] for b in rows)
+        swapped.extend(["source_design" in z and "source_episode" in z] * len(rows))
 assert len(groups) == len(X)
 unique, inverse = np.unique(groups, return_inverse=True)
 if args.split_key:
@@ -188,6 +199,11 @@ def window(idx, gen=None):
 
 g = torch.Generator(device=dev).manual_seed(args.seed)
 trt = torch.tensor(tr, device=dev)
+swap_flags = torch.tensor(swapped, device=dev, dtype=torch.bool)
+pools = source_pools(trt, swap_flags)
+if args.swap_fraction is not None:
+    balanced_sample(pools, args.batch, args.swap_fraction, torch.Generator(device=dev).manual_seed(0))
+mode_weights = torch.tensor(args.mode_weights, device=dev) if args.mode_weights is not None else None
 if args.norm_from:
     norm_ck = torch.load(args.norm_from, map_location="cpu", weights_only=False)
     if norm_ck["args"]["norm"] != args.norm or norm_ck["args"]["horizon"] != H:
@@ -221,12 +237,23 @@ if not args.eval_only:
     log = open(args.out / "progress.jsonl", "w")
     valt, t0 = torch.tensor(val, device=dev), time.time()
 
-    def loss_on(idx, gen=None):
+    sampled_modes = torch.zeros(6, device=dev, dtype=torch.long)
+    sampled_sources = torch.zeros(2, device=dev, dtype=torch.long)
+
+    def loss_on(idx, gen=None, forced_mode=None, record=False):
         x, m = window(idx, gen)
         x0, e0 = (x - mu_t) / sd_t * m[..., None], En[idx]
         n = len(idx)
         modes = torch.tensor(args.modes, device=dev)
-        mode = modes[torch.randint(0, len(modes), (n,), device=dev, generator=gen)]
+        if forced_mode is not None:
+            mode = torch.full((n,), forced_mode, device=dev, dtype=torch.long)
+        else:
+            pick = (torch.multinomial(mode_weights, n, replacement=True, generator=gen) if mode_weights is not None
+                    else torch.randint(0, len(modes), (n,), device=dev, generator=gen))
+            mode = modes[pick]
+        if record:
+            sampled_modes.add_(torch.bincount(mode, minlength=6))
+            sampled_sources.add_(torch.bincount(swap_flags[idx].long(), minlength=2))
         kx, ke = condition_masks(mode, m)
         k = torch.randint(0, args.diff_steps, (n,), device=dev, generator=gen)
         ab = abar[k]
@@ -238,7 +265,9 @@ if not args.eval_only:
         return ((px - nx) ** 2 * wx).sum() / wx.sum() + (((pe - ne) ** 2) * (1 - ke)).mean()
 
     for step in range(1, args.steps + 1):
-        loss = loss_on(trt[torch.randint(0, len(tr), (args.batch,), device=dev)])
+        idx = (balanced_sample(pools, args.batch, args.swap_fraction) if args.swap_fraction is not None
+               else trt[torch.randint(0, len(tr), (args.batch,), device=dev)])
+        loss = loss_on(idx, record=True)
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
@@ -257,10 +286,24 @@ if not args.eval_only:
                 vl = total_v / len(valt)
             rec = dict(step=step, loss=loss.item(), val_loss=vl,
                        val_episodes_evaluated=len(valt), val_batches=(len(valt) + args.batch - 1) // args.batch,
-                       lr=sched.get_last_lr()[0], min=(time.time() - t0) / 60)
+                       lr=sched.get_last_lr()[0], min=(time.time() - t0) / 60,
+                       sampled_modes=sampled_modes.cpu().tolist(), sampled_sources=sampled_sources.cpu().tolist())
             log.write(json.dumps(rec) + "\n")
             log.flush()
             print(rec, flush=True)
+    source_validation = {}
+    with torch.no_grad():
+        for label, flag in (("original", False), ("swap", True)):
+            indices = valt[swap_flags[valt] == flag]
+            source_validation[label] = {"episodes": len(indices), "modes": {}}
+            for mode in args.modes:
+                generator = torch.Generator(device=dev).manual_seed(1)
+                total = 0.
+                for start in range(0, len(indices), args.batch):
+                    batch = indices[start:start+args.batch]
+                    total += float(loss_on(batch, generator, forced_mode=mode)) * len(batch)
+                source_validation[label]["modes"][str(mode)] = total / len(indices) if len(indices) else None
+    (args.out / "validation_by_source_mode.json").write_text(json.dumps(source_validation, indent=2))
     torch.save({"net": net.state_dict(), "mu": mu, "sd": sd, "val": val, "args": vars(args)}, ckpt_path)
 
 ck = torch.load(ckpt_path, weights_only=False)

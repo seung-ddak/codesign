@@ -32,7 +32,7 @@ def joint_diffusion_full_reward(
     net, reward, *,
     n, episode_states, horizon, state_dim, action_dim, e_dim,
     mu, sd, beta, abar, emu=0.5, esd=0.5,
-    guidance_scale=1.0, clip=1.0, seed=0, no_guide_s=False,
+    guidance_scale=1.0, clip=1.0, seed=0, no_guide_s=False, s_gradient_scale=1.0,
     e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12), s0_fn=None
 ):
     """Return (trajectory[B,episode_states,S+A], E[B,e_dim], audit).
@@ -53,6 +53,9 @@ def joint_diffusion_full_reward(
     if len(beta) != len(abar) or not len(beta):
         raise ValueError("invalid diffusion schedule")
 
+    if not torch.isfinite(torch.tensor(s_gradient_scale)) or s_gradient_scale < 0:
+        raise ValueError("s_gradient_scale must be finite and nonnegative")
+    effective_s_scale = 0.0 if no_guide_s else s_gradient_scale
     dev, dtype = mu.device, mu.dtype
     xdim = state_dim + action_dim
     windows = _windows(episode_states, horizon)
@@ -152,9 +155,8 @@ def joint_diffusion_full_reward(
                     g_e[:, inactive] = 0.0
                 gx = [g if g is not None else torch.zeros_like(xt)
                       for g, xt in zip(grads[1:], xts)]
-                if no_guide_s:
-                    gx = [torch.cat((torch.zeros_like(g[..., :state_dim]),
-                                     g[..., state_dim:]), dim=-1) for g in gx]
+                gx = [torch.cat((g[..., :state_dim] * effective_s_scale,
+                                 g[..., state_dim:]), dim=-1) for g in gx]
                 # Audit each gradient component independently. E is one
                 # shared morphology token; S/A span all generated windows.
                 grad_e_norms.append(float(torch.linalg.vector_norm(g_e).detach().cpu()))
@@ -213,6 +215,7 @@ def joint_diffusion_full_reward(
     return final_traj, ef, {
         "algorithm": "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X",
         "guidance_scale": float(guidance_scale),
+        "s_gradient_scale": float(effective_s_scale),
         "s0_source": "generated (Mode 4)" if s0_fn is None else "s0_fn(E) rest stance (Mode 2 only)",
         "windows": len(windows),
         "diffusion_steps": len(beta),

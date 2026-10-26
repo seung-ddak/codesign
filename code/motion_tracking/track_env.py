@@ -255,6 +255,9 @@ class TrackMjxEnv(MjxEnv):
         feet = np.array([mj_model.geom(i).name.endswith("_foot") for i in range(mj_model.ngeom)])
         mj_model.geom_contype[:] = np.select((floor, stairs, feet), (1, 8, 4), default=2)
         mj_model.geom_conaffinity[:] = np.select((floor, stairs, feet), (6, 4, 9), default=1)
+        poles = np.array([mj_model.geom(i).name.startswith("obstacle_pole_") for i in range(mj_model.ngeom)])
+        mj_model.geom_contype[poles] = 1
+        mj_model.geom_conaffinity[poles] = 6
 
         assert mj_model.jnt_type[0] == mujoco.mjtJoint.mjJNT_FREE and (mj_model.jnt_type[1:] == mujoco.mjtJoint.mjJNT_HINGE).all()
         home = mj_model.keyframe("home")

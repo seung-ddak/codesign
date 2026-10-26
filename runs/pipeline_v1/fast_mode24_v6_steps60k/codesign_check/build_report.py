@@ -1,7 +1,5 @@
-"""co-design 검사 report.html. analyze.py 의 codesign_check.json + summary.json 4개. 그림·영상 base64 내장. 영상 = render/ (같은 명령, 렌더만 켠 재실행), 320 px · 25 fps 로 줄여 넣는다."""
-import base64, io, json, tempfile
-import imageio.v2 as imageio
-from PIL import Image
+"""co-design 검사 report.html. analyze.py 의 codesign_check.json + summary.json 4개. 그림·영상 base64 내장. 영상 = render/ (같은 명령, 렌더만 켠 재실행), 원본 640×368 · 50 fps 그대로 내장한다."""
+import base64, io, json
 from pathlib import Path
 import numpy as np
 import matplotlib
@@ -82,19 +80,11 @@ def design_rows(task):
     return "\n".join(out)
 
 
-def small(mp4):
-    """원본 640x368 50 fps → 320x184 25 fps (전체 160 개를 16 MB 안에)."""
-    fr = [np.asarray(Image.fromarray(f).resize((320, 184))) for k, f in enumerate(imageio.get_reader(mp4)) if k % 2 == 0]
-    with tempfile.NamedTemporaryFile(suffix=".mp4") as tf:
-        imageio.mimsave(tf.name, fr, fps=25, quality=5)
-        return uri(Path(tf.name).read_bytes(), "video/mp4")
-
-
 def card(rdir, i, title, r):
     vid = rdir / "videos" / f"scale_10_cand{i}.mp4"
     ok = r["mjx_fell_step"] == -1
     stat = ("완주" if ok else f"낙상 {r['mjx_valid_s']:.2f}s") if r["mjx_total"] is not None else "S0 무효"
-    media = f'<video src="{small(vid)}" controls loop muted playsinline></video>' if vid.exists() else '<p class="dim">영상 없음</p>'
+    media = f'<video src="{uri(vid.read_bytes(), "video/mp4")}" controls loop muted playsinline></video>' if vid.exists() else '<p class="dim">영상 없음</p>'
     unit = "바퀴" if "circle" in rdir.name else "m"
     return (f'<article class="card"><header><h3>{title}</h3><span class="pill {"ok" if ok else "bad"}">{stat}</span></header>{media}'
             f'<dl><dt>예측 R</dt><dd>{r["pred_total"]:+.2f}</dd><dt>MJX R</dt><dd>{r["mjx_total"]:+.2f}</dd>'
@@ -106,13 +96,24 @@ for task in ("zigzag", "circle"):
     jd, fd = here / f"render/joint_{task}_4s", here / f"render/fixedE_{task}_4s"
     jr = json.load(open(jd / "summary.json"))["runs"]["scale_10"]
     fr_ = json.load(open(fd / "summary.json"))["runs"]["scale_10"]
-    videos.append(f'<h3>{task} · joint 생성 후보 16</h3><div class="grid">' + "".join(card(jd, i, f"joint 후보 {i}", r) for i, r in enumerate(jr)) + "</div>")
+    best_pred = max((i for i, r in enumerate(jr) if r["pred_total"] is not None),
+                    key=lambda i: jr[i]["pred_total"])
+    best_mjx = max((i for i, r in enumerate(jr) if r["mjx_total"] is not None),
+                   key=lambda i: jr[i]["mjx_total"])
+    selected = {best_pred, best_mjx}
+    videos.append(f'<h3>{task} · joint 최고 보상 비교</h3><div class="grid">'
+                  + card(jd, best_pred, f"TT 예측 보상 1위 · joint 후보 {best_pred}", jr[best_pred])
+                  + card(jd, best_mjx, f"MJX 실제 보상 1위 · joint 후보 {best_mjx}", jr[best_mjx])
+                  + '</div>' + f'<details><summary>{task} · 나머지 영상 펼치기</summary>')
+    videos.append(f'<h3>{task} · 나머지 joint 후보</h3><div class="grid">' + "".join(
+        card(jd, i, f"joint 후보 {i}", r) for i, r in enumerate(jr) if i not in selected) + "</div>")
     per_d = len(fr_) // 16
     order = sorted(range(16), key=lambda k: -np.mean([fr_[k * per_d + s]["mjx_total"] for s in range(per_d)]))
     for k in order:
         m = np.mean([fr_[k * per_d + s]["mjx_total"] for s in range(per_d)])
         videos.append(f'<details><summary>{task} · 고정 E {designs[k]} (MJX R 평균 {m:+.2f})</summary><div class="grid">'
                       + "".join(card(fd, k * per_d + s, f"{designs[k]} · seed {s}", fr_[k * per_d + s]) for s in range(per_d)) + "</div></details>")
+    videos.append("</details>")
     same = all(abs(a["mjx_total"] - b["mjx_total"]) < 1e-3 for a, b in zip(fr_, json.load(open(here / f"fixedE_{task}_4s/summary.json"))["runs"]["scale_10"]))
     print(task, "render run 수치 = 원 run 수치:", same)
 
@@ -189,7 +190,7 @@ html = css + f"""<main>
 
 <section>
   <h2>MJX 영상</h2>
-  <p class="note">joint 후보는 전부 펼쳐 두고, 고정 E 는 형상별로 접어 두었다 (MJX R 평균 내림차순). </p>
+  <p class="note">과제별 joint 후보만 비교한다. 왼쪽은 TT 예측 보상 1위, 오른쪽은 MJX 실제 보상 1위 후보의 실제 MJX 영상이다. 나머지 joint 및 고정 E 영상은 토글 안에 있다. 최고 보상은 트랙 완주를 의미하지 않는다. </p>
   {"".join(videos)}
 </section>
 
