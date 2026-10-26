@@ -58,3 +58,12 @@ The evaluator is `code/tt_dynamics/eval_v7_ddim100.py`. It creates `audit_smoke.
 Confirmed in code: baseline settings, new experiment runner, 100-step training argument, checkpoint guards, E-swap input path, fixed/learned E evaluation requests, post-hoc real-MJX-oriented statistical analysis, and offline regression tests.
 
 **Not confirmed:** 100-step convergence, V7 E-swap improvements, actual GPU execution, successful zigzag/circle task completion, accurate joint morphology ranking, or long-horizon accuracy.
+
+## Local corrections (2026-10-26)
+
+- Rejected fixed-E samples serialize as JSON null; valid counts are recorded per morphology. A missing sample still prevents using that shape mean for ranking.
+- Reuse requires an exact generation command and checkpoint SHA-256 match in request.json. Older results without this metadata are preserved and rejected; choose a new V7_100_ROOT.
+- Checkpoint reuse also checks seed and training input paths. Reusing an E-swap dataset requires matching its stored collection seed.
+- Smoke writes its JSON and HTML, then exits unsuccessfully when the dynamics gate fails or is missing. The automatic all chain stops before codesign/full. Individual stages remain available for explicit diagnosis.
+- Joint co-design generation records original-resolution videos. Smoke, fixed-E and 10s full runs remain numerical evaluations. report.html shows predicted-reward and actual-MJX-reward joint winners side by side; other joint videos are collapsed.
+- The report stage only reads existing results and videos. It does not rerun simulation. GPU execution of these corrections has not been performed.

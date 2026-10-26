@@ -44,22 +44,31 @@ require_data() {
   for path in "${swap_files[@]}"; do
     [[ -s "$path" ]] || { echo "Missing E-swap rollout: $path (run prepare)" >&2; exit 1; }
   done
+  "$P" - "$SEED" "${swap_files[@]}" <<'PYDATA'
+import sys, numpy as np
+for path in sys.argv[2:]:
+    with np.load(path) as data:
+        if int(data["seed"]) != int(sys.argv[1]) or data["valid"].shape[1] != 100:
+            raise SystemExit(f"E-swap collection seed/length mismatch: {path}; preserve it and use matching collection settings")
+PYDATA
 }
 require_checkpoint() {
   [[ -s "$CKPT/checkpoint.pt" ]] || { echo "Missing checkpoint: $CKPT/checkpoint.pt (run train)" >&2; exit 1; }
-  "$P" - "$CKPT/checkpoint.pt" <<'PY'
+  "$P" - "$CKPT/checkpoint.pt" "$SEED" "${base_files[@]}" "${swap_files[@]}" <<'PY'
 import sys, torch
 cfg = torch.load(sys.argv[1], map_location="cpu", weights_only=False)["args"]
 assert cfg["diff_steps"] == 100, f"Expected trained diffusion schedule=100, got {cfg['diff_steps']}"
 assert cfg["horizon"] == 32 and cfg["steps"] == 60000
 assert set(cfg["modes"]) == {2, 4} and cfg["norm"] == "minmax" and cfg["clip"] == 1.0
 assert cfg["conditioning_version"] == 4
+assert cfg["seed"] == int(sys.argv[2]), "Checkpoint seed differs; choose a new root"
+assert cfg["data"] == sys.argv[3:], "Checkpoint training data differs; choose a new root"
 print("Verified: 100 diffusion levels, 32-state horizon, 60k updates, Mode 2/4")
 PY
 }
 preflight() {
   echo "Running existing regression tests (must pass before GPU training)..."
-  "$P" -m pytest -q tests/test_joint_diffusion_guidance.py tests/test_mode4_anchor.py tests/test_tt_rollout_loader.py tests/test_tt_physics_semantics.py
+  "$P" -m pytest -q tests/test_joint_diffusion_guidance.py tests/test_mode4_anchor.py tests/test_tt_rollout_loader.py tests/test_tt_physics_semantics.py tests/test_v7_ddim100_audit.py
   require_base
   [[ -d "$EXPERT" ]] || { echo "Missing expert config: $EXPERT" >&2; exit 1; }
 }
@@ -90,27 +99,22 @@ train() {
 }
 generate() {
   local out="$1"; shift
-  [[ ! -e "$out" ]] || {
-    [[ -s "$out/summary.json" ]] && { echo "Result exists, preserving: $out"; return 0; }
-    echo "Incomplete/existing result directory, refusing overwrite: $out" >&2; return 1;
-  }
-  echo "GENERATE: $out"
-  "$P" code/tt_dynamics/generate_task.py \
+  "$P" code/tt_dynamics/eval_v7_ddim100.py --generate "$P" code/tt_dynamics/generate_task.py \
     --ckpt "$CKPT" --out "$out" --expert-config "$EXPERT" \
     --anchor-s0 --joint-full-guidance --e-rest-s0 --no-s0-align \
-    --no-render --seed "$SEED" "$@"
+    --seed "$SEED" "$@"
 }
 smoke() {
   require_checkpoint
-  generate "$ROOT/smoke_zigzag_2s" --task zigzag --seconds 2 \
+  generate "$ROOT/smoke_zigzag_2s" --no-render --task zigzag --seconds 2 \
     --candidates "${V7_100_SMOKE_CANDIDATES:-8}" --scales 0 1 3 10
-  "$P" code/tt_dynamics/eval_v7_ddim100.py --root "$ROOT" --stage smoke
+  "$P" code/tt_dynamics/eval_v7_ddim100.py --root "$ROOT" --stage smoke --require-smoke-gate
 }
 codesign() {
   require_checkpoint
   # Same fixed-E comparison design as v6; e003 remains unseen.
   for task in zigzag circle; do
-    generate "$ROOT/codesign/fixedE_${task}_4s" --task "$task" --seconds 4 \
+    generate "$ROOT/codesign/fixedE_${task}_4s" --no-render --task "$task" --seconds 4 \
       --candidates "${V7_100_FIXED_PER_E:-4}" --scales "$FIXED_SCALE" --fixed-e "${designs[@]}"
     generate "$ROOT/codesign/joint_${task}_4s" --task "$task" --seconds 4 \
       --candidates "${V7_100_JOINT_CANDIDATES:-16}" --scales "$FIXED_SCALE"
@@ -122,7 +126,7 @@ full() {
   # 100 denoising steps x ~16 windows is expensive: start with ONE 10s candidate.
   # Inference stays 10-second OPEN-LOOP, without replanning or PPO fine-tuning.
   for task in zigzag circle; do
-    generate "$ROOT/full_${task}_10s" --task "$task" --seconds 10 \
+    generate "$ROOT/full_${task}_10s" --no-render --task "$task" --seconds 10 \
       --candidates "${V7_100_FULL_CANDIDATES:-1}" --scales 0 1 3
   done
   "$P" code/tt_dynamics/eval_v7_ddim100.py --root "$ROOT" --stage full

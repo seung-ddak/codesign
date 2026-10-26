@@ -4,6 +4,11 @@ Produces JSON; no success claim without executed, finite MJX trajectories.
 Stage failure or missing artifacts is recorded as "not_run", never as success.
 """
 import argparse
+import base64
+import hashlib
+import html
+import subprocess
+import sys
 import json
 import math
 from pathlib import Path
@@ -114,8 +119,8 @@ def analyze_fixed(fixed_summary, joint_summary, scale):
     pred_means, mjx_means = [], []
     for k in range(n_design):
         ps, ms = pred[grouped == k], mjx[grouped == k]
-        pred_means.append(float(np.mean(ps)) if np.isfinite(ps).all() else np.nan)
-        mjx_means.append(float(np.mean(ms)) if np.isfinite(ms).all() else np.nan)
+        pred_means.append(float(np.mean(ps)) if np.isfinite(ps).all() else None)
+        mjx_means.append(float(np.mean(ms)) if np.isfinite(ms).all() else None)
     rho = rank_corr(pred_means, mjx_means)
     variation = eta2_p(pred, grouped)
     path = summarize(joint)
@@ -125,6 +130,7 @@ def analyze_fixed(fixed_summary, joint_summary, scale):
             "n_shapes": n_design, "samples_per_shape": per,
             "predicted_reward_by_shape": pred_means,
             "actual_mjx_reward_by_shape": mjx_means,
+            "valid_mjx_samples_per_shape": [int(np.isfinite(mjx[grouped == k]).sum()) for k in range(n_design)],
             "spearman_shape_reward_rho": rho,
             "predicted_reward_e_effect": variation,
             "morphology_gate_pass": ready,
@@ -163,18 +169,85 @@ def evaluate(root, stage, fixed_scale):
     return result
 
 
+def run_generation(command):
+    """Reuse only completed results with the same request and checkpoint bytes."""
+    out = Path(command[command.index("--out") + 1])
+    checkpoint = Path(command[command.index("--ckpt") + 1]) / "checkpoint.pt"
+    with checkpoint.open("rb") as stream:
+        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+    request = {"command": command, "checkpoint_sha256": digest}
+    if out.exists():
+        if load(out / "request.json") == request and load(out / "summary.json") is not None:
+            print("Reusing verified result:", out)
+            return
+        raise ValueError(f"Existing result has missing/different settings or is incomplete: {out}; choose a new V7_100_ROOT")
+    subprocess.run(command, check=True)
+    if load(out / "summary.json") is None:
+        raise ValueError(f"Generation did not produce summary.json: {out}")
+    (out / "request.json").write_text(json.dumps(request, indent=2) + "\n")
+
+
+def write_report(root, audit, scale):
+    """Render observed statistics and existing original-resolution MJX videos."""
+    sections = []
+    for task in ("zigzag", "circle"):
+        directory = root / f"codesign/joint_{task}_4s"
+        summary = load(directory / "summary.json")
+        rows = summary.get("runs", {}).get(f"scale_{scale:g}", []) if summary else []
+        choices = []
+        for label, key in (("TT 예측 보상 1위", "pred_total"), ("MJX 실제 보상 1위", "mjx_total")):
+            valid = [i for i, row in enumerate(rows) if finite(row.get(key))
+                     and (key != "mjx_total" or summarize([row])["valid_mjx"] == 1)]
+            if valid:
+                choices.append((label, max(valid, key=lambda i: rows[i][key])))
+        cards = []
+        for label, i in choices:
+            row = rows[i]
+            video = directory / f"videos/scale_{scale:g}_cand{i}.mp4"
+            if video.is_file():
+                encoded = base64.b64encode(video.read_bytes()).decode()
+                media = f'<video controls muted loop playsinline src="data:video/mp4;base64,{encoded}"></video>'
+            else:
+                media = '<p>이 후보의 영상 없음: 실행 제외 여부 또는 생성 설정 확인</p>'
+            cards.append(f'<article><h3>{label} · joint {i}</h3><p>예측 R {row.get("pred_total")} / MJX R {row.get("mjx_total")}</p>{media}</article>')
+        selected = {i for _, i in choices}
+        others = []
+        for i, row in enumerate(rows):
+            if i in selected:
+                continue
+            video = directory / f"videos/scale_{scale:g}_cand{i}.mp4"
+            media = f'<video controls muted playsinline src="data:video/mp4;base64,{base64.b64encode(video.read_bytes()).decode()}"></video>' if video.is_file() else '<p>영상 없음</p>'
+            others.append(f'<article><h3>joint {i}</h3><p>예측 R {row.get("pred_total")} / MJX R {row.get("mjx_total")}</p>{media}</article>')
+        sections.append(f'<section><h2>{task} · joint 후보 비교</h2><div class="grid">' + ''.join(cards)
+                        + '</div><details><summary>나머지 joint 후보</summary><div class="grid">' + ''.join(others) + '</div></details></section>')
+    text = html.escape(json.dumps(audit, ensure_ascii=False, indent=2, allow_nan=False))
+    report = """<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>V7 DDIM100 평가</title><style>body{font:16px/1.6 system-ui;background:#101820;color:#e5eef3;padding:24px}main{max-width:1200px;margin:auto}section,article{padding:18px;border:1px solid #354653;border-radius:10px;margin:16px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:16px}video{width:100%}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style>
+<main><h1>V7 DDIM100 · 실제 MJX 평가</h1><p>왼쪽은 TT 예측 보상 1위, 오른쪽은 MJX 실제 보상 1위 후보의 실제 실행 영상이다. 같은 후보가 두 기준에서 1위이면 동일 영상이 표시된다.</p>
+<p>completed는 제한 시간 생존이며 트랙 완주가 아니다. not_run은 미실행이고, gate false는 기준 미달이다. 100단계의 효과는 같은 E-swap 데이터를 사용한 V7-DDIM5와 비교해야 한다.</p>"""
+    report += ''.join(sections) + '<section><h2>관측 수치 및 gate 판정</h2><pre>' + text + '</pre></section></main></html>'
+    (root / "report.html").write_text(report)
+
+
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "--generate":
+        run_generation(sys.argv[2:])
+        return
     p = argparse.ArgumentParser()
     p.add_argument("--root", type=Path, required=True)
     p.add_argument("--stage", choices=("smoke", "codesign", "full", "all"), default="all")
     p.add_argument("--fixed-scale", type=float, default=10.)
+    p.add_argument("--require-smoke-gate", action="store_true")
     args = p.parse_args()
     data = evaluate(args.root, args.stage, args.fixed_scale)
     out = args.root / f"audit_{args.stage}.json"
     args.root.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + "\n")
     print(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False))
+    write_report(args.root, data, args.fixed_scale)
     print("Saved:", out)
+    if args.require_smoke_gate and data.get("smoke", {}).get("dynamics_gate_pass") is not True:
+        raise SystemExit("Smoke gate failed or missing; stop before codesign/full. See report.html")
 
 
 if __name__ == "__main__":
