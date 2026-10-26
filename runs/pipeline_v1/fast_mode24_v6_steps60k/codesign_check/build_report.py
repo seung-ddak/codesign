@@ -1,5 +1,7 @@
-"""co-design 검사 report.html. analyze.py 의 codesign_check.json + summary.json 4개. 그림 base64 내장 (영상 없음: --no-render run)."""
-import base64, io, json
+"""co-design 검사 report.html. analyze.py 의 codesign_check.json + summary.json 4개. 그림·영상 base64 내장. 영상 = render/ (같은 명령, 렌더만 켠 재실행), 320 px · 25 fps 로 줄여 넣는다."""
+import base64, io, json, tempfile
+import imageio.v2 as imageio
+from PIL import Image
 from pathlib import Path
 import numpy as np
 import matplotlib
@@ -80,6 +82,41 @@ def design_rows(task):
     return "\n".join(out)
 
 
+def small(mp4):
+    """원본 640x368 50 fps → 320x184 25 fps (전체 160 개를 16 MB 안에)."""
+    fr = [np.asarray(Image.fromarray(f).resize((320, 184))) for k, f in enumerate(imageio.get_reader(mp4)) if k % 2 == 0]
+    with tempfile.NamedTemporaryFile(suffix=".mp4") as tf:
+        imageio.mimsave(tf.name, fr, fps=25, quality=5)
+        return uri(Path(tf.name).read_bytes(), "video/mp4")
+
+
+def card(rdir, i, title, r):
+    vid = rdir / "videos" / f"scale_10_cand{i}.mp4"
+    ok = r["mjx_fell_step"] == -1
+    stat = ("완주" if ok else f"낙상 {r['mjx_valid_s']:.2f}s") if r["mjx_total"] is not None else "S0 무효"
+    media = f'<video src="{small(vid)}" controls loop muted playsinline preload="none"></video>' if vid.exists() else '<p class="dim">영상 없음</p>'
+    unit = "바퀴" if "circle" in rdir.name else "m"
+    return (f'<article class="card"><header><h3>{title}</h3><span class="pill {"ok" if ok else "bad"}">{stat}</span></header>{media}'
+            f'<dl><dt>예측 R</dt><dd>{r["pred_total"]:+.2f}</dd><dt>MJX R</dt><dd>{r["mjx_total"]:+.2f}</dd>'
+            f'<dt>MJX progress</dt><dd>{r["mjx_progress"]:+.2f} {unit}</dd></dl></article>')
+
+
+videos = []
+for task in ("zigzag", "circle"):
+    jd, fd = here / f"render/joint_{task}_4s", here / f"render/fixedE_{task}_4s"
+    jr = json.load(open(jd / "summary.json"))["runs"]["scale_10"]
+    fr_ = json.load(open(fd / "summary.json"))["runs"]["scale_10"]
+    videos.append(f'<h3>{task} · joint 생성 후보 16</h3><div class="grid">' + "".join(card(jd, i, f"joint 후보 {i}", r) for i, r in enumerate(jr)) + "</div>")
+    per_d = len(fr_) // 16
+    order = sorted(range(16), key=lambda k: -np.mean([fr_[k * per_d + s]["mjx_total"] for s in range(per_d)]))
+    for k in order:
+        m = np.mean([fr_[k * per_d + s]["mjx_total"] for s in range(per_d)])
+        videos.append(f'<details><summary>{task} · 고정 E {designs[k]} (MJX R 평균 {m:+.2f})</summary><div class="grid">'
+                      + "".join(card(fd, k * per_d + s, f"{designs[k]} · seed {s}", fr_[k * per_d + s]) for s in range(per_d)) + "</div></details>")
+    same = all(abs(a["mjx_total"] - b["mjx_total"]) < 1e-3 for a, b in zip(fr_, json.load(open(here / f"fixedE_{task}_4s/summary.json"))["runs"]["scale_10"]))
+    print(task, "render run 수치 = 원 run 수치:", same)
+
+
 z, c_ = cc["zigzag"], cc["circle"]
 html = css + f"""<main>
 <section>
@@ -102,7 +139,7 @@ html = css + f"""<main>
     <tr><td class="k">guidance</td><td>joint full guidance, scale 10 (S 포함), 확산 5 step</td></tr>
     <tr><td class="k">S0</td><td>E-derived home stance (--e-rest-s0 --anchor-s0 --no-s0-align), expert walkForwardSlow__r00</td></tr>
     <tr><td class="k">통계</td><td>η² = 형상 그룹이 설명하는 분산 비율, p = permutation 10000 회. 백분위 = joint MJX R 중앙값보다 낮은 형상 평균의 비율</td></tr>
-    <tr><td class="k">영상</td><td>없음 (--no-render 로 실행)</td></tr>
+    <tr><td class="k">영상</td><td>render/ 재실행 (같은 명령 + 렌더). 흰 점 = lane 경계, 파란 점 = TT 예측 몸통 경로. 보고서용으로 320 px · 25 fps 축소</td></tr>
   </table></div>
 </section>
 
@@ -112,6 +149,8 @@ html = css + f"""<main>
     <p class="a">zigzag·circle 두 과제에서 고정 E 64 rollout 과 joint 후보 16 을 4 s open-loop 로 돌렸다 (재계획 없음). 결과는 위 결론과 아래 표.</p></div>
   <div><p class="q">야 최근 학습 종료된거 확인해보고 report 만들어봐</p>
     <p class="a">10-25 16:37~16:46 에 4 run 모두 에러 없이 종료 (MJX 유효 S0 64/64 · 16/16). 이 문서가 그 보고서다.</p></div>
+  <div><p class="q">지그재그랑 원형 트랙 도는거 다 영상 찍어서 보고서에 넣어주고 1번으로 진행해보자</p>
+    <p class="a">같은 명령에 렌더만 켜서 4 run 을 다시 돌려 160 개 영상을 아래 "MJX 영상" 에 넣었다. 재실행 대조: TT 생성은 원 run 과 비트 동일, MJX R 은 160 개 중 14 개에서 최대 0.07 차이 (낙상 시점 전부 동일) = GPU 실행 간 미세 차이 (8-12). 영상 카드의 수치는 재실행 값, 위 표·통계는 원 run 값. 1번 = E 반사실 데이터 → v7 학습 (remind 8-32).</p></div>
 </section>
 
 <section>
@@ -146,6 +185,12 @@ html = css + f"""<main>
 <section>
   <h2>경로</h2>
   <div class="figs">{paths}</div>
+</section>
+
+<section>
+  <h2>MJX 영상</h2>
+  <p class="note">joint 후보는 전부 펼쳐 두고, 고정 E 는 형상별로 접어 두었다 (MJX R 평균 내림차순). 영상은 재생할 때 불러온다.</p>
+  {"".join(videos)}
 </section>
 
 <section>
