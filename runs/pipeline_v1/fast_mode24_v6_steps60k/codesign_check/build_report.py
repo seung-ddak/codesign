@@ -94,7 +94,7 @@ def card(rdir, i, title, r):
     vid = rdir / "videos" / f"scale_10_cand{i}.mp4"
     ok = r["mjx_fell_step"] == -1
     stat = ("완주" if ok else f"낙상 {r['mjx_valid_s']:.2f}s") if r["mjx_total"] is not None else "S0 무효"
-    media = f'<video src="{small(vid)}" controls loop muted playsinline preload="none"></video>' if vid.exists() else '<p class="dim">영상 없음</p>'
+    media = f'<video src="{small(vid)}" controls loop muted playsinline></video>' if vid.exists() else '<p class="dim">영상 없음</p>'
     unit = "바퀴" if "circle" in rdir.name else "m"
     return (f'<article class="card"><header><h3>{title}</h3><span class="pill {"ok" if ok else "bad"}">{stat}</span></header>{media}'
             f'<dl><dt>예측 R</dt><dd>{r["pred_total"]:+.2f}</dd><dt>MJX R</dt><dd>{r["mjx_total"]:+.2f}</dd>'
@@ -189,7 +189,7 @@ html = css + f"""<main>
 
 <section>
   <h2>MJX 영상</h2>
-  <p class="note">joint 후보는 전부 펼쳐 두고, 고정 E 는 형상별로 접어 두었다 (MJX R 평균 내림차순). 영상은 재생할 때 불러온다.</p>
+  <p class="note">joint 후보는 전부 펼쳐 두고, 고정 E 는 형상별로 접어 두었다 (MJX R 평균 내림차순). </p>
   {"".join(videos)}
 </section>
 

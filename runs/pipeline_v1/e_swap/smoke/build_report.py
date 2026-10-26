@@ -80,7 +80,7 @@ for i in range(len(ep)):
         s = stats(qs)
         st[name] = s
         tag = f'<span class="pill bad">낙상 {len(qs) * 0.02:.2f}s</span>' if fell else ""
-        cells.append(f'<figure class="fig"><video src="{uri(p)}" controls loop muted playsinline preload="none"></video>'
+        cells.append(f'<figure class="fig"><video src="{uri(p)}" controls loop muted playsinline></video>'
                      f'<figcaption>{name} {tag}<br>전진 {s["dx"]:+.2f} m · yaw {s["dyaw"]:+.0f}°</figcaption></figure>')
     rows.append(f'<article class="card"><header><h3>A{i:02d} · {src[i]} episode {ep[i]} · {motions[clip[i]]}</h3></header>'
                 f'<div class="vids">{"".join(cells)}</div></article>')
