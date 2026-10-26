@@ -84,15 +84,31 @@ def analyze_fixed(fixed_summary, joint_summary, scale):
         return {"status": "not_run"}
     rows = fixed_summary.get("runs", {}).get(tag, [])
     joint = joint_summary.get("runs", {}).get(tag, [])
-    names = fixed_summary.get("fixed_e")
-    # Generator may store either list of designs or a nonempty list thereof.
-    if not isinstance(names, list) or not names:
-        return {"status": "invalid", "reason": "missing fixed_e design identifiers"}
+    # generate_task.py currently does NOT persist a fixed_e list in summary.json.
+    # Its contract is contiguous candidates per shape, in caller-specified order.
+    # Reconstruct grouping from *observed E values*, fail if values are not
+    # contiguous or do not match expected 16 morphology experiment.
+    names = []
+    groups = []
+    previous = None
+    for row in rows:
+        e = row.get("E")
+        if not isinstance(e, list) or len(e) != 13 or not np.isfinite(np.asarray(e, float)).all():
+            return {"status": "invalid", "reason": "missing/nonfinite generated E"}
+        current = tuple(round(float(x), 5) for x in e)
+        if current != previous:
+            if current in names:
+                return {"status": "invalid", "reason": "fixed morphology appears in noncontiguous blocks"}
+            names.append(current)
+            previous = current
+        groups.append(len(names) - 1)
     n_design = len(names)
-    if len(rows) < n_design or len(rows) % n_design:
-        return {"status": "invalid", "reason": "fixed-E row count not divisible by number of designs"}
+    if n_design != 16 or len(rows) % n_design:
+        return {"status": "invalid", "reason": f"expected 16 fixed shapes; got {n_design}"}
     per = len(rows) // n_design
-    grouped = np.repeat(np.arange(n_design), per)
+    if any(groups.count(k) != per for k in range(n_design)):
+        return {"status": "invalid", "reason": "unequal number of seeds per fixed shape"}
+    grouped = np.asarray(groups, dtype=int)
     pred = np.array([r.get("pred_total", np.nan) for r in rows], dtype=float)
     mjx = np.array([r.get("mjx_total") if finite(r.get("mjx_total")) else np.nan for r in rows], float)
     pred_means, mjx_means = [], []
