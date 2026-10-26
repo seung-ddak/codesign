@@ -233,6 +233,11 @@
 - joint 생성 E 의 MJX R 중앙값 = 학습 형상 16 개 중 zigzag 25 / circle 81 백분위. 4 s 경로 차 0.2~0.3 m.
 - 조건: 고정 E 16 형상 (e003 제외) × seed 4 vs joint 후보 16, zigzag·circle. `runs/pipeline_v1/fast_mode24_v6_steps60k/codesign_check/report.html`. 다음 = 사용자 결정.
 
+### 8-32. E 반사실 데이터 → v7 (2026-10-26, 사용자 결정 = 1번, v6 대비 데이터 추가만)
+- 데이터: 원본 형상 16 × episode 32 의 target_q 100 step 을 형상 16 개 각각의 home 안착 S0 = g(E) 에서 open-loop 실행 (8,192 rollout). qpos 공유 안 함 (Foot-Anchored 실패 회피). `code/tt_dynamics/collect_e_swap.py` → `runs/pipeline_v1/e_swap/full/`.
+- smoke (원본 e000·e008 × 8, 대상 e000·e008·e016): 같은 형상 재실행 전진 상관 0.96 (원본 재현), 형상 간 yaw 차 최대 ~90°, 낙상 4/48.
+- 통과 기준: co-design 검사 TT 예측 R 의 E η² p < 0.05 · 형상 평균 예측-MJX 순위 상관 > 0.6 · 2 s scale 0 경로 차 < 0.15 m. 분기 A 통과 → guidance / B 민감도↑·경로 차 악화 → 비율 조정 / C 무변화 → E 입력 구조 점검. 실행 `runs/pipeline_v1/fast_mode24_v7_eswap.sh` (tmux v7_eswap).
+
 ### 보고서 형식 선호 (2026-10-22)
 - 이후 실험 보고서는 `runs/pipeline_v1/final/report.html`의 시각적 HTML 구성(요약, 탐색, 결과 표, 그래프, 해석과 한계)을 기본으로 사용한다. Markdown 보고서 대신 브라우저에서 볼 수 있는 `report.html`을 생성한다.
 - Mode 2·4 FAST 학습 보고서: `runs/pipeline_v1/fast_mode24_v4/report.html`. 기존 `REPORT.md`는 사용자 요청으로 삭제했다.
