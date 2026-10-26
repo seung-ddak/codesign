@@ -1,0 +1,111 @@
+<title>Guidance Scale Sweep</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* layout: 단일 컬럼 실험 기록 — 결론 → 조건표 → Q&A → 비교표 → loss·경로 → 후보별 형상 사진+MJX 영상 */
+:root {
+  --bg: #f5f7f8; --surface: #ffffff; --fg: #1b2328; --muted: #5b6870; --line: #d8dfe3;
+  --accent: #0f6f86; --ok: #1d7a46; --bad: #b4382f;
+  --f-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12181b; --surface: #1a2226; --fg: #e3e9ec; --muted: #94a3ab; --line: #2c373d;
+  --accent: #5cc0d8; --ok: #5fcb8b; --bad: #f08a80; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12181b; --surface: #1a2226; --fg: #e3e9ec; --muted: #94a3ab; --line: #2c373d;
+  --accent: #5cc0d8; --ok: #5fcb8b; --bad: #f08a80; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.65;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 32px 64px; }
+main { max-width: 1080px; margin: 0 auto; display: grid; gap: 40px; }
+h1 { font-size: 1.75rem; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.2rem; margin: 0 0 12px; text-wrap: balance; }
+h3 { font-size: 1rem; margin: 0; }
+.eyebrow { font-family: var(--f-mono); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.lead { max-width: 70ch; margin: 8px 0 0; }
+.lead p { margin: 0 0 8px; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; font-size: .85rem; }
+td.k { color: var(--muted); }
+.dim { color: var(--muted); font-size: .85em; }
+.qa { display: grid; gap: 18px; max-width: 72ch; }
+.q { font-weight: 700; margin: 0; }
+.q::before { content: "Q. "; color: var(--accent); }
+.a { margin: 4px 0 0; }
+.a::before { content: "A. "; font-weight: 700; color: var(--muted); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); gap: 20px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.card header { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.media { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.media img, .media video { width: 100%; max-width: 100%; border-radius: 4px; display: block; background: var(--line); }
+.media img { aspect-ratio: 3 / 2; object-fit: cover; }
+.media video { aspect-ratio: 640 / 368; }
+@media (max-width: 520px) { .media { grid-template-columns: 1fr; } }
+dl { display: grid; grid-template-columns: repeat(3, auto 1fr); gap: 2px 12px; margin: 0; font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { dl { grid-template-columns: auto 1fr; } }
+dt { color: var(--muted); font-size: .85rem; } dd { margin: 0; font-family: var(--f-mono); }
+.pill { font-family: var(--f-mono); font-size: .78rem; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.pill.ok { color: var(--ok); } .pill.bad { color: var(--bad); }
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 16px; }
+.fig { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 0; min-width: 0; }
+.fig img { display: block; margin: 0 auto; }
+.fig figcaption { font-family: var(--f-mono); font-size: .8rem; color: var(--muted); text-align: center; margin-top: 6px; }
+.note { color: var(--muted); font-size: .85rem; margin: 8px 0 0; }
+</style>
+<main>
+<section>
+  <div class="eyebrow">codesign · fast_mode24_v6_steps60k · guidance sweep · 2026-10-25</div>
+  <h1>v6 joint TT 의 guidance 세기 sweep</h1>
+  <div class="lead">{{VERDICT}}</div>
+</section>
+
+<section>
+  <h2>실험 조건</h2>
+  <div class="scroll"><table>
+    <tr><td class="k">checkpoint</td><td>runs/pipeline_v1/fast_mode24_v6_steps60k/tt_joint (Mode 2+4, 60000 step, 고정)</td></tr>
+    <tr><td class="k">변경 변수</td><td>guidance scale 하나: 0 / 1 / 3 / 10</td></tr>
+    <tr><td class="k">과제</td><td>zigzag (amp 0.3 m, period 2 m, lane 반폭 0.15 m), 2 s (100 step)</td></tr>
+    <tr><td class="k">reward</td><td>R = progress − 20·lane − 20·fall − 0.05·action_rate</td></tr>
+    <tr><td class="k">S0</td><td>E-derived home stance (--e-rest-s0)</td></tr>
+    <tr><td class="k">통계</td><td>scale 당 후보 16, seed 고정. scale 0·1 = smoke_zigzag_joint_c16, scale 3·10 = smoke_zigzag_joint_c16_scale3_10</td></tr>
+    <tr><td class="k">영상</td><td>별도 렌더 run render_c4_scales (scale 당 후보 4, 같은 조건). 후보 4 개 표본이라 통계표와 수치가 다를 수 있다</td></tr>
+    <tr><td class="k">통과 기준</td><td>MJX progress 중앙값 &gt; +0.15 m · 완주 ≥ 12/16 · 경로 차 중앙값 &lt; 0.15 m 를 모두 만족하는 scale 이 있을 것</td></tr>
+  </table></div>
+</section>
+
+<section class="qa">
+  <h2>질문과 답</h2>
+  <div><p class="q">reward 구성 점검부터 진행해줘</p>
+    <p class="a">reward 구성은 문제가 아니었다. 학습 데이터 실제 동작에 R 을 매기면 trotForwardSlow +0.68, walkForwardSlow +0.23, 정지 −0.03 으로 전진이 확실히 높다. action_rate 가중 기여는 0.012 이하다. v6 guidance (scale 1) 의 예측 progress 가 +0.03 뿐이라 guidance 세기 부족을 의심했다.</p></div>
+  <div><p class="q">v6 를 고정하고 scale 을 0 / 1 / 3 / 10 으로 바꿔서 후보 16개 smoke 를 돌려 ... 이 실험대로 진행해보자</p>
+    <p class="a">아래 표와 그래프가 그 결과다.</p></div>
+  <div><p class="q">다 진행되면 영상으로도 찍어서 report 만들어</p>
+    <p class="a">scale 마다 후보 4 개를 렌더해 형상 사진과 MJX 영상을 넣었다 (64 개 전부는 용량 한도 초과).</p></div>
+  <div><p class="q">no-guide-s 진행해줘</p>
+    <p class="a">scale 10 후보 16 에서 예측-실제가 다시 일치했지만 (경로 차 0.05 m) progress 도 −0.02 m 로 내려갔다. A·E 만 guidance 하면 힘이 약하다.</p></div>
+  <div><p class="q">지금 2초에 너무 specific 해지는 것 같은데 MJX에서 +가 나왔으니 이제 10초로 한 번 진행해볼까?</p>
+    <p class="a">open-loop 10 s 를 후보 8 로 돌렸다. 아래 결론 참조.</p></div>
+  <div><p class="q">그러면 우선 10초 학습 결과 다 나온 후에 scale 늘리는거 할지 말지 알려줘</p>
+    <p class="a">지금은 scale 을 늘리지 않는 것을 추천한다. 10 s 의 병목은 guidance 세기가 아니라 open-loop 오차 누적이다 (아래 결론).</p></div>
+</section>
+
+<section>
+  <h2>scale 별 결과 (후보 16)</h2>
+  <div class="scroll"><table>
+    <tr><th>scale</th><th>유효 S0</th><th>2 s 완주</th><th>경로 차 중앙값</th><th>예측 progress</th><th>MJX progress</th><th>fall 기여 예측 / MJX</th><th>MJX R</th><th>판정</th></tr>
+    {{ROWS}}
+  </table></div>
+  <p class="note">값은 모두 후보 16 개의 중앙값. fall 기여 = 20·p_fall. progress = +x 이동 거리.</p>
+  <div class="fig"><img src="{{CHART}}" alt="scale 별 progress 와 경로 차"></div>
+</section>
+
+<section>
+  <h2>형상 사진과 MJX 영상</h2>
+  <p class="note">2 s sweep = scale 당 후보 4, 2 s no-guide-s = scale 10 후보 4, 10 s = scale 0·10 후보 2 (각각 별도 렌더 run). 왼쪽 = MJX 시작 순간(S0) 형상, 오른쪽 = 2 s MJX 영상. 흰 점 = lane 경계, 파란 점 = TT 예측 몸통 경로.</p>
+  <div class="grid">
+    {{CARDS}}
+  </div>
+</section>
+</main>

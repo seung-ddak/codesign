@@ -79,6 +79,12 @@ parser.add_argument("--joint-full-guidance", action="store_true",
                     help="per-denoising-step reward gradient guides noisy E and complete 10s S/A (not SPSA)")
 parser.add_argument("--e-rest-s0", action="store_true",
                     help="with --joint-full-guidance: S0 = home stance of the current E (feet on floor), not generated")
+parser.add_argument("--fixed-e", nargs="+", default=None, metavar="DESIGN",
+                    help="co-design control: E = these training designs (designs.json), --candidates noise seeds each, "
+                         "shared across designs. S0 = rest_s0_of(E), every window Mode 2 + same guidance")
+parser.add_argument("--replan", type=int, default=0, metavar="K",
+                    help="every K MJX steps, regenerate the next window from the ACTUAL MJX state "
+                         "(Mode 2, E fixed, same guidance). 0 = open-loop (default)")
 parser.add_argument("--expert-warmup-s0", type=float, default=0.0, metavar="SEC",
                     help="with --e-rest-s0: expert walks closed-loop on the current E for up to SEC s; S0 = first "
                          "balanced state after 0.5 s (same process as TT training data, so S0 is in-distribution)")
@@ -134,6 +140,11 @@ if args.geometry_s0 and (not GEN_S0 or not args.no_s0_align):
 if args.max_geometry_lift_m <= 0 or not np.isfinite(args.max_geometry_lift_m):
     parser.error('--max-geometry-lift-m must be positive and finite')
 H = ta["horizon"]
+if not 0 <= args.replan < H:
+    parser.error(f"--replan K must satisfy 0 <= K < horizon ({H})")
+PER_DESIGN = args.candidates
+if args.fixed_e:
+    args.candidates *= len(args.fixed_e)  # 후보 = 형상 × seed (형상 순서대로 PER_DESIGN 개씩)
 net = Net(H, ta["d_model"], ta["layers"]).to(dev)
 net.load_state_dict(ck["net"])
 net.eval().requires_grad_(False)
@@ -227,6 +238,39 @@ def generate(scale, n, seed):
         cur = ep[:, w - 1].clone()
         t0 += w - 1
     return traj, (e_norm * esd + emu).clamp(0, 1)
+
+
+def plan_window(cur, e_norm, scale, seed, w):
+    """한 window 재생성: E 고정 + S0 = cur (episode frame, MJX 실제 state) 인 Mode 2. generate() 의 window 블록과 같다."""
+    torch.manual_seed(seed)
+    n = len(cur)
+    m = (torch.arange(H, device=dev) < w).expand(n, H)
+    x0 = torch.zeros(n, H, X_DIM, device=dev)
+    s = cur.clone()
+    s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0  # window 기준 원점
+    x0[:, 0] = (s - mu) / sd
+    kx, ke = condition_masks(torch.full((n,), 2, device=dev), m)
+    xw, _ = ddim(x0 * m[..., None], e_norm, kx, ke, ~m, cur, m, scale)
+    return unbase(xw * sd + mu, cur)[:, :w].detach()
+
+
+def generate_fixed_designs(scale):
+    """co-design 대조군: E = 학습 형상 고정, S0 = rest_s0_of(E), window 마다 plan_window (Mode 2 + 같은 guidance).
+    형상마다 같은 seed 집합 (후보 j 의 노이즈 공유) 이라 형상 간 차이는 E 에서만 온다."""
+    designs = json.loads((CODESIGN / "runs/pipeline_v1/retargeting/designs.json").read_text())
+    E = torch.tensor([designs[d] for d in args.fixed_e for _ in range(PER_DESIGN)], device=dev, dtype=torch.float32)
+    e_norm = (E - emu) / esd
+    traj = torch.zeros(len(E), EP, X_DIM, device=dev)
+    traj[:, 0, :S_DIM] = rest_s0_of(E)
+    cur, t0 = traj[:, 0].clone(), 0
+    while t0 < EP - 1:
+        w = min(H, EP - t0)
+        ep = torch.cat([plan_window(cur[b:b + 1], e_norm[b:b + 1], scale, args.seed + 7919 * (b % PER_DESIGN) + t0, w)
+                        for b in range(len(E))])
+        traj[:, t0 + 1:t0 + w, :S_DIM] = ep[:, 1:w, :S_DIM]
+        traj[:, t0:t0 + w, A] = ep[:, :w, A]
+        cur, t0 = ep[:, w - 1].clone(), t0 + w - 1
+    return traj, E
 
 
 @torch.no_grad()
@@ -390,8 +434,9 @@ def warm_s0_of(E_batch):
     return torch.tensor(np.stack(out), device=dev, dtype=torch.float32)
 
 
-def execute(E_np, tq, s0):
-    """E [13], target_q [EP,12], s0 [42] (free-s0 일 때만 사용) -> MJX 궤적 토큰 [EP,X], mask [EP], 낙상 step (없으면 -1)."""
+def execute(E_np, tq, s0, replan=None):
+    """E [13], target_q [EP,12], s0 [42] (free-s0 일 때만 사용) -> MJX 궤적 토큰 [EP,X], mask [EP], 낙상 step (없으면 -1).
+    replan(t, qpos, qvel, contact) -> target_q [w,12]: args.replan step 마다 실제 state 로 다음 window 를 받는다."""
     global jit_step
     env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
                                                      torque_limit=cfg.get("torque_limit"), uniforms=E_np), **ecfg)
@@ -525,6 +570,10 @@ def execute(E_np, tq, s0):
             break
         if t == EP - 1:
             break
+        if replan is not None and t > 0 and t % args.replan == 0:
+            new = replan(t, qs[-1], vs[-1], cs[-1])
+            tq = tq.copy()
+            tq[t:t + len(new)] = new
         a = np.clip((tq[t] - off[:12]) / sc, lo, hi)
         ctrl = off.copy()
         ctrl[:12] = off[:12] + a * sc
@@ -592,7 +641,7 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
 
 
 summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
-               candidates=args.candidates, seconds=args.seconds, no_s0_align=args.no_s0_align,
+               candidates=args.candidates, seconds=args.seconds, replan=args.replan, no_s0_align=args.no_s0_align,
                geometry_s0=args.geometry_s0, max_geometry_lift_m=args.max_geometry_lift_m,
                allow_airborne_s0=args.allow_airborne_s0,
                shared_e_guidance=args.shared_e_guidance, joint_full_guidance=args.joint_full_guidance,
@@ -610,7 +659,9 @@ for si, scale in enumerate(args.scales):
     optimizer_history = None
     E_initial = None
     joint_audit = None
-    if args.joint_full_guidance:
+    if args.fixed_e:
+        traj, E = generate_fixed_designs(scale)
+    elif args.joint_full_guidance:
         # E is not chosen first or optimized after generation. At *each*
         # reverse diffusion step, the full-episode differentiable reward
         # guides the still-noisy morphology token and all S/A tokens.
@@ -646,12 +697,23 @@ for si, scale in enumerate(args.scales):
     mj = np.zeros_like(pred)
     mm = np.zeros_like(pm)
     for i in range(args.candidates):
-        mj[i], mm[i], fell, qraw, model, initial = execute(E[i].cpu().numpy(), pred[i, :, A], pred[i, 0, :S_DIM])
+        def replan(t, q, v, c, i=i):
+            # 실제 MJX state 에서 E 고정 window 재생성. 실행되는 계획을 pred 에 기록 (예측 = 실행한 계획).
+            cur = torch.zeros(1, X_DIM, device=dev)
+            cur[0, :S_DIM] = torch.as_tensor(features(q[None], v[None], np.asarray(c)[None])[0], device=dev)
+            e_norm = ((E[i:i + 1].to(dev) - emu) / esd).float()
+            ep = plan_window(cur, e_norm, scale, args.seed + 7919 * i + t, min(H, EP - t))[0].cpu().numpy()
+            pred[i, t:t + len(ep)] = ep
+            return ep[:, A]
+        mj[i], mm[i], fell, qraw, model, initial = execute(E[i].cpu().numpy(), pred[i, :, A], pred[i, 0, :S_DIM],
+                                                          replan=replan if args.replan else None)
         name = f"scale_{scale:g}_cand{i}"
         save_design(model, E[i].cpu().numpy(), name)
         if not args.no_render and not initial.get("execution_skipped"):
             render(model, qraw, pred[i], args.out / "videos" / f"{name}.mp4")
         rows.append((fell, initial))
+    if args.replan:
+        p_total, p_terms = score(pred, pm)  # pred = 실행한 재계획 window 들
     r_total, r_terms = score(mj, mm)
     L = mm.sum(1)
     path_err = [float(np.linalg.norm(pred[i, :L[i], :2] - mj[i, :L[i], :2], axis=-1).mean())

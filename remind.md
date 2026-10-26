@@ -214,8 +214,24 @@
 - 결과 `runs/pipeline_v1/fast_mode24_v6_steps60k/`, 비교 `runs/pipeline_v1/fast_mode24_v5_compare/report.html`.
 
 ### 8-28. 미해결 (2026-10-25)
-- 병목이 TT 정확도 → guidance 로 이동: TT 가 정확해졌지만 guidance 가 전진 동작을 만들지 못함 (예측 progress ~0). action_rate penalty 가 progress 보다 큰지 등 reward 구성 점검 필요 (미검증).
+- 병목이 TT 정확도 → guidance 로 이동: TT 가 정확해졌지만 guidance 가 전진 동작을 만들지 못함 (예측 progress ~0).
+- reward 점검 (2026-10-25): 구성 문제 아님. 데이터 실제 동작 R = trotForwardSlow +0.68 / walkForwardSlow +0.23 / 정지 −0.03, action_rate 가중 기여 ≤ 0.012 (이전 0.93 은 가중 전 값, 오판 철회). v6 guided 예측 progress +0.03 → guidance 세기 부족이 후보. 다음 = v6 고정 scale 0/1/3/10 sweep.
+
+### 8-29. v6 guidance scale sweep 0/1/3/10 (2026-10-25, 후보 16, scale 만 변경) — 통과 scale 없음
+- 결론: scale ↑ 에 TT 예측 progress −0.11 → +0.23 m, MJX 실제 −0.07 → +0.07 m (기준 +0.15 미달). 경로 차 0.05 → 0.11 m, 완주 전부 16/16. guidance 가 TT 부정확 영역으로 미는 갈래.
+- MJX fall 기여 guidance 시 0.08 → 0.13~0.20, TT 예측 fall 0.01~0.03 은 놓침. 영상 = 별도 후보 4 렌더 run `render_c4_scales/`.
+- 다음 (미리 정한 분기) = `--no-guide-s` (A·E 에만 guidance) scale 10. 결과 `runs/pipeline_v1/fast_mode24_v6_steps60k/report.html`.
+
+### 8-30. no-guide-s scale 10 + 10 s open-loop (2026-10-25, v6)
+- no-guide-s (후보 16): 예측-실제 재일치 (경로 차 0.11 → 0.05 m) 이나 progress 소멸 (예측 +0.03, MJX −0.02 m). A·E 만 guidance 하면 약함.
+- 10 s open-loop (후보 8): scale 0 완주 6/8, 경로 차 2 s 0.05 → 5 s 0.32 → 10 s 1.27 m 누적. S guidance scale 10 은 예측 +0.78 vs MJX −0.35 m, 완주 1/8.
+- 결론: 10 s 병목 = open-loop 오차 누적. 추천 = scale 증가 보류, window 단위 MJX 재계획 (`--replan`, 8-18 계획) 구현 후 그 조건에서 scale 비교. 사용자 결정 대기.
 - 10 s 단계에서는 window 단위 MJX 재계획 (8-18) 필요.
+
+### 8-31. co-design 검사 (2026-10-25, v6, scale 10, 4 s, 재계획 취소) — TT 가 E 를 무시
+- 결론: E 는 MJX R 을 크게 바꾸나 (η² 0.86 / 0.92, p<0.001) TT 예측 R 은 E 무관 (η² 0.20 / 0.15, p 0.70 / 0.91). 형상 평균 예측-MJX 순위 상관 +0.42 / +0.01.
+- joint 생성 E 의 MJX R 중앙값 = 학습 형상 16 개 중 zigzag 25 / circle 81 백분위. 4 s 경로 차 0.2~0.3 m.
+- 조건: 고정 E 16 형상 (e003 제외) × seed 4 vs joint 후보 16, zigzag·circle. `runs/pipeline_v1/fast_mode24_v6_steps60k/codesign_check/report.html`. 다음 = 사용자 결정.
 
 ### 보고서 형식 선호 (2026-10-22)
 - 이후 실험 보고서는 `runs/pipeline_v1/final/report.html`의 시각적 HTML 구성(요약, 탐색, 결과 표, 그래프, 해석과 한계)을 기본으로 사용한다. Markdown 보고서 대신 브라우저에서 볼 수 있는 `report.html`을 생성한다.
