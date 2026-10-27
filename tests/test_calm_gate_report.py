@@ -43,3 +43,14 @@ def test_spawn_audit_is_not_mislabeled_as_execution_error(tmp_path):
     assert result[0]['status']=='BLOCKED'
     assert '스폰' in result[0]['meaning']
     assert '실행 오류' not in result[0]['meaning']
+
+
+def test_video_is_embedded_and_missing_file_is_explicit(tmp_path):
+    import base64,re
+    p=tmp_path/'video.mp4';p.write_bytes(b'video-test-content')
+    tag=m.video_tag(p)
+    payload=re.search('base64,([^\"]+)',tag).group(1)
+    assert base64.b64decode(payload)==p.read_bytes()
+    assert 'controls' in tag and 'playsinline' in tag
+    assert 'preload="none"' not in tag
+    assert '기록되지 않았습니다' in m.video_tag(tmp_path/'missing.mp4')

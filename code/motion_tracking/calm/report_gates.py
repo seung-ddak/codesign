@@ -1,10 +1,19 @@
 """Build an evidence-based Korean G0 report; downstream gates never auto-pass."""
 import argparse
+import base64
 import html
 import json
 import os
 from pathlib import Path
 import numpy as np
+
+
+def video_tag(path):
+    path=Path(path)
+    if not path.is_file():
+        return '<p>실제 영상이 기록되지 않았습니다.</p>'
+    encoded=base64.b64encode(path.read_bytes()).decode('ascii')
+    return f'<video controls muted loop playsinline preload="metadata" style="aspect-ratio:16/9;background:#111" src="data:video/mp4;base64,{encoded}"></video>'
 
 
 def gate_status(summary):
@@ -105,7 +114,7 @@ def report(episode,out):
 <tr><td>실행 설정</td><td>원본 A1 · Isaac Gym · hit2/31zs · seed {manifest['seed']} · 초기 관측 보정 {manifest['sync_reset']} · 자기 충돌 끄기 {manifest.get('disable_self_collision',False)}</td></tr>
 <tr><td>실행 당시 커밋</td><td>{html.escape(manifest['git_commit'])} · 미커밋 소스는 아래 파일별 해시로 식별</td></tr></table>
 <h2>실제 실행 영상과 측정값</h2><p>실제로 기록된 {summary['seconds']:.3f}초 영상입니다. 10초 영상이나 성공 사례로 처리하지 않습니다. {'회전·횡이동·정지 구간은 도달하지 못했습니다.' if not summary['continuous_10s'] else '명령 구간 전체를 실행했지만, 자기 충돌 필터 등 원본 조건과의 차이는 별도로 확인해야 합니다.'}</p>
-<video controls src="{rel}/rollout.mp4"></video><img src="measurements.png" alt="실제 궤적, 속도, 방향, 관절각, 힘 센서값과 목표각 그래프">
+{video_tag(episode/'rollout.mp4')}<img src="measurements.png" alt="실제 궤적, 속도, 방향, 관절각, 힘 센서값과 목표각 그래프">
 <p>힘 센서값은 순수한 구동 토크라고 검증되지 않았습니다. 초기 접촉과 몸체 전체 관통 여부도 아직 통과 판정하지 않았습니다.</p>
 <h2>종료 진단</h2><pre>{html.escape(json.dumps(summary.get('terminal_diagnostics',{}),indent=2))}</pre>
 <p>{'직접 종료 조건은 낮은 무릎 상태 3프레임입니다. 이것은 종료 조건이며, 그 상태로 간 근본 원인과 구분합니다.' if summary['terminal_diagnostics'].get('_knee_term_buf') else '낮은 무릎 종료는 발생하지 않았습니다. 종료 사유와 원본 조건의 차이를 함께 확인합니다.'}</p>
@@ -157,7 +166,7 @@ def diagnostic_reports(root):
             status=measured['status'];description='초기화 동작만 검증한 결과이며 G0나 정책 성공 판정이 아닙니다.'
         else:
             status='BLOCKED';description='결과 요약을 만들기 전에 실행 오류가 발생했습니다. 정책 성능 판정에 사용하지 않습니다.'
-        video='<video controls src="rollout.mp4"></video>' if (path/'rollout.mp4').exists() else '<p>실제 영상: NOT RUN · 이 진단에서 기록하지 않았습니다.</p>'
+        video=video_tag(path/'rollout.mp4') if (path/'rollout.mp4').exists() else '<p>실제 영상: NOT RUN · 이 진단에서 기록하지 않았습니다.</p>'
         graph='<img src="first_termination.png" alt="로봇별 최초 종료 시점">' if (path/'first_termination.png').exists() else ''
         body=f'<!doctype html><html lang="ko"><meta charset="utf-8"><title>G0 진단</title><style>body{{max-width:1050px;margin:30px auto;font:17px system-ui;padding:15px}}pre{{white-space:pre-wrap;overflow-wrap:anywhere}}video,img{{width:100%}}</style><h1>G0 진단: {html.escape(path.name)} · {status}</h1><p>실행 시도 1회. {description}</p>{video}{graph}<p><a href="../{html.escape(log.name)}">원본 로그</a></p><pre>{html.escape(json.dumps(measured,ensure_ascii=False,indent=2))}</pre></html>'
         with (path/'report.html').open('x') as file:file.write(body)
@@ -207,7 +216,7 @@ def spawn_comparison(root,out):
     for ax in axes:ax.legend();ax.grid(alpha=.3)
     fig.tight_layout();fig.savefig(out/'spawn_comparison.png',dpi=150);plt.close(fig)
     prefix=html.escape(os.path.relpath(root,out),quote=True)
-    videos=''.join(f'<div><h3>{label}</h3><video controls src="{prefix}/{name}/default_reset.mp4"></video></div>'
+    videos=''.join(f'<div><h3>{label}</h3>{video_tag(root/name/"default_reset.mp4")}</div>'
                    for name,label in [('spawn_audit_try1','원본 자기 충돌 설정'),('spawn_audit_no_self_collision','자기 충돌만 끈 진단 조건')])
     body=f'''<!doctype html><html lang="ko"><meta charset="utf-8"><title>A1 스폰 원인 비교</title>
 <style>body{{max-width:1150px;margin:32px auto;padding:16px;font:17px system-ui;line-height:1.65}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}video,img{{width:100%}}td,th{{border:1px solid #ccc;padding:10px}}table{{border-collapse:collapse;width:100%}}</style>
@@ -219,7 +228,7 @@ def spawn_comparison(root,out):
 <tr><td>HLC와 LLC 명령 시퀀스</td><td>0.30초 종료</td><td>{hlc['seconds']:.3f}초 · 중간 종료·초기화 없음</td></tr>
 <tr><td>LLC 31개 모션 첫 자세, 관측 준비 스텝 포함</td><td>2초 내 25개 종료</td><td>2초 내 {result['llc_early_terminations']}개 종료 · 정확한 추종 평가는 별도</td></tr></table>
 <h2>정책 없는 실제 실행 영상</h2><div class="pair">{videos}</div><img src="spawn_comparison.png" alt="같은 기본 자세와 제어 이득에서 자기 충돌 설정에 따른 몸통 높이와 방향 비교">
-<h2>같은 체크포인트의 실제 10초 실행</h2><video controls src="{prefix}/g0_self_collision_diagnostic/rollout.mp4"></video>
+<h2>같은 체크포인트의 실제 10초 실행</h2>{video_tag(root/"g0_self_collision_diagnostic/rollout.mp4")}
 <p>전진·회전·횡이동·정지 시퀀스입니다. 속도 오차 {hlc['command_velocity_rmse_mps']:.3f}m/s, 방향 오차 평균 {yaw_mae:.2f}도, 정지 구간 평균 속도 {stop_speed:.3f}m/s.</p>
 <p>모델·질량·관절 한계·PD 이득·정책·종료 조건은 변경하지 않았습니다. 원본의 몸체 충돌 필터 0을 진단 실행에서만 1로 바꿨습니다. 바닥 충돌은 유지됩니다. 원본 파일은 수정하지 않았습니다.</p>
 <p>단순한 좌표축 반전보다는 자기 충돌 설정이 현재 불안정에 영향을 준다는 증거입니다. 정확한 충돌 몸체 조합과 학습 당시 설정은 미확인입니다. 모든 자기 충돌을 끄는 조건은 향후 데이터 수집의 물리 모델과도 구분해야 합니다.</p>
