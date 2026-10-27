@@ -37,7 +37,7 @@ def report(episode,out):
     status=gate_status(summary)
     stages={f'G{i}':{'status':status if i==0 else 'BLOCKED',
                     'executed':1 if i==0 else 0,
-                    'reason':'연속 실행과 명령 추종 검증 실패' if i==0 else '선행 단계 G0 미통과'} for i in range(9)}
+                    'reason':('연속 실행과 명령 추종 검증 실패' if status=='FAIL' else '통과 판정에 필요한 검증 미완료') if i==0 else '선행 단계 G0 미통과'} for i in range(9)}
     result=dict(stages=stages,executed_g0=1,passed_g0=0,failed_g0=int(status=='FAIL'),
                 blocked_g0=int(status=='BLOCKED'),array_integrity='PASS' if valid else 'FAIL',
                 measured=summary,execution_manifest=manifest)
@@ -102,13 +102,13 @@ def report(episode,out):
 <tr><td>상태·행동 배열 시간 대응</td><td>{result['array_integrity']} · 상태 {len(state)}개, 행동 {len(state)-1}개</td></tr>
 <tr><td>유한한 상태·목표각·행동·잠재벡터</td><td>{'PASS' if valid else 'FAIL'}</td></tr>
 <tr><td>초기 관절 상태와 강체 관측의 무릎 위치 차이</td><td>{summary['reset_fk_error_m']:.6f}m</td></tr>
-<tr><td>실행 설정</td><td>원본 A1 · Isaac Gym · hit2/31zs · seed {manifest['seed']} · 초기 관측 보정 {manifest['sync_reset']}</td></tr>
+<tr><td>실행 설정</td><td>원본 A1 · Isaac Gym · hit2/31zs · seed {manifest['seed']} · 초기 관측 보정 {manifest['sync_reset']} · 자기 충돌 끄기 {manifest.get('disable_self_collision',False)}</td></tr>
 <tr><td>실행 당시 커밋</td><td>{html.escape(manifest['git_commit'])} · 미커밋 소스는 아래 파일별 해시로 식별</td></tr></table>
-<h2>실제 실행 영상과 측정값</h2><p>실제로 기록된 {summary['seconds']:.3f}초 영상입니다. 10초 영상이나 성공 사례로 처리하지 않습니다. 회전·횡이동·정지 구간은 도달하지 못했습니다.</p>
+<h2>실제 실행 영상과 측정값</h2><p>실제로 기록된 {summary['seconds']:.3f}초 영상입니다. 10초 영상이나 성공 사례로 처리하지 않습니다. {'회전·횡이동·정지 구간은 도달하지 못했습니다.' if not summary['continuous_10s'] else '명령 구간 전체를 실행했지만, 자기 충돌 필터 등 원본 조건과의 차이는 별도로 확인해야 합니다.'}</p>
 <video controls src="{rel}/rollout.mp4"></video><img src="measurements.png" alt="실제 궤적, 속도, 방향, 관절각, 힘 센서값과 목표각 그래프">
 <p>힘 센서값은 순수한 구동 토크라고 검증되지 않았습니다. 초기 접촉과 몸체 전체 관통 여부도 아직 통과 판정하지 않았습니다.</p>
 <h2>종료 진단</h2><pre>{html.escape(json.dumps(summary.get('terminal_diagnostics',{}),indent=2))}</pre>
-<p>확인된 직접 종료 조건은 낮은 무릎 상태 3프레임입니다. 이것은 종료를 발생시킨 조건이며, 정책이 왜 그 상태로 갔는지에 대한 최종 원인은 아닙니다.</p>
+<p>{'직접 종료 조건은 낮은 무릎 상태 3프레임입니다. 이것은 종료 조건이며, 그 상태로 간 근본 원인과 구분합니다.' if summary['terminal_diagnostics'].get('_knee_term_buf') else '낮은 무릎 종료는 발생하지 않았습니다. 종료 사유와 원본 조건의 차이를 함께 확인합니다.'}</p>
 <h2>함께 수행한 원인 분리 실험</h2>
 {diagnostic_html}
 <p>진단은 각 모션의 첫 프레임으로 시작하고, 최초 종료 시점만 집계했습니다. 종료되지 않았다는 이유로 정상 모션으로 판정하지 않았습니다. 준비 스텝은 별도 진단에만 적용했고 G0 원본 실행에는 적용하지 않았습니다.</p>
@@ -148,6 +148,9 @@ def diagnostic_reports(root):
             ax.bar(np.arange(len(first)),np.where(first>=0,first*measured['dt'],2),color=np.where(first>=0,'#b91c1c','#888888'))
             ax.set(xlabel='로봇 번호',ylabel='초',title='최초 종료 시점 · 회색은 2초 동안 미종료')
             f.tight_layout();f.savefig(path/'first_termination.png',dpi=140);plt.close(f)
+        elif measured.get('experiment')=='policy_free_spawn_audit':
+            status='BLOCKED'
+            description='정책 없는 스폰·자세 유지 진단을 기록했습니다. G0 정책 실행 판정과 구분하며, 자세별 전복 여부는 아래 수치와 영상으로 확인합니다.'
         elif 'continuous_10s' in measured:
             status=gate_status(measured);description='HLC와 LLC 연속 실행 검증. 전체 G0 통과와 구분합니다.'
         elif probe.exists():
@@ -165,3 +168,62 @@ def diagnostic_reports(root):
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('episode',type=Path);p.add_argument('--out',type=Path,required=True)
     a=p.parse_args();report(a.episode,a.out)
+
+
+def spawn_comparison(root,out):
+    root,out=Path(root).resolve(),Path(out).resolve();out.mkdir(parents=True,exist_ok=False)
+    baseline=json.loads((root/'spawn_audit_try1/summary.json').read_text())
+    changed=json.loads((root/'spawn_audit_no_self_collision/summary.json').read_text())
+    hlc=json.loads((root/'g0_self_collision_diagnostic/summary.json').read_text())
+    llc=json.loads((root/'llc_no_self_collision/summary.json').read_text())
+    with np.load(root/'g0_self_collision_diagnostic/episode.npz',allow_pickle=False) as z:
+        state=z['state'];q=state[1:,3:7];cmd=z['command']
+        yaw=np.arctan2(2*(q[:,3]*q[:,2]+q[:,0]*q[:,1]),1-2*(q[:,1]**2+q[:,2]**2))
+        yaw_error=np.arctan2(np.sin(yaw-cmd[:,2]),np.cos(yaw-cmd[:,2]))
+        yaw_mae=float(np.degrees(np.abs(yaw_error).mean()))
+        stop=state[1:,7:9][z['time'][1:]>8]
+        stop_speed=float(np.linalg.norm(stop,axis=1).mean())
+    result=dict(original_g0='FAIL',changed_condition_g0='BLOCKED',
+                conclusion='Self-collision filter affects instability in these controlled runs',
+                policy_free_runs=2,policy_free_cases=4,hlc_changed_condition_runs=1,
+                llc_changed_condition_runs=1,llc_environments=31,
+                hlc_seconds=hlc['seconds'],velocity_rmse_mps=hlc['command_velocity_rmse_mps'],
+                yaw_mae_deg=yaw_mae,stop_mean_speed_mps=stop_speed,
+                llc_early_terminations=sum(i>=0 for i in llc['first_done_steps']),
+                baseline=baseline,changed=changed)
+    (out/'comparison.json').write_text(json.dumps(result,indent=2,ensure_ascii=False))
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    plt.rcParams['font.family']='Noto Sans CJK KR';plt.rcParams['axes.unicode_minus']=False
+    fig,axes=plt.subplots(1,2,figsize=(12,4))
+    for name,label in [('spawn_audit_try1','원본 자기 충돌'),('spawn_audit_no_self_collision','자기 충돌 끔')]:
+        with np.load(root/name/'trace.npz') as z:
+            r=z['root'][:,1];t=(np.arange(len(r))+1)*float(z['dt']);q=r[:,3:7]
+            axes[0].plot(t,r[:,2],label=label)
+            axes[1].plot(t,1-2*(q[:,0]**2+q[:,1]**2),label=label)
+    axes[0].set(title='기본 자세 유지: 몸통 높이',xlabel='시간 (초)',ylabel='높이 (m)')
+    axes[1].set(title='기본 자세 유지: 몸통 위쪽 축',xlabel='시간 (초)',ylabel='위쪽 성분 · 1은 정상, -1은 전복')
+    for ax in axes:ax.legend();ax.grid(alpha=.3)
+    fig.tight_layout();fig.savefig(out/'spawn_comparison.png',dpi=150);plt.close(fig)
+    prefix=html.escape(os.path.relpath(root,out),quote=True)
+    videos=''.join(f'<div><h3>{label}</h3><video controls src="{prefix}/{name}/default_reset.mp4"></video></div>'
+                   for name,label in [('spawn_audit_try1','원본 자기 충돌 설정'),('spawn_audit_no_self_collision','자기 충돌만 끈 진단 조건')])
+    body=f'''<!doctype html><html lang="ko"><meta charset="utf-8"><title>A1 스폰 원인 비교</title>
+<style>body{{max-width:1150px;margin:32px auto;padding:16px;font:17px system-ui;line-height:1.65}}.pair{{display:grid;grid-template-columns:1fr 1fr;gap:18px}}video,img{{width:100%}}td,th{{border:1px solid #ccc;padding:10px}}table{{border-collapse:collapse;width:100%}}</style>
+<h1>A1 스폰·자기 충돌 비교</h1><p><b>정책 없이도 원본 자기 충돌 조건에서는 뒤집혔고, 자기 충돌만 끄면 기본 자세를 유지했습니다.</b> 같은 변경으로 HLC와 LLC도 10초 연속 실행했습니다.</p>
+<p>원본 G0: FAIL. 충돌 조건을 바꾼 진단: 연속 실행·명령 반응 확인. 학습 당시 충돌 조건과의 일치는 미확인이라 G0 최종 판정은 BLOCKED입니다.</p>
+<table><tr><th>검증</th><th>원본 자기 충돌</th><th>자기 충돌만 끔</th></tr>
+<tr><td>정책 없는 기본 자세 2초 유지</td><td>몸통 높이 {baseline['cases']['default_reset']['final_root_height_m']:.3f}m · 전복</td><td>몸통 높이 {changed['cases']['default_reset']['final_root_height_m']:.3f}m · 미전복</td></tr>
+<tr><td>몸통 위쪽 축 최솟값</td><td>{baseline['cases']['default_reset']['min_body_up']:.3f}</td><td>{changed['cases']['default_reset']['min_body_up']:.3f}</td></tr>
+<tr><td>HLC와 LLC 명령 시퀀스</td><td>0.30초 종료</td><td>{hlc['seconds']:.3f}초 · 중간 종료·초기화 없음</td></tr>
+<tr><td>LLC 31개 모션 첫 자세, 관측 준비 스텝 포함</td><td>2초 내 25개 종료</td><td>2초 내 {result['llc_early_terminations']}개 종료 · 정확한 추종 평가는 별도</td></tr></table>
+<h2>정책 없는 실제 실행 영상</h2><div class="pair">{videos}</div><img src="spawn_comparison.png" alt="같은 기본 자세와 제어 이득에서 자기 충돌 설정에 따른 몸통 높이와 방향 비교">
+<h2>같은 체크포인트의 실제 10초 실행</h2><video controls src="{prefix}/g0_self_collision_diagnostic/rollout.mp4"></video>
+<p>전진·회전·횡이동·정지 시퀀스입니다. 속도 오차 {hlc['command_velocity_rmse_mps']:.3f}m/s, 방향 오차 평균 {yaw_mae:.2f}도, 정지 구간 평균 속도 {stop_speed:.3f}m/s.</p>
+<p>모델·질량·관절 한계·PD 이득·정책·종료 조건은 변경하지 않았습니다. 원본의 몸체 충돌 필터 0을 진단 실행에서만 1로 바꿨습니다. 바닥 충돌은 유지됩니다. 원본 파일은 수정하지 않았습니다.</p>
+<p>단순한 좌표축 반전보다는 자기 충돌 설정이 현재 불안정에 영향을 준다는 증거입니다. 정확한 충돌 몸체 조합과 학습 당시 설정은 미확인입니다. 모든 자기 충돌을 끄는 조건은 향후 데이터 수집의 물리 모델과도 구분해야 합니다.</p>
+<p>정책 없는 비교 2회, 각 2개 자세 조건. 충돌 변경 HLC 1회, LLC 1회·31개 환경. 한 seed의 결과이며 코드 테스트와 물리 실행 결과를 구분합니다.</p>
+<p><a href="comparison.json">비교 수치·원본 설정</a> · <a href="{prefix}/g0_self_collision_diagnostic/manifest.json">HLC 실행 명령·설정·소스·체크포인트 해시</a> · <a href="{prefix}/g0_self_collision_report/report.html">HLC 상세 그래프</a></p></html>'''
+    (out/'report.html').write_text(body)
+    return result

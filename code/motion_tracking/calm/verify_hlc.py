@@ -32,6 +32,7 @@ def main():
     p.add_argument('--calm-root', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--seed', type=int, default=0)
+    p.add_argument('--disable-self-collision', action='store_true', help='Collision-filter diagnostic only; changes the original physics configuration')
     p.add_argument('--sync-reset', action='store_true', help='Separate reset-observation diagnostic, off for the original baseline')
     args = p.parse_args()
     root, out = args.calm_root.resolve(), args.out.resolve()
@@ -72,6 +73,7 @@ def main():
     train['params']['config']['train_dir'] = str(out/'unused_train_dir')
     manifest = dict(seed=args.seed, argv=sys.argv, cfg_env=cfg, cfg_train=train,
                     git_commit=git_commit, source_sha256=sources, sync_reset=args.sync_reset,
+                    disable_self_collision=args.disable_self_collision,
                     timestamp_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                     original_episode_length=original_episode_length,
                     python=sys.version, torch_version=torch.__version__, numpy_version=np.__version__,
@@ -88,6 +90,9 @@ def main():
         original_init(self, cfg, enable_camera_sensors=True)
 
     BaseTask.__init__ = camera_init
+    if args.disable_self_collision:
+        from env.tasks.humanoid import Humanoid
+        Humanoid._get_humanoid_collision_filter=lambda self: 1
     runner = calm_run.build_alg_runner(calm_run.RLGPUAlgoObserver())
     runner.load(train); runner.reset()
     player = runner.create_player(); player.restore(ca.checkpoint)

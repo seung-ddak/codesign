@@ -17,6 +17,7 @@ def main():
     p.add_argument('--warmup',action='store_true')
     p.add_argument('--cpu-physics',action='store_true')
     p.add_argument('--reset-probe',action='store_true')
+    p.add_argument('--disable-self-collision',action='store_true')
     a=p.parse_args();out=a.out.resolve();out.mkdir(parents=True,exist_ok=False)
     source_file=Path(__file__).resolve()
     git_root=source_file.parents[3]
@@ -32,6 +33,9 @@ def main():
             train['params']['config']['device_name']='cpu'
             return cfg,train,log
         run.load_cfg=cpu_load
+    if a.disable_self_collision:
+        from env.tasks.humanoid import Humanoid
+        Humanoid._get_humanoid_collision_filter=lambda self: 1
     from learning.calm_players import CALMPlayer
     import numpy as np
     import torch
@@ -89,7 +93,7 @@ def main():
                 if (first_done>=0).all():break
         names=task.gym.get_actor_dof_names(task.envs[0],task.humanoid_handles[0])
         np.savez_compressed(out/'trace.npz',state=state,action=actions,target_q=targets,latent=latent,joint_names=names,dt=task.dt,first_done=first_done)
-        result=dict(git_commit=commit,source_sha256=hashlib.sha256(source_file.read_bytes()).hexdigest(),
+        result=dict(disable_self_collision=a.disable_self_collision,git_commit=commit,source_sha256=hashlib.sha256(source_file.read_bytes()).hexdigest(),
                     full_body_fk_position_error_m=pose_error,full_body_fk_quaternion_error=rotation_error,
                     terminal_body_up=[None if not np.isfinite(x) else float(x) for x in up],runtime_joint_properties=runtime,
                     cpu_physics=a.cpu_physics,warmup=a.warmup,start=a.start,sync_reset=a.sync_reset,dt=float(task.dt),first_done_steps=first_done.tolist(),knee_termination=knee.tolist(),reset_fk_max_error_m=fk_error.tolist(),survived_2s=int((first_done<0).sum()),note='No resets after initialization; only steps preceding each first_done are valid episode data')

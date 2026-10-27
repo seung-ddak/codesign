@@ -12,10 +12,14 @@ def main():
     p.add_argument('--calm-root',type=Path,default=Path(__file__).resolve().parents[4]/'external/a1-calm-main')
     p.add_argument('--headless',action='store_true')
     p.add_argument('--sync-reset',action='store_true')
+    p.add_argument('--disable-self-collision',action='store_true',help='Explicit physics diagnostic; leaves original files unchanged')
     a=p.parse_args();root=a.calm_root.resolve()
     os.environ['CALM_ROOT']=str(root);os.chdir(root);sys.path.insert(0,str(root/'calm'))
     import run  # Isaac Gym must load before torch.
     from reset_observations import install
+    if a.disable_self_collision:
+        from env.tasks.humanoid import Humanoid
+        Humanoid._get_humanoid_collision_filter=lambda self: 1
     if a.sync_reset:
         install(root/'assets/urdf/a1_description/urdf/a1.urdf')
     llc=a.controller=='llc'

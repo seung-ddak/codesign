@@ -33,3 +33,13 @@ def test_execution_error_is_blocked_and_existing_report_is_preserved(tmp_path):
     original=(p/'report.html').read_bytes()
     assert m.diagnostic_reports(tmp_path)==[]
     assert (p/'report.html').read_bytes()==original
+
+
+def test_spawn_audit_is_not_mislabeled_as_execution_error(tmp_path):
+    import json
+    p=tmp_path/'spawn';p.mkdir();(tmp_path/'spawn.log').write_text('Completed')
+    (p/'summary.json').write_text(json.dumps(dict(experiment='policy_free_spawn_audit')))
+    result=m.diagnostic_reports(tmp_path)
+    assert result[0]['status']=='BLOCKED'
+    assert '스폰' in result[0]['meaning']
+    assert '실행 오류' not in result[0]['meaning']
