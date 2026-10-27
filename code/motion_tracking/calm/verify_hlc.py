@@ -3,6 +3,8 @@
 Run with CALM's Python 3.8 venv, not the MJX/TT interpreter.
 """
 import argparse
+import datetime
+import subprocess
 import hashlib
 import json
 import math
@@ -30,22 +32,31 @@ def main():
     p.add_argument('--calm-root', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--seed', type=int, default=0)
+    p.add_argument('--sync-reset', action='store_true', help='Separate reset-observation diagnostic, off for the original baseline')
     args = p.parse_args()
     root, out = args.calm_root.resolve(), args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
+    git_root = Path(__file__).resolve().parents[3]
+    git_commit = subprocess.check_output(['git','rev-parse','HEAD'],cwd=git_root,text=True).strip()
+    source_paths = [Path(__file__).resolve(), root/'calm/env/tasks/humanoid.py',
+                    root/'calm/learning/hrl_players.py', root/'calm/learning/calm_players.py']
+    sources = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in source_paths}
     os.environ['CALM_ROOT'] = str(root)
     os.chdir(root)
     sys.path.insert(0, str(root/'calm'))
     sys.argv = [sys.argv[0], '--task', 'QuadrupedHeading', '--test', '--headless',
                 '--num_envs', '1', '--seed', str(args.seed),
-                '--cfg_env', 'calm/data/cfg/a1_heading_lat_up_c8_hit.yaml',
-                '--cfg_train', 'calm/data/cfg/train/rlg/hrl_a1_heading_lat31z.yaml',
+                '--cfg_env', 'calm/data/cfg/a1_heading_lat_up_c8_hit2.yaml',
+                '--cfg_train', 'calm/data/cfg/train/rlg/hrl_a1_heading_lat31zs.yaml',
                 '--motion_file', 'calm/data/motions_a1/v2v3_31motions_squat2s_bfcut.pt',
                 '--llc_checkpoint', 'checkpoints/lowLevelController.pth',
                 '--checkpoint', 'checkpoints/highLevelPolicy.pth']
     import run as calm_run  # imports Isaac Gym before torch
     from utils.config import get_args, load_cfg, set_seed
     from isaacgym import gymapi
+    from reset_observations import install
+    if args.sync_reset:
+        install(root/'assets/urdf/a1_description/urdf/a1.urdf')
     import torch
     import imageio.v2 as imageio
 
@@ -55,12 +66,17 @@ def main():
     train['params']['seed'] = set_seed(args.seed, False)
     cfg['env']['motion_file'] = ca.motion_file
     # Allow a real 10-second rollout; do not change physical/controller parameters.
-    cfg['env']['episodeLength'] = 100000
+    original_episode_length = cfg['env']['episodeLength']
+    cfg['env']['episodeLength'] = 302
     assert cfg['env']['stateInit'] == 'Default'
     train['params']['config']['train_dir'] = str(out/'unused_train_dir')
     manifest = dict(seed=args.seed, argv=sys.argv, cfg_env=cfg, cfg_train=train,
+                    git_commit=git_commit, source_sha256=sources, sync_reset=args.sync_reset,
+                    timestamp_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    original_episode_length=original_episode_length,
                     python=sys.version, torch_version=torch.__version__, numpy_version=np.__version__,
-                    simulator='Isaac Gym Preview 4 GPU PhysX',
+                    simulator='Isaac Gym Preview 4 GPU PhysX', robot='calm_a1',
+                    asset_sha256=hashlib.sha256((root/'assets/urdf/a1_description/urdf/a1.urdf').read_bytes()).hexdigest(),
                     checkpoints={n: hashlib.sha256((root/'checkpoints'/n).read_bytes()).hexdigest()
                                  for n in ['lowLevelController.pth', 'highLevelPolicy.pth']})
     (out/'manifest.json').write_text(json.dumps(manifest, indent=2, default=lambda x: vars(x) if isinstance(x, argparse.Namespace) else str(x)))
@@ -81,8 +97,15 @@ def main():
     dt = float(task.dt)
     steps = round(10/dt)
     assert abs(steps*dt-10) < 1e-6
+    manifest['runtime'] = dict(hlc_observation_size=player.obs_shape[0],
+                               llc_observation_size=player._llc_agent.obs_shape[0],
+                               latent_dim=player._latent_dim, joint_actions=task.num_actions,
+                               dt=dt)
+    (out/'manifest.json').write_text(json.dumps(manifest,indent=2,default=str))
     task._reset_task = lambda ids: task._heading_change_steps.__setitem__(ids, 1000000)
     obs = player.env_reset()
+    initial_knees = task._knee_world_pos(task._dof_pos,task._humanoid_root_states[:,:3],task._humanoid_root_states[:,3:7])
+    reset_fk_error = float((initial_knees-task._rigid_body_pos[:,task._knee_body_ids]).norm(dim=-1).max())
     if player.is_rnn:
         player.init_rnn()
     names = task.gym.get_actor_rigid_body_names(task.envs[0], task.humanoid_handles[0])
@@ -101,42 +124,46 @@ def main():
 
     reason = 'duration'
     diagnostics = []
-    with torch.no_grad(), imageio.get_writer(str(out/'rollout.mp4'), fps=round(1/dt)) as video:
-        record()
-        for k in range(steps):
-            c = command(k*dt)
-            speed = np.linalg.norm(c[:2])
-            task._nocmd[:] = False
-            task._tar_speed[:] = float(speed)
-            task._tar_dir[:] = torch.tensor(c[:2]/speed if speed>1e-8 else [1.,0.], device=task.device)
-            task._tar_facing_dir[:] = torch.tensor([math.cos(c[2]),math.sin(c[2])], device=task.device)
-            task._tar_face_lat[:] = 0; task._tar_up_roll[:] = 0; task._tar_up_pitch[:] = 0
-            task._compute_observations()
-            # Refresh task observations after setting commands, before policy inference.
-            obs = {'obs': torch.clamp(task.obs_buf, -player.env.clip_obs, player.env.clip_obs).to(player.device)}
-            latent = player.get_action(obs, True).reshape(1,-1)
-            llc = player._compute_llc_action(obs['obs'], latent)
-            applied = llc.clamp(-player.env.clip_actions, player.env.clip_actions)
-            actions.append(applied[0].cpu().numpy().copy())
-            latents.append(torch.nn.functional.normalize(latent,dim=-1)[0].cpu().numpy().copy())
-            targets.append(task._action_to_pd_targets(applied)[0].cpu().numpy().copy())
-            commands.append(c)
-            _, _, done, info = player.env.step(applied)
+    try:
+        with torch.no_grad(), imageio.get_writer(str(out/'rollout.mp4'), fps=round(1/dt)) as video:
             record()
-            diagnostics.append({name: getattr(task, name)[0].detach().cpu().tolist()
-                                for name in ['_terminate_buf', '_pos_protection_buf', '_knee_low_count', '_knee_term_buf']
-                                if hasattr(task, name)})
-            task.gym.refresh_dof_force_tensor(task.sim)
-            torques.append(task.dof_force_tensor[0].cpu().numpy().copy())
-            pos = states[-1][:3]
-            task.gym.set_camera_location(camera, task.envs[0], gymapi.Vec3(*(pos+[2.,2.,1.])), gymapi.Vec3(*pos))
-            task.gym.step_graphics(task.sim); task.gym.render_all_camera_sensors(task.sim)
-            rgba = task.gym.get_camera_image(task.sim, task.envs[0], camera, gymapi.IMAGE_COLOR).reshape(544,960,4)
-            video.append_data(rgba[:,:,:3])
-            if not np.isfinite(states[-1]).all():
-                reason = 'nonfinite'; break
-            if bool(done[0]):
-                reason = 'terminated'; break
+            for k in range(steps):
+                c = command(k*dt)
+                speed = np.linalg.norm(c[:2])
+                task._nocmd[:] = False
+                task._tar_speed[:] = float(speed)
+                task._tar_dir[:] = torch.tensor(c[:2]/speed if speed>1e-8 else [1.,0.], device=task.device)
+                task._tar_facing_dir[:] = torch.tensor([math.cos(c[2]),math.sin(c[2])], device=task.device)
+                task._tar_face_lat[:] = 0; task._tar_up_roll[:] = 0; task._tar_up_pitch[:] = 0
+                task._compute_observations()
+                # Refresh task observations after setting commands, before policy inference.
+                obs = {'obs': torch.clamp(task.obs_buf, -player.env.clip_obs, player.env.clip_obs).to(player.device)}
+                latent = player.get_action(obs, True).reshape(1,-1)
+                llc = player._compute_llc_action(obs['obs'], latent)
+                applied = llc.clamp(-player.env.clip_actions, player.env.clip_actions)
+                actions.append(applied[0].cpu().numpy().copy())
+                latents.append(torch.nn.functional.normalize(latent,dim=-1)[0].cpu().numpy().copy())
+                targets.append(task._action_to_pd_targets(applied)[0].cpu().numpy().copy())
+                commands.append(c)
+                _, _, done, info = player.env.step(applied)
+                record()
+                diagnostics.append({name: getattr(task, name)[0].detach().cpu().tolist()
+                                    for name in ['_terminate_buf', '_pos_protection_buf', '_knee_low_count', '_knee_term_buf']
+                                    if hasattr(task, name)})
+                task.gym.refresh_dof_force_tensor(task.sim)
+                torques.append(task.dof_force_tensor[0].cpu().numpy().copy())
+                if not np.isfinite(states[-1]).all():
+                    reason = 'nonfinite'; break
+                pos = states[-1][:3]
+                task.gym.set_camera_location(camera, task.envs[0], gymapi.Vec3(*(pos+[2.,2.,1.])), gymapi.Vec3(*pos))
+                task.gym.step_graphics(task.sim); task.gym.render_all_camera_sensors(task.sim)
+                rgba = task.gym.get_camera_image(task.sim, task.envs[0], camera, gymapi.IMAGE_COLOR).reshape(544,960,4)
+                video.append_data(rgba[:,:,:3])
+                if bool(done[0]):
+                    reason = 'terminated'; break
+    finally:
+        np.savez_compressed(out/'raw_partial.npz',state=np.asarray(states),llc_action=np.asarray(actions),
+                            target_q=np.asarray(targets),command=np.asarray(commands),dt=dt)
     state = np.asarray(states)
     data = dict(state=state, foot_pos=foot_pos, contact=contacts, llc_action=actions,
                 latent=latents, target_q=targets, torque=torques, command=commands,
@@ -145,8 +172,12 @@ def main():
     np.savez_compressed(out/'episode.npz', **data)
     velocity = state[1:,7:9]
     error = np.linalg.norm(velocity-np.asarray(commands)[:,:2],axis=1)
-    continuous = reason=='duration' and len(actions)==steps
-    result = dict(continuous_10s=continuous, termination_reason=reason, resets_after_initial=0,
+    finite_actions = all(np.isfinite(x).all() for x in [actions,targets,latents,commands])
+    continuous = reason=='duration' and len(actions)==steps and finite_actions
+    result = dict(status='FAIL' if not continuous else 'BLOCKED',
+                  status_note='Full G0 approval also requires measured command fidelity; continuity alone never passes G0',
+                  reset_fk_error_m=reset_fk_error, finite_states=bool(np.isfinite(state).all()),
+                  finite_actions=finite_actions,continuous_10s=continuous, termination_reason=reason, resets_after_initial=0,
                   steps=len(actions), seconds=len(actions)*dt, dt=dt,
                   command_velocity_rmse_mps=float(np.sqrt(np.mean(error**2))),
                   path_length_m=float(np.linalg.norm(np.diff(state[:,:2],axis=0),axis=1).sum()),
