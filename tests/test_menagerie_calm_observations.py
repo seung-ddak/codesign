@@ -28,3 +28,13 @@ def test_original_23_body_observations_are_used_without_reconstruction():
     result=m.virtual_body_states(actual,names,names)
     np.testing.assert_array_equal(result,actual)
     assert not np.shares_memory(result,actual)
+
+
+def test_nonfinite_stand_duration_is_rejected_before_creating_output(tmp_path):
+    import subprocess,sys
+    script=Path(__file__).parents[1]/'code/motion_tracking/eval_menagerie_calm.py'
+    output=tmp_path/'unused'
+    result=subprocess.run([sys.executable,str(script),'--out',str(output),'--rl-games-wheel','unused.whl','--stand-seconds','nan'],capture_output=True,text=True)
+    assert result.returncode==2
+    assert 'finite and positive' in result.stderr
+    assert not output.exists()

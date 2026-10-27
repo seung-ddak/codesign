@@ -9,6 +9,7 @@ import base64
 import hashlib
 import html
 import json
+import math
 from pathlib import Path
 import subprocess
 import sys
@@ -46,9 +47,12 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--rl-games-wheel',type=Path,required=True)
+    p.add_argument('--stand-seconds',type=float,help='Time-extension diagnostic for LLC stand-up only')
     p.add_argument('--calm-no-self-collision',action='store_true',help='Use untouched original CALM A1 with self-collision filter 1; ground contact remains enabled')
     sys.stdout.reconfigure(encoding='utf-8')
-    args=p.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=False)
+    args=p.parse_args()
+    if args.stand_seconds is not None and (not math.isfinite(args.stand_seconds) or args.stand_seconds<=0):p.error('--stand-seconds must be finite and positive')
+    out=args.out.resolve();out.mkdir(parents=True,exist_ok=False)
     project=Path(__file__).resolve().parents[2];workspace=project.parent
     calm=workspace/'external/a1-calm-main'
     model=calm/'assets/urdf/a1_description/urdf/a1.urdf' if args.calm_no_self_collision else workspace/'external/unitree_a1_menagerie/a1.urdf'
@@ -88,8 +92,9 @@ def main():
     raw=torch.load(motion_file,map_location='cpu',weights_only=True)
     library=RolloutMotionLib(str(motion_file),list(range(12)),list(range(13)),[0,1,2,3],True,device=device)
     selected=[('forward','앞','v3_walkForwardSlow'),('backward','뒤','v3_walkBackwardSlow'),('left','좌','v3_walkLeftSlow'),('right','우','v3_walkRightSlow'),('sit','앉기','v2_sitDown'),('stand','일어나기','v2_standUp')]
+    if args.stand_seconds is not None:selected=[x for x in selected if x[0]=='stand']
     g=gymapi.acquire_gym()
-    manifest=dict(seed=0,model=str(model),model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
+    manifest=dict(stand_seconds=args.stand_seconds,seed=0,model=str(model),model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
                   git_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=project,text=True).strip(),
                   source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   checkpoint_sha256={n:hashlib.sha256((calm/'checkpoints'/n).read_bytes()).hexdigest() for n in ['lowLevelController.pth','highLevelPolicy.pth']},
@@ -127,9 +132,9 @@ def main():
     results=[]
     with torch.no_grad():
         latents={key:reference_latent(raw['names'].index(name)) for key,_,name in selected}
-        for controller in ['LLC','HLC']:
+        for controller in (['LLC'] if args.stand_seconds is not None else ['LLC','HLC']):
             for key,label,name in selected if controller=='LLC' else selected[:4]:
-                index=raw['names'].index(name);length=float(library._motion_lengths[index]);duration=length if controller=='LLC' else 5.
+                index=raw['names'].index(name);length=float(library._motion_lengths[index]);duration=(args.stand_seconds if args.stand_seconds is not None else length) if controller=='LLC' else 5.
                 case=out/(controller.lower()+'_'+key);case.mkdir()
                 params=gymapi.SimParams();params.dt=1/60;params.substeps=2;params.up_axis=gymapi.UP_AXIS_Z;params.gravity=gymapi.Vec3(0,0,-9.81);params.physx.use_gpu=True;params.use_gpu_pipeline=False;params.physx.solver_type=1;params.physx.num_position_iterations=4;params.physx.num_velocity_iterations=0;params.physx.contact_offset=.02;params.physx.rest_offset=0
                 sim=g.create_sim(0,0,gymapi.SIM_PHYSX,params);assert sim is not None
@@ -209,8 +214,9 @@ def main():
         payload=base64.b64encode(video.read_bytes()).decode()
         cards.append('<section><h2>'+html.escape(result['controller']+' '+result['motion'])+'</h2><video controls muted playsinline src="data:video/mp4;base64,'+payload+'"></video><pre>'+html.escape(json.dumps(result,ensure_ascii=False,indent=2))+'</pre></section>')
     title=('CALM A1 자기 충돌 끔' if args.calm_no_self_collision else 'Menagerie A1')
+    heading='LLC 일어나기 시간 연장 진단' if args.stand_seconds is not None else 'LLC 여섯 동작과 HLC 네 방향'
     details='기존 CALM A1의 실제 몸체 23개 관측을 그대로 사용했습니다. 바닥 충돌은 유지하고 로봇 부품 사이 자기 충돌만 껐습니다.' if args.calm_no_self_collision else '실제 몸체 13개에서 원래 관측의 가상 지점 23개를 구성했습니다. 질량·충돌 형상은 Menagerie 모델입니다.'
-    (out/'report.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><title>'+title+' 정책 검증</title><style>body{max-width:1100px;margin:30px auto;font:17px system-ui;padding:15px}video{width:100%}pre{white-space:pre-wrap}section{margin:30px 0}</style><h1>'+title+': LLC 여섯 동작과 HLC 네 방향</h1><p>원본 신경망 가중치를 엄격하게 로딩했습니다. '+details+' 원래 학습 환경과 물리 조건이 완전히 같은지는 별도 검증이 필요합니다. 기록 종료 없이 실행됐다는 것만으로 정상 추종이라고 판정하지 않습니다. HLC에는 앉기·일어나기 명령이 없어 해당 두 동작은 LLC로 검사했습니다.</p><p>LLC의 앉기·일어나기는 실제 최종 몸통 높이와 참고 모션의 최종 높이를 함께 확인해야 합니다. 참고 모션 길이 안에 목표 자세에 도달했는지는 실행 완료와 별개입니다.</p>'+overview+''.join(cards)+'</html>',encoding='utf-8')
+    (out/'report.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><title>'+title+' 정책 검증</title><style>body{max-width:1100px;margin:30px auto;font:17px system-ui;padding:15px}video{width:100%}pre{white-space:pre-wrap}section{margin:30px 0}</style><h1>'+title+': '+heading+'</h1><p>원본 신경망 가중치를 엄격하게 로딩했습니다. '+details+' 원래 학습 환경과 물리 조건이 완전히 같은지는 별도 검증이 필요합니다. 기록 종료 없이 실행됐다는 것만으로 정상 추종이라고 판정하지 않습니다. HLC에는 앉기·일어나기 명령이 없어 해당 두 동작은 LLC로 검사했습니다.</p><p>LLC의 앉기·일어나기는 실제 최종 몸통 높이와 참고 모션의 최종 높이를 함께 확인해야 합니다. 참고 모션 길이 안에 목표 자세에 도달했는지는 실행 완료와 별개입니다.</p>'+overview+''.join(cards)+'</html>',encoding='utf-8')
 
 
 if __name__=='__main__':main()
