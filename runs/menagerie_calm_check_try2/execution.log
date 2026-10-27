@@ -1,0 +1,33 @@
+Importing module 'gym_38' (/home/cgr-ugrad-2026/software/isaacgym/python/isaacgym/_bindings/linux-x86_64/gym_38.so)
+Setting GYM_USD_PLUG_INFO_PATH to /home/cgr-ugrad-2026/software/isaacgym/python/isaacgym/_bindings/linux-x86_64/usd/plugInfo.json
+/home/cgr-ugrad-2026/miniconda3/envs/rlgpu/lib/python3.8/site-packages/torch/_utils.py:831: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  return self.fget.__get__(instance, owner)()
+build ase style cat net: 343 64
+build ase mlp net: 407
+build ase style cat net: 1170 64
+build mlp: 1170
+build mlp: 7020
+build mlp: 351
+build mlp: 351
+RunningMeanStd:  (343,)
+RunningMeanStd:  (351,)
+RunningMeanStd:  (117,)
+Not connected to PVD
+Physics Engine: PhysX
+Physics Device: cpu
+GPU Pipeline: disabled
+Not connected to PVD
++++ Using GPU PhysX
+Physics Engine: PhysX
+Physics Device: cuda:0
+GPU Pipeline: disabled
+code/motion_tracking/eval_menagerie_calm.py:130: DeprecationWarning: an integer is required (got type isaacgym._bindings.linux-x86_64.gym_38.DofDriveMode).  Implicit conversion to integers using __int__ is deprecated, and may be removed in a future version of Python.
+  opt=gymapi.AssetOptions();opt.angular_damping=.01;opt.max_angular_velocity=100;opt.default_dof_drive_mode=gymapi.DOF_MODE_NONE
+Traceback (most recent call last):
+  File "code/motion_tracking/eval_menagerie_calm.py", line 195, in <module>
+    if __name__=='__main__':main()
+  File "code/motion_tracking/eval_menagerie_calm.py", line 184, in main
+    (case/'summary.json').write_text(json.dumps(result,ensure_ascii=False,indent=2));results.append(result);print('CASE',json.dumps(result,ensure_ascii=False),flush=True)
+  File "/home/cgr-ugrad-2026/miniconda3/envs/rlgpu/lib/python3.8/pathlib.py", line 1256, in write_text
+    return f.write(data)
+UnicodeEncodeError: 'ascii' codec can't encode character '\uc55e' in position 38: ordinal not in range(128)

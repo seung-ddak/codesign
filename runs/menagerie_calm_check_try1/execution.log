@@ -1,0 +1,15 @@
+Importing module 'gym_38' (/home/cgr-ugrad-2026/software/isaacgym/python/isaacgym/_bindings/linux-x86_64/gym_38.so)
+Setting GYM_USD_PLUG_INFO_PATH to /home/cgr-ugrad-2026/software/isaacgym/python/isaacgym/_bindings/linux-x86_64/usd/plugInfo.json
+Traceback (most recent call last):
+  File "code/motion_tracking/eval_menagerie_calm.py", line 193, in <module>
+    if __name__=='__main__':main()
+  File "code/motion_tracking/eval_menagerie_calm.py", line 50, in main
+    import isaacgym.torch_utils as iq
+  File "/home/cgr-ugrad-2026/software/isaacgym/python/isaacgym/torch_utils.py", line 135, in <module>
+    def get_axis_params(value, axis_idx, x_value=0., dtype=np.float, n_dims=3):
+  File "/home/cgr-ugrad-2026/miniconda3/envs/rlgpu/lib/python3.8/site-packages/numpy/__init__.py", line 305, in __getattr__
+    raise AttributeError(__former_attrs__[attr])
+AttributeError: module 'numpy' has no attribute 'float'.
+`np.float` was a deprecated alias for the builtin `float`. To avoid this error in existing code, use `float` by itself. Doing this will not modify any behavior and is safe. If you specifically wanted the numpy scalar type, use `np.float64` here.
+The aliases was originally deprecated in NumPy 1.20; for more details and guidance see the original release note at:
+    https://numpy.org/devdocs/release/1.20.0-notes.html#deprecations
