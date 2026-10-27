@@ -20,3 +20,11 @@ def test_virtual_markers_preserve_real_bodies_and_transport_velocity():
     np.testing.assert_allclose(v[expected.index('FL_foot'),:3],[0,0,-.2])
     np.testing.assert_allclose(v[expected.index('FL_foot'),7:10],[.8,2,3])
     np.testing.assert_array_equal(actual,before)
+
+
+def test_original_23_body_observations_are_used_without_reconstruction():
+    names=['base','trunk']+[leg+'_'+part for leg in ['FL','FR','RL','RR'] for part in ['hip','thigh_shoulder','thigh','calf','foot']]+['imu_link']
+    actual=np.arange(23*13,dtype=float).reshape(23,13)
+    result=m.virtual_body_states(actual,names,names)
+    np.testing.assert_array_equal(result,actual)
+    assert not np.shares_memory(result,actual)

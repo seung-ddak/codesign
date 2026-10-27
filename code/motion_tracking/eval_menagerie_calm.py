@@ -26,6 +26,10 @@ def virtual_body_states(actual, names, expected):
     import numpy as np
     from scipy.spatial.transform import Rotation
     states={name:actual[i].copy() for i,name in enumerate(names)}
+    if all(n in states for n in expected):
+        result=np.stack([states[n] for n in expected])
+        assert result.shape==(23,13) and np.isfinite(result).all()
+        return result
     states['base']=states['trunk'].copy();states['imu_link']=states['trunk'].copy()
     for leg in ['FL','FR','RL','RR']:
         hip=states[leg+'_hip'];calf=states[leg+'_calf']
@@ -42,10 +46,13 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--rl-games-wheel',type=Path,required=True)
+    p.add_argument('--calm-no-self-collision',action='store_true',help='Use untouched original CALM A1 with self-collision filter 1; ground contact remains enabled')
     sys.stdout.reconfigure(encoding='utf-8')
     args=p.parse_args();out=args.out.resolve();out.mkdir(parents=True,exist_ok=False)
     project=Path(__file__).resolve().parents[2];workspace=project.parent
-    calm=workspace/'external/a1-calm-main';model=workspace/'external/unitree_a1_menagerie/a1.urdf'
+    calm=workspace/'external/a1-calm-main'
+    model=calm/'assets/urdf/a1_description/urdf/a1.urdf' if args.calm_no_self_collision else workspace/'external/unitree_a1_menagerie/a1.urdf'
+    collision_filter=1 if args.calm_no_self_collision else 0
     sys.path.insert(0,str(args.rl_games_wheel.resolve()));sys.path.insert(0,str(calm/'calm'))
     from isaacgym import gymapi
     import numpy as np
@@ -87,9 +94,9 @@ def main():
                   source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   checkpoint_sha256={n:hashlib.sha256((calm/'checkpoints'/n).read_bytes()).hexdigest() for n in ['lowLevelController.pth','highLevelPolicy.pth']},
                   inference='Original CALM builders, strict checkpoint loading, original running normalization',
-                  observation_adapter='13 physical bodies -> 23 CALM body markers; derived base, IMU, shoulder and foot markers',
-                  kp=40,kd=1.5,effort_limit_nm=15,self_collision_filter=0,physics_dt=1/60,substeps=2,control_dt=1/30,
-                  warning='Different mass, geometry and observation markers: transferred policy test, not identical training robot')
+                  observation_adapter='Original 23 physical body observations, no virtual markers' if args.calm_no_self_collision else '13 physical bodies -> 23 CALM body markers; derived base, IMU, shoulder and foot markers',
+                  kp=40,kd=1.5,effort_limit_nm=15,self_collision_filter=collision_filter,physics_dt=1/60,substeps=2,control_dt=1/30,
+                  warning='Self-collision disabled: physical condition differs from original file defaults' if args.calm_no_self_collision else 'Different mass, geometry and observation markers: transferred policy test, not identical training robot')
     (out/'manifest.json').write_text(json.dumps(manifest,indent=2))
     # Original CALM link names/order are read from the untouched source asset.
     tmp=g.create_sim(0,-1,gymapi.SIM_PHYSX,gymapi.SimParams());assert tmp is not None
@@ -129,13 +136,14 @@ def main():
                 try:
                     plane=gymapi.PlaneParams();plane.normal=gymapi.Vec3(0,0,1);plane.static_friction=1;plane.dynamic_friction=1;g.add_ground(sim,plane)
                     opt=gymapi.AssetOptions();opt.angular_damping=.01;opt.max_angular_velocity=100;opt.default_dof_drive_mode=gymapi.DOF_MODE_NONE
+                    opt.flip_visual_attachments=args.calm_no_self_collision
                     asset=g.load_asset(sim,str(model.parent),model.name,opt);assert asset is not None
                     env=g.create_env(sim,gymapi.Vec3(-2,-2,0),gymapi.Vec3(2,2,2),1)
                     ep=raw['episodes'][index];pose=gymapi.Transform()
                     xyz=ep['root_pos'][0].numpy().copy();xyz[:2]=0
                     quat=ep['root_rot'][0].numpy() if controller=='LLC' else np.array([0,0,0,1])
                     pose.p=gymapi.Vec3(*xyz) if controller=='LLC' else gymapi.Vec3(0,0,.35);pose.r=gymapi.Quat(*quat)
-                    actor=g.create_actor(env,asset,pose,'menagerie_a1',0,0)
+                    actor=g.create_actor(env,asset,pose,'evaluated_a1',0,collision_filter)
                     names=g.get_actor_rigid_body_names(env,actor);joint_names=g.get_actor_dof_names(env,actor)
                     assert joint_names==original_joints
                     ds=np.zeros(12,dtype=gymapi.DofState.dtype)
@@ -144,7 +152,7 @@ def main():
                     g.set_actor_dof_states(env,actor,ds,gymapi.STATE_ALL)
                     props=g.get_actor_dof_properties(env,actor);props['driveMode'].fill(gymapi.DOF_MODE_POS);props['stiffness'].fill(40);props['damping'].fill(1.5);props['effort'].fill(15);g.set_actor_dof_properties(env,actor,props);g.set_actor_dof_position_targets(env,actor,ds['pos'].copy())
                     cp=gymapi.CameraProperties();cp.width=960;cp.height=544;camera=g.create_camera_sensor(env,cp);assert camera>=0;g.prepare_sim(sim)
-                    root_id=names.index('trunk')
+                    root_id=names.index('base' if args.calm_no_self_collision else 'trunk')
                     if controller=='LLC':
                         initial=g.get_actor_rigid_body_states(env,actor,gymapi.STATE_ALL)
                         for field,values in [('linear',ep['root_vel'][0]),('angular',ep['root_ang_vel'][0])]:
@@ -200,7 +208,9 @@ def main():
         key=next(k for k,l,_ in selected if l==result['motion']);video=out/(result['controller'].lower()+'_'+key)/'rollout.mp4'
         payload=base64.b64encode(video.read_bytes()).decode()
         cards.append('<section><h2>'+html.escape(result['controller']+' '+result['motion'])+'</h2><video controls muted playsinline src="data:video/mp4;base64,'+payload+'"></video><pre>'+html.escape(json.dumps(result,ensure_ascii=False,indent=2))+'</pre></section>')
-    (out/'report.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><title>Menagerie A1 정책 검증</title><style>body{max-width:1100px;margin:30px auto;font:17px system-ui;padding:15px}video{width:100%}pre{white-space:pre-wrap}section{margin:30px 0}</style><h1>Menagerie A1: LLC 여섯 동작과 HLC 네 방향</h1><p>원본 신경망 가중치를 엄격하게 로딩했습니다. 실제 몸체 13개에서 원래 관측의 가상 지점 23개를 구성했습니다. 질량·충돌 형상은 Menagerie 모델이며, 원래 학습 로봇과 동일한 조건은 아닙니다. 기록 종료 없이 실행됐다는 것만으로 정상 추종이라고 판정하지 않습니다. HLC에는 앉기·일어나기 명령이 없어 해당 두 동작은 LLC로 검사했습니다.</p>'+overview+''.join(cards)+'</html>',encoding='utf-8')
+    title=('CALM A1 자기 충돌 끔' if args.calm_no_self_collision else 'Menagerie A1')
+    details='기존 CALM A1의 실제 몸체 23개 관측을 그대로 사용했습니다. 바닥 충돌은 유지하고 로봇 부품 사이 자기 충돌만 껐습니다.' if args.calm_no_self_collision else '실제 몸체 13개에서 원래 관측의 가상 지점 23개를 구성했습니다. 질량·충돌 형상은 Menagerie 모델입니다.'
+    (out/'report.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><title>'+title+' 정책 검증</title><style>body{max-width:1100px;margin:30px auto;font:17px system-ui;padding:15px}video{width:100%}pre{white-space:pre-wrap}section{margin:30px 0}</style><h1>'+title+': LLC 여섯 동작과 HLC 네 방향</h1><p>원본 신경망 가중치를 엄격하게 로딩했습니다. '+details+' 원래 학습 환경과 물리 조건이 완전히 같은지는 별도 검증이 필요합니다. 기록 종료 없이 실행됐다는 것만으로 정상 추종이라고 판정하지 않습니다. HLC에는 앉기·일어나기 명령이 없어 해당 두 동작은 LLC로 검사했습니다.</p><p>LLC의 앉기·일어나기는 실제 최종 몸통 높이와 참고 모션의 최종 높이를 함께 확인해야 합니다. 참고 모션 길이 안에 목표 자세에 도달했는지는 실행 완료와 별개입니다.</p>'+overview+''.join(cards)+'</html>',encoding='utf-8')
 
 
 if __name__=='__main__':main()
