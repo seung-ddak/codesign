@@ -57,3 +57,17 @@ def test_random_commands_reject_invalid_inputs():
     import pytest
     for args in [(-1,), (0,0), (0,11), (0,10,float('nan')), (0,10,0)]:
         with pytest.raises(ValueError):m.smooth_random_commands(*args)
+
+
+def test_balanced_commands_have_exact_slot_allocation_and_continuous_boundaries():
+    from collections import Counter
+    counts=Counter()
+    for i in range(10):
+        a,segments=m.balanced_commands(0,i)
+        b,_=m.balanced_commands(0,i)
+        np.testing.assert_array_equal(a,b)
+        assert a.shape==(300,3) and np.isfinite(a).all()
+        assert np.linalg.norm(a[:,:2],axis=1).max()<=.6
+        np.testing.assert_allclose(a[149],a[150])
+        counts.update(x['kind'] for x in segments)
+    assert counts==dict(forward=6,backward=4,left=3,right=3,turn=3,stop_restart=1)

@@ -61,16 +61,46 @@ def smooth_random_commands(seed, seconds=10., dt=1/30):
     return np.asarray(commands),[dict(time=t,command=v.tolist()) for t,v in knots]
 
 
+def balanced_commands(seed, episode, dt=1/30):
+    """Twenty equal five-second slots implement the requested time allocation."""
+    import numpy as np
+    if seed<0 or not 0<=episode<10:raise ValueError('Expected nonnegative seed and episode 0..9')
+    rng=np.random.default_rng(seed)
+    schedule=np.array(['forward']*6+['backward']*4+['left']*3+['right']*3+['turn']*3+['stop_restart'])
+    rng.shuffle(schedule);rng=np.random.default_rng(seed+episode+1000)
+    commands=[];segments=[];previous=np.zeros(3)
+    for slot,kind in enumerate(schedule[episode*2:episode*2+2]):
+        speed=float(rng.uniform(.15,.6));yaw=previous[2]
+        angle={'forward':0.,'backward':np.pi,'left':np.pi/2,'right':-np.pi/2,'turn':0.,'stop_restart':0.}[kind]
+        transition=float(rng.uniform(1.,2.))
+        turn=float(rng.choice([-1,1])*rng.uniform(.15,.45)) if kind=='turn' else 0.
+        segments.append(dict(start=slot*5.,end=(slot+1)*5.,kind=str(kind),speed=speed,transition_seconds=transition,yaw_rate=turn))
+        for step in range(round(5/dt)):
+            t=step*dt;u=min(t/transition,1.);u=u*u*(3-2*u)
+            facing=yaw+turn*t
+            v=speed*np.array([np.cos(facing+angle),np.sin(facing+angle)])
+            if kind=='stop_restart':
+                # Stop for one second after deceleration, then restart forward.
+                u=min(max((t-2.)/transition,0.),1.);u=u*u*(3-2*u)
+                v=previous[:2]*(1-min(t/transition,1.)) if t<transition else v*u
+            else:v=previous[:2]*(1-u)+v*u
+            commands.append([*v,facing])
+        previous=np.asarray(commands[-1])
+    return np.asarray(commands),segments
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--rl-games-wheel',type=Path,required=True)
     p.add_argument('--random-episodes',type=int,default=0,help='Generate independent 10-second smooth random HLC episodes')
+    p.add_argument('--balanced',action='store_true',help='Ten episodes with exact 30/20/15/15/15/5 percent five-second slot allocation')
     p.add_argument('--seed',type=int,default=0)
     p.add_argument('--stand-seconds',type=float,help='Time-extension diagnostic for LLC stand-up only')
     p.add_argument('--calm-no-self-collision',action='store_true',help='Use untouched original CALM A1 with self-collision filter 1; ground contact remains enabled')
     sys.stdout.reconfigure(encoding='utf-8')
     args=p.parse_args()
+    if args.balanced and args.random_episodes!=10:p.error('--balanced requires --random-episodes 10')
     if args.random_episodes<0 or args.seed<0:p.error('Episode count and seed must be nonnegative')
     if args.random_episodes and (not args.calm_no_self_collision or args.stand_seconds is not None):p.error('Random collection requires --calm-no-self-collision and cannot combine with stand diagnostics')
     if args.stand_seconds is not None and (not math.isfinite(args.stand_seconds) or args.stand_seconds<=0):p.error('--stand-seconds must be finite and positive')
@@ -117,7 +147,7 @@ def main():
     if args.random_episodes:selected=[('random_%03d'%i,'연속 이동 %03d'%i,'v3_walkForwardSlow') for i in range(args.random_episodes)]
     if args.stand_seconds is not None:selected=[x for x in selected if x[0]=='stand']
     g=gymapi.acquire_gym()
-    manifest=dict(random_episodes=args.random_episodes,random_command_limits=dict(max_speed_mps=.6,knot_seconds=[1.,2.5],yaw_delta_rad=[-.7,.7],interpolation="smoothstep"),stand_seconds=args.stand_seconds,seed=args.seed,model=str(model),model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
+    manifest=dict(balanced=args.balanced,allocation_basis="equal five-second command slots including transitions",random_episodes=args.random_episodes,random_command_limits=dict(max_speed_mps=.6,knot_seconds=[1.,2.5],yaw_delta_rad=[-.7,.7],interpolation="smoothstep"),stand_seconds=args.stand_seconds,seed=args.seed,model=str(model),model_sha256=hashlib.sha256(model.read_bytes()).hexdigest(),
                   git_commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=project,text=True).strip(),
                   source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   checkpoint_sha256={n:hashlib.sha256((calm/'checkpoints'/n).read_bytes()).hexdigest() for n in ['lowLevelController.pth','highLevelPolicy.pth']},
@@ -160,7 +190,7 @@ def main():
                 index=raw['names'].index(name);length=float(library._motion_lengths[index]);duration=(args.stand_seconds if args.stand_seconds is not None else length) if controller=='LLC' else 10. if args.random_episodes else 5.
                 case=out/(controller.lower()+'_'+key);case.mkdir()
                 episode_seed=args.seed+selected.index((key,label,name))
-                command_sequence,knots=smooth_random_commands(episode_seed) if args.random_episodes else (None,None)
+                command_sequence,knots=(balanced_commands(args.seed,selected.index((key,label,name))) if args.balanced else smooth_random_commands(episode_seed)) if args.random_episodes else (None,None)
                 if knots is not None:(case/'commands.json').write_text(json.dumps(dict(seed=episode_seed,columns=['world_vx_mps','world_vy_mps','world_facing_yaw_rad'],knots=knots),indent=2),encoding='utf-8')
                 params=gymapi.SimParams();params.dt=1/60;params.substeps=2;params.up_axis=gymapi.UP_AXIS_Z;params.gravity=gymapi.Vec3(0,0,-9.81);params.physx.use_gpu=True;params.use_gpu_pipeline=False;params.physx.solver_type=1;params.physx.num_position_iterations=4;params.physx.num_velocity_iterations=0;params.physx.contact_offset=.02;params.physx.rest_offset=0
                 sim=g.create_sim(0,0,gymapi.SIM_PHYSX,params);assert sim is not None
@@ -274,9 +304,10 @@ def main():
         payload=base64.b64encode(video.read_bytes()).decode()
         cards.append('<section><h2>'+html.escape(result['controller']+' '+result['motion'])+'</h2><video controls muted playsinline src="data:video/mp4;base64,'+payload+'"></video><pre>'+html.escape(json.dumps(result,ensure_ascii=False,indent=2))+'</pre></section>')
     title=('CALM A1 자기 충돌 끔' if args.calm_no_self_collision else 'Menagerie A1')
-    heading='부드러운 무작위 연속 이동' if args.random_episodes else 'LLC 일어나기 시간 연장 진단' if args.stand_seconds is not None else 'LLC 여섯 동작과 HLC 네 방향'
+    heading='비율을 지정한 연속 이동' if args.balanced else '부드러운 무작위 연속 이동' if args.random_episodes else 'LLC 일어나기 시간 연장 진단' if args.stand_seconds is not None else 'LLC 여섯 동작과 HLC 네 방향'
     details='기존 CALM A1의 실제 몸체 23개 관측을 그대로 사용했습니다. 바닥 충돌은 유지하고 로봇 부품 사이 자기 충돌만 껐습니다.' if args.calm_no_self_collision else '실제 몸체 13개에서 원래 관측의 가상 지점 23개를 구성했습니다. 질량·충돌 형상은 Menagerie 모델입니다.'
     task_details='속도 목표는 최대 0.6 m/s이며 방향과 몸통 방향 목표를 무작위로 바꿉니다. 전환 구간은 1~2.5초이고 smoothstep으로 연결합니다. 상태는 T+1개, 행동과 명령은 T개를 저장합니다. 자기 관통 여부와 MJX 재현성은 검사하지 않았습니다.' if args.random_episodes else 'HLC에는 앉기·일어나기 명령이 없어 해당 두 동작은 LLC로 검사했습니다. LLC의 앉기·일어나기는 참고 모션의 최종 높이와 함께 확인해야 합니다.'
+    if args.balanced:task_details='동일 길이 5초 구간 20개를 전진 30%, 후진 20%, 왼쪽 15%, 오른쪽 15%, 전진 회전 15%, 정지·재출발 5%로 배정했습니다. 전환 시간도 해당 구간에 포함됩니다. 실제 동작 비율은 명령 비율과 다를 수 있습니다. 자기 충돌을 끈 조건이며 관통과 MJX 재현성은 미검증입니다.'
     (out/'report.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><title>'+title+' 정책 검증</title><style>body{max-width:1100px;margin:30px auto;font:17px system-ui;padding:15px}video{width:100%}pre{white-space:pre-wrap}section{margin:30px 0}</style><h1>'+title+': '+heading+'</h1><p>원본 신경망 가중치를 엄격하게 로딩했습니다. '+details+' 원래 학습 환경과 물리 조건이 완전히 같은지는 별도 검증이 필요합니다. 기록 종료 없이 실행됐다는 것만으로 정상 추종이라고 판정하지 않습니다. '+task_details+'</p>'+overview+''.join(cards)+'</html>',encoding='utf-8')
 
 
