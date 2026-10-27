@@ -53,6 +53,7 @@ def load_policy(workspace,wheel):
 def body_states(model,data):
     import mujoco
     names=['trunk']+[l+'_'+p for l in ['FL','FR','RL','RR'] for p in ['hip','thigh','calf']]
+    if model.nbody==24:names=['base','trunk']+[l+'_'+p for l in ['FL','FR','RL','RR'] for p in ['hip','thigh_shoulder','thigh','calf','foot']]+['imu_link']
     states=[]
     for name in names:
         b=model.body(name).id;vel=np.zeros(6);mujoco.mj_objectVelocity(model,data,mujoco.mjtObj.mjOBJ_XBODY,b,vel,0)
@@ -61,7 +62,7 @@ def body_states(model,data):
 
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--wheel',type=Path,required=True);a=p.parse_args();a.out.mkdir(parents=True,exist_ok=False)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--out',type=Path,required=True);p.add_argument('--wheel',type=Path,required=True);p.add_argument('--calm-model',action='store_true');a=p.parse_args();a.out.mkdir(parents=True,exist_ok=False)
     import mujoco,jax,jax.numpy as jnp,imageio.v2 as imageio
     from mujoco import mjx
     workspace=Path(__file__).resolve().parents[3];policy,joints=load_policy(workspace,a.wheel.resolve())
@@ -77,7 +78,13 @@ def main():
     for g in spec.geoms:
         if g.contype or g.conaffinity:
             g.contype=2 if g.name=='floor' else 1;g.conaffinity=1 if g.name=='floor' else 2;g.friction=[1,.005,.0001]
-    model=spec.compile();(a.out/'model.xml').write_text(spec.to_xml());mm=mjx.put_model(model)
+    model=spec.compile()
+    if a.calm_model:
+        from check_calm_mjx import build_model
+        model=build_model(workspace/'external/a1-calm-main/assets/urdf/a1_description/urdf/a1.urdf',a.out)
+        model.opt.timestep=1/600;model.opt.cone=mujoco.mjtCone.mjCONE_PYRAMIDAL;model.opt.impratio=1
+        spec=mujoco.MjSpec.from_file(str(a.out/'model.xml'));spec.option.timestep=1/600;spec.option.cone=mujoco.mjtCone.mjCONE_PYRAMIDAL;spec.option.impratio=1;model=spec.compile()
+    (a.out/'model.xml').write_text(spec.to_xml());mm=mjx.put_model(model)
     qa=np.array([model.jnt_qposadr[model.joint(n).id] for n in joints]);va=np.array([model.jnt_dofadr[model.joint(n).id] for n in joints])
     @jax.jit
     def advance(d,target):
@@ -101,8 +108,10 @@ def main():
         result=dict(episode=episode,seconds=n/30,termination=reason,resets=0,path_length_m=float(np.linalg.norm(np.diff(poses[:,:2],axis=0),axis=1).sum()),velocity_rmse_mps=float(np.sqrt(np.mean(np.sum((velocities[:,:2]-commands[:n,:2])**2,axis=1)))),final_height_m=float(poses[-1,2]));results.append(result)
         np.savez_compressed(a.out/f'episode_{episode:03d}.npz',qpos=poses,target_q=targets,command=commands[:n],velocity=velocities,dt=1/30,joint_names=joints)
         cards.append('<h2>구간 '+str(episode)+'</h2><video style="width:100%" controls muted playsinline src="data:video/mp4;base64,'+base64.b64encode(video.read_bytes()).decode()+'"></video><pre>'+json.dumps(result,indent=2)+'</pre>');print(json.dumps(result),flush=True)
-    renderer.close();summary=dict(contact_cone='pyramidal',impratio=1,joint_damping=0,joint_armature=0,joint_frictionloss=0,physics_dt=1/600,control_dt=1/30,source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),checkpoint_sha256={n:hashlib.sha256((workspace/'external/a1-calm-main/checkpoints'/n).read_bytes()).hexdigest() for n in ['lowLevelController.pth','highLevelPolicy.pth']},backend=str(jax.devices()),model='Menagerie native A1 MJCF',mass_kg=float(model.body_mass.sum()),self_collision=False,kp=40,kd=1.5,torque_limit_nm=15,policy='closed loop original HLC and LLC; 13 physical bodies mapped to 23 observations',results=results)
-    (a.out/'summary.json').write_text(json.dumps(summary,indent=2));(a.out/'report.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><body style="max-width:1000px;margin:auto"><h1>Menagerie A1 MJX 폐쇄 루프 무작위 이동</h1><p>매 제어 단계에서 MJX 현재 상태를 기존 HLC·LLC에 입력했습니다. 기존 비율 배정 명령 10개를 사용했습니다. 물리 간격은 1/600초, 제어 간격은 1/30초입니다. 접촉 원뿔은 pyramidal, impratio는 1이며 기본 관절 감쇠·마찰·armature를 제거하고 별도 PD를 사용했습니다. 자기 충돌은 껐으며 PD와 마찰 조건을 맞추기 위해 기본 Menagerie 구동 설정을 변경했습니다. 원래 학습 형상과 다르며 관측 지점 13개를 23개로 변환했습니다. 중간 초기화 없이 전도 시 해당 구간을 종료합니다.</p>'+''.join(cards)+'</body></html>')
+    renderer.close();summary=dict(command_seed=0,command_schedule='balanced_commands: 30/20/15/15/15/5 percent five-second slots including transitions',fall_definition='root height < 0.06 m or body up dot world up < 0; stop also on nonfinite',contact_cone='pyramidal',impratio=1,joint_damping=0,joint_armature=0,joint_frictionloss=0,physics_dt=1/600,control_dt=1/30,source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),checkpoint_sha256={n:hashlib.sha256((workspace/'external/a1-calm-main/checkpoints'/n).read_bytes()).hexdigest() for n in ['lowLevelController.pth','highLevelPolicy.pth']},backend=str(jax.devices()),model='Original CALM A1 URDF' if a.calm_model else 'Menagerie native A1 MJCF',mass_kg=float(model.body_mass.sum()),self_collision=False,kp=40,kd=1.5,torque_limit_nm=15,policy='closed loop original HLC and LLC',observation='23 physical bodies' if a.calm_model else '13 physical bodies mapped to 23 observations',results=results)
+    title='CALM 원본 A1' if a.calm_model else 'Menagerie A1'
+    adaptation='실제 몸체 23개의 관측을 그대로 입력했습니다.' if a.calm_model else '원래 학습 형상과 다르며 관측 지점 13개를 23개로 변환했습니다.'
+    (a.out/'summary.json').write_text(json.dumps(summary,indent=2));(a.out/'report.html').write_text('<!doctype html><html lang="ko"><meta charset="utf-8"><body style="max-width:1000px;margin:auto"><h1>'+title+' MJX 폐쇄 루프 무작위 이동</h1><p>매 제어 단계에서 MJX 현재 상태를 기존 HLC·LLC에 입력했습니다. 기존 비율 배정 명령 10개를 사용했습니다. 물리 간격은 1/600초, 제어 간격은 1/30초입니다. 접촉 원뿔은 pyramidal, impratio는 1이며 기본 관절 감쇠·마찰·armature를 제거하고 별도 PD를 사용했습니다. 자기 충돌은 껐으며 PD와 마찰 조건을 맞췄습니다. '+adaptation+' 중간 초기화 없이 전도 시 해당 구간을 종료합니다.</p>'+''.join(cards)+'</body></html>')
 
 
 if __name__=='__main__':main()

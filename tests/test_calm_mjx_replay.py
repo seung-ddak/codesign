@@ -38,3 +38,14 @@ def test_menagerie_body_observations_use_world_velocity_and_xyzw():
     mujoco.mj_integratePos(model,data.qpos,data.qvel,1e-7);mujoco.mj_forward(model,data)
     after,_=body_states(model,data)
     np.testing.assert_allclose((after[:,:3]-before[:,:3])/1e-7,before[:,7:10],atol=1e-7)
+
+
+def test_original_calm_closed_loop_uses_all_physical_body_states(tmp_path):
+    import sys
+    sys.path.insert(0,str(Path(__file__).parents[1]/'code/motion_tracking'))
+    from check_menagerie_mjx_policy import body_states
+    source=Path(__file__).parents[2]/'external/a1-calm-main/assets/urdf/a1_description/urdf/a1.urdf'
+    model=m.build_model(source,tmp_path);data=mujoco.MjData(model);data.qpos[2]=.35;mujoco.mj_forward(model,data)
+    physical,names=body_states(model,data)
+    assert physical.shape==(23,13) and names[:2]==['base','trunk'] and names[-1]=='imu_link'
+    for name,state in zip(names,physical):np.testing.assert_allclose(state[:3],data.xpos[model.body(name).id])
