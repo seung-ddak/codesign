@@ -1,51 +1,49 @@
-# CALM reference pipeline: reviewed implementation plan
+# CALM Reference 파이프라인: 구현 계획 검토
 
-## Decision and scope
+## 결정 사항과 작업 범위
 
-Use the existing CALM HLC/LLC and existing MJX multi-reference tracker. Do not retrain
-CALM, build a second tracker, or start 100-reference PPO before source-motion validation.
-Worktree/branch: codesign-calm / experiment/calm-reference-pipeline.
-Historical codesign runs and existing expert code remain untouched.
+기존 CALM의 HLC·LLC와 MJX의 다중 Reference 추종기를 재사용한다. 원본 모션의 유효성을 검증하기 전에는 CALM 재학습, 별도 추종기 개발, Reference 100개를 사용하는 PPO 학습을 시작하지 않는다.
 
-## Reuse and required corrections
+작업 트리와 브랜치는 각각 `codesign-calm`, `experiment/calm-reference-pipeline`이다. 기존 Co-design 실험 결과와 모션별 Expert 코드는 보존한다.
 
-| Component | Reuse | Required work before training |
+## 재사용할 기능과 학습 전 수정 사항
+
+| 구성 요소 | 재사용할 기능 | 학습 전 필요한 작업 |
 |---|---|---|
-| CALM HLC | HRLPlayer._compute_llc_action: remove task obs, LLC normalization, normalized latent, action clamp/rescale | Use exact c8 heading config and provided weights; record command before observation construction |
-| CALM commands | Existing target velocity/facing fields and training ranges (0..1 m/s) | RANDOM_CMD is piecewise constant, includes posture commands, and keyboard playback resets after done; it does not meet continuous smooth-motion collection requirements |
-| Reference conversion | pd_replay.retarget_tt and existing fix_* format | Isaac joint order FL/FR/RL/RR differs from MJCF FR/FL/RR/RL; xyzw -> wxyz; name-map joints; check FK equivalence before resampling; preserve time endpoints and use SLERP |
-| Multiple motions, single PPO | TrackMjxEnv already loads multiple clips, samples clips and observes future reference | Pass all stage clips to BOTH train/eval; do not create one PPO per clip |
-| RSI | Existing reset_with_traj uses matching pose/velocity | Existing loader accepts every frame; add offline joint-limit/penetration validation and valid-frame sampling before training. Set reset_qpos/reset_qvel=0 for first reference fidelity baseline |
-| Alignment | ref_off applies one SE(2) offset | switch_prob=0 for continuous captured clips; do not splice/re-align each step |
-| PPO entry point | train_rl_procedural, restore_ckpt | Current defaults multi_design=true; set false for e000. It appends topology to reference_dir; configure parent e000 directory accordingly |
-| Evaluation | eval_motions.py and existing rollout collector | Evaluate each clip from frame 0 for full duration, no auto-reset stitching. Report pose/velocity/feet/contact and per-reference metrics separately from reward |
-| Hard-clip sampling | clip_boost | Offline evaluation between stages; capped boost, replay mastered clips. No second online sampling subsystem needed initially |
-| Curriculum | existing checkpoint restore | Explicit stage clip lists of 20/50/100 and resume same network; gate from fixed metrics, not update counts. Define/freeze thresholds after Stage-1 diagnostics, before evaluating later stages |
+| CALM HLC | `HRLPlayer._compute_llc_action`의 Task 관측 제거, LLC 관측 정규화, 잠재벡터 정규화, 행동 제한·범위 변환 | 제공된 가중치와 c8 방향 제어 설정을 사용한다. 관측을 구성하기 전에 명령을 반영하고 기록한다. |
+| CALM 명령 | 기존 목표 속도·방향 필드와 학습 명령 범위인 0~1m/s | `RANDOM_CMD`는 구간별로 명령이 일정하고 자세 명령도 포함한다. 키보드 실행기는 종료 후 자동 초기화하므로, 그대로는 부드러운 연속 모션 수집 요구를 충족하지 못한다. |
+| Reference 변환 | `pd_replay.retarget_tt`와 기존 `fix_*` 형식 | Isaac Gym의 관절 순서 FL/FR/RL/RR과 MJCF의 FR/FL/RR/RL을 이름으로 매핑한다. Quaternion을 xyzw에서 wxyz로 바꾸고, 리샘플링 전에 순기구학(FK) 일치 여부를 확인한다. 시간축의 시작·끝을 보존하고 회전 보간에는 SLERP를 사용한다. |
+| 단일 PPO의 다중 모션 추종 | `TrackMjxEnv`의 다중 클립 로딩·샘플링과 미래 Reference 관측 | 각 단계의 전체 클립 목록을 학습·평가 환경 모두에 전달한다. 클립별 PPO를 별도로 만들지 않는다. |
+| Reference 상태 초기화(RSI) | 일관된 자세·속도를 적용하는 `reset_with_traj` | 현재 로더는 모든 프레임을 허용한다. 학습 전에 관절 한계·지면 관통을 오프라인으로 검사하고 유효 프레임만 샘플링하도록 해야 한다. 첫 추종 정확도 기준 실험에서는 `reset_qpos=0`, `reset_qvel=0`으로 설정한다. |
+| 좌표 정렬 | 평면 위치·Yaw 변환인 SE(2) 오프셋을 적용하는 `ref_off` | 연속 수집한 클립은 `switch_prob=0`으로 사용한다. 매 프레임 궤적을 이어 붙이거나 다시 정렬하지 않는다. |
+| PPO 학습 진입점 | `train_rl_procedural`, `restore_ckpt` | 현재 기본값인 `multi_design=true`를 e000 실험에서는 false로 바꾼다. 코드가 `reference_dir`에 topology를 덧붙이므로 e000 상위 경로를 이에 맞게 지정한다. |
+| 평가 | `eval_motions.py`와 기존 Rollout 수집기 | 각 클립의 0번 프레임부터 전체 길이를 평가한다. 자동 초기화 전후 구간을 연결하지 않는다. 자세·속도·발 위치·접촉과 Reference별 지표를 Reward와 분리해 보고한다. |
+| 추종이 어려운 클립의 샘플링 | `clip_boost` | 단계 사이에 오프라인으로 평가하고 가중치 상한을 둔다. 이미 추종 가능한 클립도 계속 학습한다. 초기에는 별도의 온라인 샘플링 시스템을 만들 필요가 없다. |
+| Curriculum | 기존 체크포인트 복원 기능 | 20/50/100개 단계별 클립 목록을 명시하고 같은 네트워크를 이어 학습한다. 업데이트 횟수가 아닌 고정된 평가 지표로 다음 단계 진입을 결정한다. Stage 1 진단 후, 후속 단계 평가 전에 기준을 확정한다. |
 
-## Current bounded verifier
+## 현재 구현한 제한 시간 검증기
 
-`code/motion_tracking/calm/verify_hlc.py` runs one original A1 environment, Default
-initialization, deterministic HLC and original LLC, native 30Hz control, 10s requested.
-Commands: forward -> turn -> lateral -> stop, smoothstep between bounded targets,
-zero requested pitch/roll. Heading and velocity are world-frame commands.
+`code/motion_tracking/calm/verify_hlc.py`는 원본 A1 환경 하나에서 `Default` 초기화, 결정론적 HLC, 원본 LLC를 사용한다. 제어 주기는 원본의 30Hz이며 요청 실행 길이는 10초다.
 
-The only environment overrides are episode time limit (to allow 10s), num_envs=1,
-and headless camera availability. Gains, limits, initial-state settings and termination
-conditions remain upstream. Original episodeLength=300 would time out just before
-10 seconds; increasing it is not fall suppression.
+명령은 전진 → 방향 전환 → 횡이동 → 정지 순서다. 제한된 목표값 사이를 smoothstep으로 부드럽게 전환하며, 목표 Pitch·Roll은 0으로 둔다. 이동 속도와 목표 방향은 월드 좌표계를 기준으로 지정한다.
 
-Each episode stores T+1 physical states and T applied actions, timestamps, commands,
-normalized HLC latent, actual clamped LLC action, PD target angles, DOF force-sensor
-readings, foot positions, net-force contact flags, names, quaternion convention,
-resolved configs, checkpoint hashes, seed, diagnostics, video and summary.
-Force-sensor readings are not asserted to be pure actuator torques, and net-foot-force
-contacts are not asserted to be foot-floor-only. Verify those definitions before TT use.
-No state is recorded across a reset; the first done terminates collection. Nonfinite
-states are saved as failed raw data and must be excluded from reference training.
-Exit 0 means continuous duration reached, 2 means episode failed, other errors are
-execution failures. Continuity alone does not approve command-tracking accuracy.
+환경에서 바꾸는 항목은 10초 실행을 허용하는 에피소드 제한 시간, `num_envs=1`, 화면 없이 실행할 때의 카메라 활성화뿐이다. 제어 이득, 한계값, 초기 상태 설정, 종료 조건은 원본을 유지한다. 기존 `episodeLength=300`은 10초 직전에 시간 제한으로 종료될 수 있어 늘린 것이며, 낙상 판정을 끄는 변경은 아니다.
 
-Run from this checkout (output path must be new):
+각 에피소드에는 다음 정보를 저장한다.
+
+- 물리 상태 T+1개와 실제 적용 행동 T개, 타임스탬프, 목표 명령
+- 정규화된 HLC 잠재벡터, 제한값을 적용한 실제 LLC 행동, PD 목표 관절각
+- 관절 힘 센서값, 발 위치, 발의 합력 기준 접촉 여부
+- 관절·몸체 이름과 Quaternion 순서
+- 적용 설정, 체크포인트 해시, seed, 진단값, 영상, 결과 요약
+
+힘 센서값이 순수한 액추에이터 토크라는 보장은 없다. 발의 합력으로 판정한 접촉도 발과 바닥 사이의 접촉만을 뜻하지는 않는다. TT 데이터로 사용하기 전에 이 정의를 확인해야 한다.
+
+초기화 전후를 연결한 상태 전이는 기록하지 않으며, 첫 종료 신호에서 수집을 멈춘다. NaN·Inf 등 유한하지 않은 상태는 실패 원본 데이터로 보존하되 Reference 학습에서는 제외해야 한다.
+
+종료 코드 0은 연속 실행 길이를 채웠다는 뜻이고, 2는 에피소드 실패를 뜻한다. 그 밖의 실행 오류는 별도로 구분한다. 연속 실행 성공만으로 명령 추종 정확도까지 통과한 것으로 보지 않는다.
+
+이 작업 트리에서 다음과 같이 실행한다. 출력 경로는 기존에 없는 새 경로여야 한다.
 
 ```bash
 LD_LIBRARY_PATH=/home/cgr-ugrad-2026/miniconda3/envs/rlgpu/lib \
@@ -53,30 +51,30 @@ LD_LIBRARY_PATH=/home/cgr-ugrad-2026/miniconda3/envs/rlgpu/lib \
   --calm-root ../external/a1-calm-main --out runs/calm_reference/hlc_verify_new --seed 0
 ```
 
-## Gate and deferred work
+## 통과 조건과 보류한 작업
 
-Both checkpoints load with 351 HLC state/task input, 343 LLC state input,
-117 AMP dimensions, 64 latent dimensions and 12 joint actions.
-Initial complete execution: 9 steps, 0.30s, terminated without reset; actual velocity
-opposes the initial forward command. This is not a valid 10s reference.
-Check terminal diagnostics and video; a termination does not by itself prove trunk fall.
-No gain/termination relaxation or checkpoint retraining is justified by this result.
+두 체크포인트는 다음 차원으로 정상 로딩된다.
 
-Next: confirm original checkpoint training config/asset/control provenance, inspect initial
-state and PD targets, and reproduce the failure through upstream keyboard player with
-matching commands. If the chain is correct, obtain the correct policy/config combination.
-Do not collect/approve 100 clips from repeatedly reset fragments.
+- HLC 상태·Task 입력: 351차원
+- LLC 상태 입력: 343차원
+- AMP 관측: 117차원
+- 잠재벡터: 64차원
+- 관절 행동: 12차원
 
-After passing continuity AND measured command fidelity: replace the deterministic command
-function with seeded, bounded smooth random command segments (reuse existing target fields),
-collect raw successes/failures, then rank successful full-duration clips using measured body-frame
-velocity, yaw rate, path curvature and acceleration. Use balanced motion families plus
-farthest-point selection within each family; refuse to claim 100 distinct clips when the
-valid population is smaller. Persist selection and provenance, keep all raw episodes.
-Do not synthesize missed displacement or feed failed source clips to PPO.
+검증기를 끝까지 실행한 첫 결과는 9스텝, 0.30초에 초기화 없이 종료됐다. 실제 속도는 초기 전진 명령과 반대 방향이었다. 따라서 유효한 10초 Reference가 아니다.
 
-Only then convert/retarget a few clips, verify FK/time/contact and valid RSI frames,
-run a small MJX multi-reference PPO smoke test, and extend to the requested 20/50/100 stages.
-Multi-E and reward-agnostic TT retraining remain separate later experiments. The proposed
-80:20 normal/failure transition sampler needs a fixed transition-level labeling convention,
-including valid prefixes in failed episodes, before implementation.
+종료 진단값과 영상을 함께 확인해야 한다. 종료 신호만으로 몸통 낙상이라고 단정할 수 없다. 이 결과를 이유로 제어 이득을 임의로 바꾸거나 종료 조건을 완화하거나 체크포인트를 재학습하지 않는다.
+
+다음으로 원래 체크포인트의 학습 설정·로봇 자산·제어 조건을 확인하고, 초기 상태와 PD 목표각을 점검한다. 원본 키보드 실행기에서도 같은 명령으로 실패를 재현한다. 연결 경로가 올바르다면 이에 맞는 정책·설정 조합을 확보해야 한다. 반복 초기화된 짧은 조각들을 연결해 100개 클립으로 수집하거나 승인하지 않는다.
+
+연속 실행과 실제 명령 추종 정확도를 모두 통과한 뒤에는 다음 순서로 진행한다.
+
+1. 결정론적 명령 함수를 seed가 지정된 부드러운 무작위 명령 구간으로 바꾼다. 기존 목표 필드를 재사용하고 명령 범위를 제한한다.
+2. 성공·실패 원본 에피소드를 모두 수집한다.
+3. 전체 길이를 정상 수행한 클립에 대해 실제 몸체 좌표계 속도, Yaw rate, 궤적 곡률, 가속도를 계산한다.
+4. 동작 유형별 균형을 맞추고 각 유형 안에서 최원점 샘플링(Farthest Point Sampling)으로 대표 클립을 선정한다. 유효 후보가 부족하면 서로 다른 클립 100개를 확보했다고 보고하지 않는다.
+5. 선정 목록과 데이터 출처를 저장하고 원본 에피소드는 모두 보존한다. 실제로 이동하지 못한 변위를 합성하거나 실패 원본 클립을 PPO의 모방 대상으로 넣지 않는다.
+
+그다음 소수 클립을 먼저 변환·리타겟팅하고, 순기구학·시간축·접촉 정보와 유효 RSI 프레임을 확인한다. 작은 MJX 다중 Reference PPO 실행 검증 후 요청한 20 → 50 → 100개 단계로 확장한다.
+
+여러 형상 E로의 확장과 Reward에 의존하지 않는 TT 재학습은 이후 별도 실험으로 진행한다. 제안된 정상·실패 상태 전이 80:20 샘플러는 구현 전에 상태 전이 단위의 라벨 기준을 확정해야 한다. 실패 에피소드 안에서 실패 이전에 정상적으로 수행된 구간을 어떻게 분류할지도 포함한다.
