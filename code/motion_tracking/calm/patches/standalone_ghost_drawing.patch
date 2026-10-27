@@ -1,0 +1,55 @@
+--- a/calm/ghost_skeleton_draw.py
++++ b/calm/ghost_skeleton_draw.py
+@@ -3,24 +3,35 @@
+ can reuse the exact same FK/drawing code. See ghost_debug_lines_test.py's docstring for why
+ this is drawn as viewer debug lines rather than a second physics actor."""
+ import math
+-import os
+-import sys
+ 
+ from isaacgym import gymapi  # noqa: F401 (kept for parity/possible future use, gymapi types not needed directly here)
+ 
+ import numpy as np
+ import torch
+ 
+-sys.path.insert(0, os.path.expanduser("~/project/calm-root/scripts"))
+-from csv_to_rollout_motion import rot_x, rot_y, quat_rotate, TRUNK_HALF_EXTENTS  # noqa: E402
+-
+-from isaacgym.torch_utils import quat_mul  # noqa: E402
++from isaacgym.torch_utils import quat_mul, quat_rotate  # noqa: E402
++
++# A1 trunk collision box half extents, from the bundled URDF.
++TRUNK_HALF_EXTENTS = (0.1335, 0.097, 0.057)
++
++
++def rot_x(angle):
++    c, s = torch.cos(angle), torch.sin(angle)
++    z, o = torch.zeros_like(angle), torch.ones_like(angle)
++    return torch.stack((o, z, z, z, c, -s, z, s, c), dim=-1).reshape(-1, 3, 3)
++
++
++def rot_y(angle):
++    c, s = torch.cos(angle), torch.sin(angle)
++    z, o = torch.zeros_like(angle), torch.ones_like(angle)
++    return torch.stack((c, z, s, z, o, z, -s, z, c), dim=-1).reshape(-1, 3, 3)
++
+ from utils import torch_utils  # noqa: E402
+ 
+ GHOST_Y_OFFSET = 0.8  # meters, so the ghost renders next to (not on top of) the policy character
+ 
+ # (hip_origin, mirror, dof_offset) -- dof_offset indexes into the sim's own dof_pos layout
+-# (SIM_DOF_ORDER in csv_to_rollout_motion.py: FL,FR,RL,RR each hip,thigh,calf).
++# (simulator order: FL,FR,RL,RR, each hip,thigh,calf).
+ LEGS = [
+     ("FL", (0.1805, 0.047, 0.0), 1.0, 0),
+     ("FR", (0.1805, -0.047, 0.0), -1.0, 3),
+@@ -49,8 +60,7 @@
+ CONTACT_COLOR = (1.0, 0.0, 0.0)   # a foot / knee sphere whose contact flag is set
+ 
+ # Trunk collision box, from the same URDF's trunk link: <box size="0.267 0.194 0.114"/> at
+-# the root origin (TRUNK_HALF_EXTENTS is this /2, already defined in csv_to_rollout_motion.py
+-# for the rollBack ground-contact estimate).
++# the root origin (TRUNK_HALF_EXTENTS is this /2).
+ _HX, _HY, _HZ = TRUNK_HALF_EXTENTS
+ _SIGNS = (-1, 1)
+ TRUNK_EDGES = (
