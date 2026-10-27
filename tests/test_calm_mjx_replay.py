@@ -23,3 +23,18 @@ def test_model_and_initial_state_preserve_joint_mapping_and_frames(tmp_path):
     assert np.all(model.geom_conaffinity[robot]==2) and np.all(model.geom_conaffinity[floor]==1)
     restored=mujoco.MjModel.from_xml_path(str(tmp_path/'model.xml'))
     np.testing.assert_allclose(restored.body_mass,model.body_mass)
+
+
+def test_menagerie_body_observations_use_world_velocity_and_xyzw():
+    import sys
+    sys.path.insert(0,str(Path(__file__).parents[1]/'code/motion_tracking'))
+    from check_menagerie_mjx_policy import body_states
+    scene=Path(__file__).parents[2]/'transformer-transformer/assets/mjcf/unitree_a1/scene.xml'
+    model=mujoco.MjModel.from_xml_path(str(scene));data=mujoco.MjData(model)
+    data.qpos[:3]=[0,0,.35];data.qpos[3:7]=[np.cos(.3),0,0,np.sin(.3)];data.qvel[:6]=[.1,.2,.3,.4,.5,.6];mujoco.mj_forward(model,data)
+    before,names=body_states(model,data)
+    assert len(names)==13 and before.shape==(13,13)
+    np.testing.assert_allclose(before[0,3:7],[0,0,np.sin(.3),np.cos(.3)])
+    mujoco.mj_integratePos(model,data.qpos,data.qvel,1e-7);mujoco.mj_forward(model,data)
+    after,_=body_states(model,data)
+    np.testing.assert_allclose((after[:,:3]-before[:,:3])/1e-7,before[:,7:10],atol=1e-7)
