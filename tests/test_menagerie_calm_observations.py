@@ -38,3 +38,22 @@ def test_nonfinite_stand_duration_is_rejected_before_creating_output(tmp_path):
     assert result.returncode==2
     assert 'finite and positive' in result.stderr
     assert not output.exists()
+
+
+def test_random_commands_are_seeded_smooth_and_bounded():
+    a,knots=m.smooth_random_commands(7)
+    b,_=m.smooth_random_commands(7)
+    c,_=m.smooth_random_commands(8)
+    np.testing.assert_array_equal(a,b)
+    assert not np.array_equal(a,c)
+    assert a.shape==(300,3) and np.isfinite(a).all()
+    np.testing.assert_array_equal(a[0],[0,0,0])
+    assert np.linalg.norm(a[:,:2],axis=1).max()<=.6
+    assert np.linalg.norm(np.diff(a[:,:2],axis=0)*30,axis=1).max()<=1.8
+    assert np.abs(np.diff(a[:,2])*30).max()<=1.05
+    assert all(1<=y['time']-x['time']<=2.5 for x,y in zip(knots,knots[1:]))
+
+def test_random_commands_reject_invalid_inputs():
+    import pytest
+    for args in [(-1,), (0,0), (0,11), (0,10,float('nan')), (0,10,0)]:
+        with pytest.raises(ValueError):m.smooth_random_commands(*args)
