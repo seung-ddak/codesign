@@ -17,7 +17,7 @@ CALM dependencies. Prerequisites used by the existing
 - `../external/a1-calm-main/checkpoints/highLevelPolicy.pth`
 - `../external/a1-calm-main/calm/` source and network configs
 - `~/software/isaacgym/python/isaacgym/torch_utils.py` (pure torch helpers)
-- `runs/menagerie_calm_check_final/runtime/rl_games-1.1.4-py3-none-any.whl`
+- `runs/menagerie_calm_check/try4/runtime/rl_games-1.1.4-py3-none-any.whl`
 - `../transformer-transformer/` for the TT `00000011` morphology generator
 
 If the wheel is elsewhere, use `--wheel /absolute/path/to/rl_games.whl`.
@@ -28,10 +28,12 @@ If the wheel is elsewhere, use `--wheel /absolute/path/to/rl_games.whl`.
 cd ~/quad_ws/codesign
 git fetch origin
 git switch experiment/calm-tt-e000-direct-mjx
+git pull --ff-only
 
-../transformer-transformer/.venv/bin/python \
+XLA_PYTHON_CLIENT_PREALLOCATE=false \
+../transformer-transformer/.venv/bin/python -u \
   code/motion_tracking/check_calm_tt_direct.py \
-  --out runs/calm_tt_direct_e000_smoke --episodes 1
+  --out runs/calm_tt_direct_e000/try1 --episodes 1
 ```
 
 ## Step 2: 10 episodes with varied commands
@@ -39,9 +41,10 @@ git switch experiment/calm-tt-e000-direct-mjx
 Do this **after** reviewing the one-episode logs and mappings.
 
 ```bash
-../transformer-transformer/.venv/bin/python \
+XLA_PYTHON_CLIENT_PREALLOCATE=false \
+../transformer-transformer/.venv/bin/python -u \
   code/motion_tracking/check_calm_tt_direct.py \
-  --out runs/calm_tt_direct_e000_10 --episodes 10
+  --out runs/calm_tt_direct_e000/try2 --episodes 10
 ```
 
 The episode command schedule is the existing seeded `balanced_commands`
@@ -54,7 +57,7 @@ actuator rating. Output directories may not already exist.
 
 - `summary.json`: episode length, termination, 10-second survival, command world
   XY velocity RMSE, path length, contact and slip diagnostics.
-- `report.html`: compact episode table.
+- `report_try1.html` / `report_try2.html`: episode result table, named after the output trial. Legacy output names not starting with `try` retain `report.html`.
 - `episode_000.npz` ...: actual MJX `qpos`, `qvel`, and `contact` at **T+1**
   states; applied CALM `target_q` / `action` and world-frame `command` at
   **T** control intervals, `E` (13 morphology coordinates), `time`, `valid`,
@@ -82,3 +85,21 @@ conventions before feeding it to the TT dataset loader.
 4. Passing is not proof of cross-morphology generalization. Before scaling to
    other morphologies, compare this with the existing MJX A1 closed-loop
    command-response baseline and verify action-dependent transition data.
+
+## 실행 시 확인할 사항
+
+- 기본 `python` 대신 위 프로젝트 전용 Python을 사용한다.
+- 출력 폴더는 프로그램이 생성하므로 미리 `mkdir`하지 않는다. 이미 실행했다면 다음 `tryN`을 사용한다.
+- 본 실험은 원본 CALM HLC·LLC를 고정한 직접 적용이다. 이전 PPO 추종 정책이나 리타겟팅 레퍼런스를 사용하지 않는다.
+- TT의 초기 자세는 home이며, 몸통 높이 6cm 미만 또는 몸통 위쪽 축의 수직 성분이 0 미만이면 종료한다. 이전 PPO 평가의 전도 기준과 다르므로 생존율을 그대로 비교하지 않는다.
+- 1회 시험이 끝나도 10개 명령 조합이나 형상 일반화를 검증한 것은 아니다.
+- GPU가 접근 가능한 터미널에서 실행한다. 최초 실행에는 JAX 컴파일 시간이 포함된다.
+
+## Local validation (2026-10-29)
+
+One episode with seed 0 and the default 15 N*m limit completed 300 control
+intervals (10 seconds) without resets on MJX GPU. World XY velocity RMSE was
+0.3921 m/s, exceeding the diagnostic 0.15 m/s threshold: survival demonstrated,
+command-following not approved. State/action records were checked for T+1/T
+alignment. This is one command sequence, not the ten-episode coverage test.
+If `try1` already exists locally, use the next unused `tryN` output directory.

@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 
 import numpy as np
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code/motion_tracking"))
 import check_calm_tt_direct as m
@@ -42,3 +43,18 @@ def test_observation_names_and_actions_are_in_calm_order():
     assert m.LEGS == ("FL", "FR", "RL", "RR")
     assert m.CALM_BODIES[0:2] == ["base", "trunk"]
     assert m.CALM_BODIES[-1] == "imu_link"
+
+
+def test_default_wheel_uses_the_organized_experiment_directory():
+    assert m.DEFAULT_WHEEL.relative_to(m.ROOT).as_posix() == (
+        "runs/menagerie_calm_check/try4/runtime/rl_games-1.1.4-py3-none-any.whl"
+    )
+
+
+@pytest.mark.parametrize("option", ["--speed-threshold", "--torque-limit"])
+def test_cli_rejects_nonfinite_limits(option, tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["check_calm_tt_direct.py", "--out", str(tmp_path / "new"), option, "nan"])
+    with pytest.raises(SystemExit) as exc:
+        m.main()
+    assert exc.value.code == 2
+    assert "Invalid torque or speed threshold" in capsys.readouterr().err

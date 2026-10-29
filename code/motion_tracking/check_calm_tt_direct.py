@@ -14,6 +14,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT.parent
+DEFAULT_WHEEL = ROOT / "runs/menagerie_calm_check/try4/runtime/rl_games-1.1.4-py3-none-any.whl"
 LEGS = ("FL", "FR", "RL", "RR")
 TT_LEG = {"FL": "left_leg", "FR": "right_leg", "RL": "left_leg_1", "RR": "right_leg_1"}
 CALM_BODIES = ["base", "trunk"] + [
@@ -242,7 +243,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--wheel", type=Path,
-                   default=ROOT / "runs/menagerie_calm_check_final/runtime/rl_games-1.1.4-py3-none-any.whl")
+                   default=DEFAULT_WHEEL)
     p.add_argument("--episodes", type=int, default=1, help="1 smoke test, 10 for balanced command coverage")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--torque-limit", type=float, default=15.0,
@@ -252,7 +253,8 @@ def main():
     args = p.parse_args()
     if not 1 <= args.episodes <= 10 or args.seed < 0:
         p.error("Use 1..10 episodes and a nonnegative seed")
-    if not 0 < args.torque_limit <= 33.5 or args.speed_threshold <= 0:
+    if (not np.isfinite(args.torque_limit) or not np.isfinite(args.speed_threshold)
+            or not 0 < args.torque_limit <= 33.5 or args.speed_threshold <= 0):
         p.error("Invalid torque or speed threshold")
     if not args.wheel.is_file():
         p.error(f"rl_games wheel missing: {args.wheel}")
@@ -333,7 +335,8 @@ def main():
             "<table border='1' cellpadding='8'><tr><th>Episode</th><th>종료</th><th>시간</th>"
             "<th>XY 속도 RMSE (m/s)</th><th>선별</th></tr>" + rows + "</table>"
             "<p>실제 물리 궤적/행동: episode_*.npz · 상세: summary.json</p></body></html>")
-    (args.out / "report.html").write_text(page, encoding="utf-8")
+    report_name = f"report_{args.out.name}.html" if args.out.name.startswith("try") else "report.html"
+    (args.out / report_name).write_text(page, encoding="utf-8")
     print("Saved:", args.out / "summary.json", "status:", summary["status"])
 
 
