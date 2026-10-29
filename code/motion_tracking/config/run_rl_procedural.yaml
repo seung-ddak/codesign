@@ -10,7 +10,13 @@ tau_scale: null  # 구형 실험용 배율; torque_limit 지정 시 최종 토�
 torque_limit: 33.5  # A1과 같은 12개 관절 토크 한계 (N·m); 이전 run 재평가 시 저장된 config 사용
 choice: "00000011"  # A1과 앞·뒤 무릎 굽힘 방향이 모두 같은 TT topology
 multi_design: true
-train_designs: [e000, e001, e002]  # e003은 미학습 morphology 평가용
+train_designs: [e000, e001, e002]
+eval_designs: [e003]
+eval_env:
+  clips: [standUp__r00]
+# 각 병렬 환경의 누적 제어 step. 에피소드 경계에서만 다음 범위를 허용한다.
+design_unlock_steps: [0, 3000, 9000]
+rollout_dir: null  # 경로 지정 시 성공/실패 전체 궤적 저장; 기본 학습은 디스크 기록 끔
 
 wandb:
   tags: null

@@ -6,6 +6,7 @@
 
 | 실험·시도 | 보고서 |
 |---|---|
+| calm_pilot_tracking/try4 | [형상 전이 보고서](calm_pilot_tracking/try4/report_try4.html) |
 | calm_balanced_mjx/try3 | [보고서](calm_balanced_mjx/try3/report_try3.html) |
 | calm_balanced_motion/try1 | [보고서](calm_balanced_motion/try1/report_try1.html) |
 | calm_mjx_closed_loop/try1 | [보고서](calm_mjx_closed_loop/try1/report_try1.html) |
@@ -56,3 +57,9 @@
 | pipeline_v1/task/track/try5 | [보고서](pipeline_v1/task/track/try5/report_try5.html) |
 | pipeline_v1/task/track/try6 | [보고서](pipeline_v1/task/track/try6/report_try6.html) |
 | pipeline_v1/diag/d4/try2 | [보고서](pipeline_v1/diag/d4/try2/report_try2.html) |
+
+
+
+[TT 30Hz 추종: try1 PD와 try2 PPO 비교](calm_pilot_tracking/try2/report_try2.html)
+
+[TT 추종 try3: 발·바닥 마찰 0.8→1.0 비교](calm_pilot_tracking/try3/report_try3.html)

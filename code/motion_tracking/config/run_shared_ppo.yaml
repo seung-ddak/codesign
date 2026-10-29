@@ -1,0 +1,31 @@
+defaults:
+  - run_rl_procedural
+  - _self_
+
+# 기존 30Hz 자료로 실행 가능한 설정. 100개 연속동작 데이터는 아직 생성하지 않음.
+train_designs: [e000, near_short, near_long]
+eval_designs: [e003, e008]
+design_unlock_steps: [0, 3000, 9000]
+render_final: false
+train:
+  num_envs: 32
+  batch_size: 32
+  num_eval_envs: 10
+  num_timesteps: 5242880
+  num_evals: 5
+  log_training_metrics: false
+  training_metrics_steps: 24576
+
+env:
+  reference_dir: ${hydra:runtime.cwd}/runs/calm_shared_ppo/reference_bank/e000
+  clips: [calm_random_001, calm_random_002, calm_random_004, calm_random_006]
+  ctrl_dt: 0.03333333333333333
+  sim_dt: 0.0033333333333333335
+  max_episode_length: 300
+
+eval_env:
+  reference_dir: ${env.reference_dir}
+  clips: [calm_random_007]
+  ctrl_dt: ${env.ctrl_dt}
+  sim_dt: ${env.sim_dt}
+  max_episode_length: ${env.max_episode_length}

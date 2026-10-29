@@ -75,31 +75,56 @@ def main(cfg):
 
     randomization_fn = None
 
-    env: MjxEnv = hydra.utils.instantiate(cfg.env, mj_model_fn=mj_model_fn)
-    # Load evaluation environment
-    eval_env: MjxEnv = hydra.utils.instantiate(cfg.eval_env, mj_model_fn=mj_model_fn)
     if cfg.get("multi_design"):
-        from multi_design import make_bank, randomize_bank, wrap_for_multi_design
+        from multi_design import make_bank, wrap_for_multi_design
 
         root = Path(cfg.env.reference_dir).parents[1]
         designs = json.loads((root / "designs.json").read_text())
+        from multi_design import validate_split
         design_names = list(cfg.train_designs)
-        if design_names[0] != "e000" or choice != designs["topology"]:
-            raise ValueError("Multi-design training requires e000 as base and matching topology")
-        design_envs = [env]
-        for name in design_names[1:]:
-            if name not in designs:
-                raise ValueError(f"Unknown design: {name}")
-            design_cfg = OmegaConf.create(OmegaConf.to_container(cfg.env, resolve=True))
-            design_cfg.reference_dir = str(root / name / choice)
-            design_envs.append(hydra.utils.instantiate(
-                design_cfg, mj_model_fn=functools.partial(build_model, choice=choice,
-                    uniforms=designs[name], kp=cfg.kp, tau_scale=cfg.get("tau_scale"),
-                    torque_limit=cfg.get("torque_limit"))))
-        bank = make_bank(design_envs, [designs[name] for name in design_names])
+        eval_names = list(cfg.eval_designs)
+        validate_split(design_names, eval_names, list(cfg.env.clips), list(cfg.eval_env.clips))
+        if choice != designs["topology"]:
+            raise ValueError("Multi-design training requires matching topology")
+
+        def build_bank(names, env_cfg, unlock_steps):
+            envs = []
+            for name in names:
+                if name not in designs:
+                    raise ValueError(f"Unknown design: {name}")
+                design_cfg = OmegaConf.create(OmegaConf.to_container(env_cfg, resolve=True))
+                design_cfg.reference_dir = str(root / name / choice)
+                for clip in design_cfg.clips:
+                    import numpy as np
+                    path = Path(design_cfg.reference_dir) / (clip + ".npz")
+                    with np.load(path) as ref:
+                        if "uniforms" not in ref or not np.allclose(ref["uniforms"], designs[name], rtol=0, atol=1e-7):
+                            raise ValueError(f"Reference E mismatch: {path}")
+                        if not all(np.isfinite(ref[k]).all() for k in ["fix_q", "fix_base_pos", "fix_base_quat"]):
+                            raise ValueError(f"Nonfinite reference: {path}")
+                candidate = hydra.utils.instantiate(design_cfg, mj_model_fn=functools.partial(
+                    build_model, choice=choice, uniforms=designs[name], kp=cfg.kp,
+                    tau_scale=cfg.get("tau_scale"), torque_limit=cfg.get("torque_limit")))
+                for path in candidate.reference_files:
+                    with np.load(path) as ref:
+                        q = ref["fix_q"]
+                        if np.any(q < np.asarray(candidate._lowers) - 1e-5) or np.any(q > np.asarray(candidate._uppers) + 1e-5):
+                            raise ValueError(f"Reference violates joint limits: {path}")
+                envs.append(candidate)
+            bank = make_bank(envs, [designs[name] for name in names])
+            if len(unlock_steps) != len(names) or min(unlock_steps) < 0 or 0 not in unlock_steps:
+                raise ValueError("Each design needs a nonnegative unlock step; at least one starts at zero")
+            bank["unlock_steps"] = list(unlock_steps)
+            return envs[0], bank
+
+        env, bank = build_bank(design_names, cfg.env, list(cfg.design_unlock_steps))
+        eval_env, eval_bank = build_bank(eval_names, cfg.eval_env, [0] * len(eval_names))
+        bank["rollout_dir"] = cfg.get("rollout_dir")
         env.design_bank = bank
-        eval_env.design_bank = bank
-        randomization_fn = functools.partial(randomize_bank, bank)
+        eval_env.design_bank = eval_bank
+    else:
+        env = hydra.utils.instantiate(cfg.env, mj_model_fn=mj_model_fn)
+        eval_env = hydra.utils.instantiate(cfg.eval_env, mj_model_fn=mj_model_fn)
 
     def randomization_obs_fn(model: mjx.Model):
         extra_obs = []
