@@ -62,6 +62,7 @@ def evaluate_one(cfg, policy, reference_root_dir, design, E, clip, seed):
     morph_obs = jnp.asarray(E, dtype=jnp.float32)
 
     state = env.reset_with_traj(jax.random.PRNGKey(seed), jnp.int32(0), env.clip_start[0])
+    ref_qpos_host = np.asarray(env.ref_qpos)
 
     def advance(s, key):
         obs = jnp.concatenate((s.obs, morph_obs))
@@ -83,7 +84,7 @@ def evaluate_one(cfg, policy, reference_root_dir, design, E, clip, seed):
             break
         native = mjx.get_data(model, snapshot)
         native = native[0] if isinstance(native, (list, tuple)) else native
-        r = np.asarray(env.ref_qpos)[int(np.asarray(state.info["frame"]))]
+        r = ref_qpos_host[int(np.asarray(state.info["frame"]))]
         ghost.qpos[:] = r
         mujoco.mj_forward(model, ghost)
         _, slip = foot_contacts(model, native, feet, planes)
@@ -185,6 +186,12 @@ def main():
             row["train_motion"] = clip in cfg.env.clips
             rows.append(row)
             print(json.dumps(row, ensure_ascii=False), flush=True)
+    (args.out / "conditions.json").write_text(
+        json.dumps({"checkpoint": str(args.checkpoint.resolve()), "seed": args.seed,
+                    "designs": designs, "clips": clips, "ctrl_dt": 1 / 30,
+                    "physics_dt": 1 / 300, "source": "native MJX 10s first-frame evaluation"},
+                   ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     (args.out / "metrics.json").write_text(
         json.dumps(rows, ensure_ascii=False, indent=2, allow_nan=False), encoding="utf-8"
     )

@@ -33,3 +33,10 @@ def test_survivors_only_and_permissive_complete():
     out = assess(rows, ["short"])
     assert out["passed"]
     assert out["designs"]["short"]["survivor_means"]["body_position_rmse_m"] == .08
+
+
+def test_nonfinite_values_never_promote():
+    rows = [row("short", body=float("nan")) for _ in range(4)]
+    result = assess(rows, ["short"])
+    assert not result["passed"]
+    assert any("invalid" in issue for issue in result["designs"]["short"]["issues"])
