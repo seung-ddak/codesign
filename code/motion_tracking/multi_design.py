@@ -142,22 +142,34 @@ class EpisodeDesignReset(Wrapper):
         terminal = self.env.step(state, action)
         if self.rollout_dir:
             self.record(terminal, previous_qpos, previous_qvel, action)
-        # Reset uses the new curriculum age and the matching model/reference together.
-        fresh = self.design_env.reset(keys[:, 0], elapsed)
-        fresh.info["steps"] = jnp.zeros_like(terminal.info["steps"])
-        fresh.info["truncation"] = jnp.zeros_like(terminal.info["truncation"])
-        def select(x, y):
-            mask = terminal.done.reshape(terminal.done.shape + (1,) * (x.ndim - terminal.done.ndim))
-            return jnp.where(mask, x, y)
-        info = {k: jax.tree.map(select, fresh.info[k], v) if k in fresh.info else v
-                for k, v in terminal.info.items()}
+        # Most steps do not finish an episode: avoid MJX forward/reset for the whole
+        # batch unless at least one environment actually terminates.
+        def reset_finished(current):
+            fresh = self.design_env.reset(keys[:, 0], elapsed)
+            fresh.info["steps"] = jnp.zeros_like(current.info["steps"])
+            fresh.info["truncation"] = jnp.zeros_like(current.info["truncation"])
+
+            def select(x, y):
+                mask = current.done.reshape(current.done.shape + (1,) * (x.ndim - current.done.ndim))
+                return jnp.where(mask, x, y)
+
+            info = {k: jax.tree.map(select, fresh.info[k], v) if k in fresh.info else v
+                    for k, v in current.info.items()}
+            if self.rollout_dir:
+                for name in ("rollout_qpos", "rollout_qvel", "rollout_next_qpos", "rollout_next_qvel", "rollout_action", "rollout_ctrl"):
+                    info[name] = select(jnp.zeros_like(info[name]), info[name])
+            return current.replace(
+                data=jax.tree.map(select, fresh.data, current.data),
+                obs=select(fresh.obs, current.obs),
+                info=info,
+            )
+
+        terminal = jax.lax.cond(jnp.any(terminal.done.astype(jnp.bool_)),
+                                reset_finished, lambda current: current, terminal)
+        info = dict(terminal.info)
         info["design_elapsed"] = elapsed
         info["design_rng"] = keys[:, 1]
-        if self.rollout_dir:
-            for name in ("rollout_qpos", "rollout_qvel", "rollout_next_qpos", "rollout_next_qvel", "rollout_action", "rollout_ctrl"):
-                info[name] = select(jnp.zeros_like(info[name]), info[name])
-        return terminal.replace(data=jax.tree.map(select, fresh.data, terminal.data),
-                                obs=select(fresh.obs, terminal.obs), info=info)
+        return terminal.replace(info=info)
 
 
     def init_recording(self, state):

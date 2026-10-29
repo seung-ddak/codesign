@@ -2,18 +2,21 @@ defaults:
   - run_rl_procedural
   - _self_
 
-# try4에 준비된 30Hz 자료. e000 및 100개 연속동작 자료는 아직 없음.
+# Stage 1: only near_short. Advance to near_long/near_body ONLY after
+# 10-second full-horizon evaluation passes shared_ppo_gate.py.
+# Re-run from the saved checkpoint with [0,0,2147483647] then [0,0,0].
+# The observation always includes E, so the network input shape stays fixed.
 train_designs: [near_short, near_long, near_body]
 eval_designs: [e003, e008]
-design_unlock_steps: [0, 3000, 9000]
+design_unlock_steps: [0, 2147483647, 2147483647]
 render_final: false
 train:
   num_envs: 32
   batch_size: 32
   num_eval_envs: 10
-  num_timesteps: 5242880
-  num_evals: 5
-  log_training_metrics: false
+  num_timesteps: 393216  # mid-scale gate stage, not a full 5.2M run
+  num_evals: 9
+  log_training_metrics: true
   training_metrics_steps: 24576
 
 env:

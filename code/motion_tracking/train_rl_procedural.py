@@ -215,17 +215,26 @@ def main(cfg):
                 step=current_step,
             )
 
-    # Progress function for logging
+    # Save the raw metrics available from this PPO implementation; never
+    # fabricate KL or individual loss values when the learner omits them.
+    metric_path = Path(wandb.run.dir) / "training_metrics.jsonl"
+
     def progress(num_steps, metrics):
-        has_nan_metrics = any(jnp.isnan(v) for v in jax.tree_util.tree_leaves(metrics))
+        import numpy as np
+
+        if any(not bool(jnp.all(jnp.isfinite(v))) for v in jax.tree_util.tree_leaves(metrics)):
+            raise ValueError(f"Nonfinite PPO metric at step {num_steps}")
+        values = {}
+        for key, value in metrics.items():
+            arr = np.asarray(value)
+            if arr.size == 1:
+                values[str(key)] = float(arr.reshape(-1)[0])
+        with metric_path.open("a", encoding="utf-8") as fp:
+            fp.write(json.dumps({"step": int(num_steps), **values}, ensure_ascii=False) + "\n")
         wandb.log(metrics, step=num_steps)
-        if has_nan_metrics:
-            print(f"[{num_steps:06d}] NaN metrics detected")
-            # terminate the training
-            raise ValueError("NaN metrics detected")
         print("-" * 40 + f"{num_steps}" + "-" * 40)
-        for k, v in metrics.items():
-            print(f"{k}: {v}")
+        for key, value in metrics.items():
+            print(f"{key}: {value}")
         print("-" * 80)
 
     # restore_ckpt: 이전 run checkpoint (normalizer·policy·value) 에서 이어 학습 (사용자 결정 2026-10-12)
