@@ -57,3 +57,19 @@ def test_runner_stops_and_comments_on_first_failure(tmp_path,monkeypatch):
     assert [e['status'] for e in state['events']]==['FAIL'] and comments==['collect']
     assert state['not_run']==m.STAGES[1:]
     m.main();assert comments==['collect']
+
+
+def test_save_serializes_numpy_feature_values_and_stays_strict(tmp_path):
+    import json
+    path=tmp_path/'selection.json'
+    features=[[np.float32(.25),np.float64(.5),np.int64(3),np.array([1.,2.],dtype=np.float32)]]
+    m.save(path,{'features':features,'selected_indices':[np.int64(0)]})
+    recorded=json.loads(path.read_text())
+    assert recorded['features'][0][0]==pytest.approx(.25)
+    assert recorded['features'][0][2]==3
+    assert recorded['features'][0][3]==[1.,2.]
+    assert recorded['selected_indices']==[0]
+    with pytest.raises(ValueError):
+        m.save(path,{'bad':np.float32(np.nan)})
+    with pytest.raises(TypeError):
+        m.save(path,{'bad':object()})
