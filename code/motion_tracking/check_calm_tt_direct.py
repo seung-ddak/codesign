@@ -149,15 +149,13 @@ def metrics(qpos, qvel, contact, foot_pos, commands, dt, reason, speed_threshold
     )
 
 
-def run_episode(model, mjx_model, policy, joint_names, qa, va, mapping, commands,
-                dt, torque_limit):
+def make_advance(model, mjx_model, qa, va, torque_limit):
+    """Compile MJX stepper once and reuse across episodes."""
     import jax
     import jax.numpy as jnp
-    import mujoco
     from mujoco import mjx
+    va_jax, qa_jax = jnp.asarray(va), jnp.asarray(qa)
 
-    va_jax = jnp.asarray(va)
-    qa_jax = jnp.asarray(qa)
     @jax.jit
     def advance(state, target):
         def substep(_, s):
@@ -166,6 +164,14 @@ def run_episode(model, mjx_model, policy, joint_names, qa, va, mapping, commands
             force = jnp.zeros(model.nv).at[va_jax].set(tau)
             return mjx.step(mjx_model, s.replace(qfrc_applied=force))
         return jax.lax.fori_loop(0, 20, substep, state)
+    return advance
+
+
+def run_episode(model, policy, joint_names, qa, va, mapping, commands, dt,
+                torque_limit, advance):
+    import jax.numpy as jnp
+    import mujoco
+    from mujoco import mjx
 
     cpu = mujoco.MjData(model)
     cpu.qpos[:] = model.key("home").qpos
@@ -272,12 +278,14 @@ def main():
     mapping = check_body_mapping(model)
     joint_names, qa, va = joint_addresses(model)
     mjx_model = mjx.put_model(model)
+    advance = make_advance(model, mjx_model, qa, va, args.torque_limit)
     args.out.mkdir(parents=True, exist_ok=False)
     results = []
     for ep in range(args.episodes):
         commands, segments = balanced_commands(args.seed, ep)
-        d, reason = run_episode(model, mjx_model, policy, joint_names,
-                                qa, va, mapping, commands, 1 / 30, args.torque_limit)
+        d, reason = run_episode(model, policy, joint_names,
+                                qa, va, mapping, commands, 1 / 30,
+                                args.torque_limit, advance)
         np.savez_compressed(args.out / f"episode_{ep:03d}.npz", **d)
         result = metrics(d["qpos"], d["qvel"], d["contact"], d["foot_pos"],
                          d["command"], 1 / 30, reason, args.speed_threshold)
