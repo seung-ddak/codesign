@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'code/motion_tracking'))
 from notify_selected_experts import post, TOKEN_FILE
 
-OUT = Path('runs/pipeline_v1/tt/h32_try4_cgr')
+OUT = Path('runs/pipeline_v1/tt/h32/try7')
 BRANCH = 'experiment/h32_try4_cgr'
 FLAGS = ['--horizon', '32', '--steps', '100000', '--batch', '32', '--lr', '0.0002',
          '--d-model', '256', '--layers', '6', '--diff-steps', '5', '--norm', 'minmax',

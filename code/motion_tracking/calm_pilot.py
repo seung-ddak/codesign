@@ -111,7 +111,7 @@ def worker(stage,out):
     python=ROOT.parent/'transformer-transformer/.venv/bin/python'
     if stage=='collect':
         env=os.environ.copy();env.update(PYTHONUTF8='1',PYTHONDONTWRITEBYTECODE='1',LD_LIBRARY_PATH=str(Path.home()/'miniconda3/envs/rlgpu/lib'))
-        cmd=[Path.home()/'miniconda3/envs/rlgpu/bin/python','-u',CODE/'eval_menagerie_calm.py','--out',out/'collection','--rl-games-wheel',ROOT/'runs/menagerie_calm_check_final/runtime/rl_games-1.1.4-py3-none-any.whl','--calm-no-self-collision','--random-episodes','10','--balanced','--seed','100']
+        cmd=[Path.home()/'miniconda3/envs/rlgpu/bin/python','-u',CODE/'eval_menagerie_calm.py','--out',out/'collection','--rl-games-wheel',ROOT/'runs/menagerie_calm_check/try4/runtime/rl_games-1.1.4-py3-none-any.whl','--calm-no-self-collision','--random-episodes','10','--balanced','--seed','100']
         run_command(cmd,out/'collect_execution.log',env)
         rows=json.loads((out/'collection/summary.json').read_text());ok=sum(r['termination']=='duration' and r['resets']==0 for r in rows)
         return dict(status='PASS' if ok==10 else 'FAIL',summary=f'수집 {len(rows)}개, 10초 완료 {ok}개. 이는 기록 완료이며 완벽한 명령 추종 승인은 아닙니다.',count=len(rows),completed=ok)

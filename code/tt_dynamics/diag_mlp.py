@@ -3,7 +3,7 @@
 TT (train_tt.py) 와 같은 특징·같은 train/val 분할을 쓰고, 같은 지표로 비교한다.
   - 단일 window: 검증 episode 시작점 8 개, 실제 s0 에서 실제 action 으로 31 step open-loop (TT --diag 와 같은 지표)
   - 전체 episode: 검증 episode 앞 64 개, 500 step open-loop (TT eval_dynamics 와 같은 지표)
-usage (codesign/ 에서): CUDA_VISIBLE_DEVICES=0 ../transformer-transformer/.venv/bin/python code/tt_dynamics/diag_mlp.py --out runs/pipeline_v1/tt/mlp_try1
+usage (codesign/ 에서): CUDA_VISIBLE_DEVICES=0 ../transformer-transformer/.venv/bin/python code/tt_dynamics/diag_mlp.py --out runs/pipeline_v1/tt/mlp/try1
 """
 
 import argparse

@@ -113,7 +113,7 @@
 
 ### 8-6. track_try1 진단 A (TT 예측 vs MJX, 32 step window 증분, 2026-10-18)
 - 결론: dynamics 원인 확정. scale 0 회전 window yaw 오차 19.5° vs 직진 5.8° (3.4 배, 기준 2 배). TT 는 회전 Δyaw 13.5° 예측, MJX 실제 3.5°. yaw 방향 일치 55~65%.
-- 직진 window 에서도 MJX 는 window 당 +3.7° 좌편향, TT 는 0.2° 예측. 코드 `code/tt_dynamics/diag_task.py`, 결과 `runs/pipeline_v1/task/track_try1/diag_task.json`.
+- 직진 window 에서도 MJX 는 window 당 +3.7° 좌편향, TT 는 0.2° 예측. 코드 `code/tt_dynamics/diag_task.py`, 결과 `runs/pipeline_v1/task/track/try1/diag_task.json`.
 
 ### 8-7. zigzag_try1 + 형상 비교 (2026-10-18, 원형 대비 보상만 변경: 진폭 0.3 m·주기 2 m·반폭 0.15 m)
 - 결론: 형상 E 가 task 에 반응하지 않는다. 원형 vs 지그재그 평균 E 거리 0.0013 (학습 형상 간 0.95~1.15), 전부 e000 근방. scale 10 예측 2.14 m vs MJX 0.41 m.
@@ -153,7 +153,7 @@
 
 ### 8-15. 진단 D4 형상 민감도 (2026-10-19, 같은 s0·A 에 E 만 교체, TT vs MJX Δ)
 - 결론: 판정 B. 높이 Δ 만 맞고 (r 0.47~0.68, 기울기 ≈ 1), 전진·yaw·pitch Δ 는 TT 가 거의 0 (기울기 0.01~0.27). 다른 형상 E 를 넣으면 오차 2 배 (전진 6.2 → 12.4 cm). ckpt try4·try6 동일.
-- 코드 `code/tt_dynamics/diag_shape.py`, 결과 `runs/pipeline_v1/diag/d4_try1{,_ckpt4}/`.
+- 코드 `code/tt_dynamics/diag_shape.py`, 결과 `runs/pipeline_v1/diag/d4/try1{,_ckpt4}/`.
 
 ### 8-16. guidance gradient 진단 (2026-10-19, h32_try6, generate_task 첫 window 재현 PASS)
 - 결론: diff_steps 5 에서 ᾱ = [0.899, 0.648, 0.341, 0.094, 0.0001], 첫 step 은 clamp 포화로 무의미. 형상은 k=3 에서 결정 (최종과 7/8 일치), 이후 network 가 학습점 쪽으로 0.1~0.3 당기고 guidance (0.09 → 0.007) 는 그보다 작다.
@@ -161,7 +161,7 @@
 
 ### 8-17. 진단 D5 행동 민감도 (2026-10-19, `diag_shape.py --vary A --offset 0.1`, 175 window)
 - 결론: 가설 확인, TT 가 A 를 거의 무시. offset A 에 TT 반응 = MJX 실제 Δ 의 6~10 % (기울기 0.01~0.04), swap A 24~33 % (yaw 상관 0.02). 높이만 0.66.
-- 원인 가설: 데이터 A = π(S) 라 A 가 중복 정보. E 도 같은 구조 (D4). 해결 후보 = 반사실 쌍 데이터 (같은 s0 에 A offset·swap·E swap 을 MJX open-loop 32 step, diag_shape mjx_run 재사용). 결과 `runs/pipeline_v1/diag/d5_try1/`.
+- 원인 가설: 데이터 A = π(S) 라 A 가 중복 정보. E 도 같은 구조 (D4). 해결 후보 = 반사실 쌍 데이터 (같은 s0 에 A offset·swap·E swap 을 MJX open-loop 32 step, diag_shape mjx_run 재사용). 결과 `runs/pipeline_v1/diag/d5/try1/`.
 
 ### 8-18. 다음 계획: 재계획 실행 (2026-10-19, 사용자 우선순위 = 지금 나온 E 로 복합 작업부터 성공)
 - 원인: `generate_task.py` 는 10 s 를 TT 상상으로 한 번에 생성 후 MJX open-loop 실행 → window 16 개에 TT 오차 누적 (실제 진행 ≈ 0).
@@ -194,7 +194,7 @@
 - 기존 wide16에서 관찰된 후반 정책 붕괴에 대응해 낮은 PPO 학습률과 학습 형상 기반 중간 체크포인트 선택을 적용한 재학습은 `runs/pipeline_v1/experts_wide16_v2/README.md` 참조. 기존 결과를 덮어쓰지 않는다.
 
 ### 8-24. e_rest_s0 smoke 렌더 + 근본 원인 진단 (2026-10-25, v4 ckpt, zigzag 2 s, 후보 4)
-- 결론: gate 9/9 PASS 이나 scale 0 예측-MJX 경로 차 0.21~0.83 m, MJX R 전부 음수. 렌더 재실행(seed 재현 동일) `runs/pipeline_v1/fast_mode24_v4_e_rest_s0_try1/report.html`.
+- 결론: gate 9/9 PASS 이나 scale 0 예측-MJX 경로 차 0.21~0.83 m, MJX R 전부 음수. 렌더 재실행(seed 재현 동일) `runs/pipeline_v1/fast_mode24_v4_e_rest_s0/try1/report.html`.
 - 배제: 실행 parity 정상 (데이터 target_q 재생 오차 0, 0.03 rad 노이즈 2 s 오차 3~5 cm, 낙상 0). zigzag 는 데이터 분포 안 (19 모션). Mode 4 E loss 정상.
 - 발견: home S0 가 데이터 분포 밖 (몸통 z p0~2 %, 관절 최근접 0.34~0.53 rad, 데이터에 관절 정지 0 %), guidance 가 생성 S 에 직접 gradient (S_l2 64 ≫ A_l2 13).
 

@@ -11,7 +11,7 @@
 
 usage (codesign/ 에서):
   CUDA_VISIBLE_DEVICES=0 MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false ../transformer-transformer/.venv/bin/python \
-      code/tt_dynamics/generate_task.py --out runs/pipeline_v1/task/track_try1
+      code/tt_dynamics/generate_task.py --out runs/pipeline_v1/task/track/try1
 """
 
 import argparse
@@ -44,6 +44,7 @@ from rollout_data import E_DIM, S_DIM, X_DIM, features  # noqa: E402
 from s0_geometry import s0_to_q  # noqa: E402
 from initial_geometry_gate import bounded_lift, classify_initial_support  # noqa: E402
 from t2.mjx_env.base_env import make_data, step  # noqa: E402
+from obstacle_task import ObstacleReward, add_pole, envelope_radius, pole_contact
 from task_reward import StraightReward, TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
 from tt_model import Net, check_fixed_e_rest_checkpoint, check_free_checkpoint, check_rest_checkpoint, condition_masks, rest_s0, schedule, unbase  # noqa: E402
@@ -51,21 +52,24 @@ from tt_model import Net, check_fixed_e_rest_checkpoint, check_free_checkpoint, 
 EP, FOOT_R, A = 500, 0.02, slice(S_DIM, X_DIM)
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-parser.add_argument("--ckpt", type=Path, default=Path("runs/pipeline_v1/tt/h32_try4"))
+parser.add_argument("--ckpt", type=Path, default=Path("runs/pipeline_v1/tt/h32/try4"))
 parser.add_argument("--out", type=Path, required=True)
 parser.add_argument("--candidates", type=int, default=8)
 parser.add_argument("--scales", type=float, nargs="+", default=[0.0, 1.0, 5.0], help="guidance 세기 (0 = 없음)")
 parser.add_argument("--s0-motion", default="walkForwardSlow__r00")
 parser.add_argument("--expert-config", type=Path, help="expert config directory (used to instantiate MJX controller; defaults to original expert)")
-parser.add_argument("--task", choices=("circle", "zigzag", "straight"), default="circle")
+parser.add_argument("--task", choices=("circle", "zigzag", "straight", "obstacle"), default="circle")
+parser.add_argument("--obstacle-count", type=int, default=1, help="upright poles at 1m intervals")
 parser.add_argument("--radius", type=float, default=1.0, help="circle")
 parser.add_argument("--half-width", type=float, default=None, help="corridor half-width (m); task-specific defaults when omitted")
 parser.add_argument("--amp", type=float, default=0.3, help="zigzag 진폭 (m)")
 parser.add_argument("--period", type=float, default=2.0, help="zigzag 주기 (m)")
+parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--seconds", type=float, default=10.0)
 parser.add_argument("--free-s0", action="store_true", help="s0 도 생성 (free 조건)")
 parser.add_argument("--anchor-s0", "--rest-s0", dest="rest_s0", action="store_true", help="Mode 4: anchor XY=(0,0), yaw=0; learn remaining S0 and E (old alias --rest-s0)")
+parser.add_argument("--s-gradient-scale", type=float, default=1.0, help="S-token guidance multiplier; E and A gradients unchanged")
 parser.add_argument("--no-guide-s", action="store_true", help="S 토큰 guidance 끔 (E·A 만). S 는 TT dynamics 로만 따라온다")
 parser.add_argument("--no-s0-align", action="store_true", help="execute generated S0 exactly; do not shift body height")
 parser.add_argument("--geometry-s0", action="store_true",
@@ -99,16 +103,26 @@ args = parser.parse_args()
 EP = round(args.seconds / 0.02)
 if EP < 2:
     parser.error("--seconds must contain at least two 50 Hz states")
-dev = "cuda"
+if args.obstacle_count < 1:
+    parser.error("--obstacle-count must be positive")
+if not np.isfinite(args.s_gradient_scale) or args.s_gradient_scale < 0:
+    parser.error("--s-gradient-scale must be finite and nonnegative")
+if args.s_gradient_scale != 1 and not args.joint_full_guidance:
+    parser.error("--s-gradient-scale requires --joint-full-guidance")
+dev = args.device
+if args.task == "obstacle" and (args.out / "summary.json").exists():
+    parser.error("existing obstacle result preserved; choose a new --out directory")
 args.out.mkdir(parents=True, exist_ok=True)
 if args.half_width is None:
     args.half_width = 0.15 if args.task in ("zigzag", "straight") else 0.3
+if args.task == "obstacle" and (not args.e_rest_s0 or args.fixed_e or args.replan or args.expert_warmup_s0):
+    parser.error("obstacle requires joint --e-rest-s0, without fixed E, warmup or replanning")
 reward = (TrackReward(radius=args.radius, half_width=args.half_width) if args.task == "circle"
           else ZigzagReward(amp=args.amp, period=args.period, half_width=args.half_width) if args.task == "zigzag"
-          else StraightReward(half_width=args.half_width))
+          else ObstacleReward(count=args.obstacle_count) if args.task == "obstacle" else StraightReward(half_width=args.half_width))
 
 # ---- TT ----
-ck = torch.load(args.ckpt / "checkpoint.pt", weights_only=False)
+ck = torch.load(args.ckpt / "checkpoint.pt", weights_only=False, map_location=dev)
 ta = ck["args"]
 if args.free_s0:
     check_free_checkpoint(ta)
@@ -332,6 +346,8 @@ expert = args.expert_config if args.expert_config is not None else CODESIGN / "r
 cfg = pickle.load(open(sorted(expert.glob("wandb/offline-run-*/files/config.pkl"))[-1], "rb"))
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
+if dev == "cpu":
+    ecfg["impl"] = "jax"
 choice = cfg.get("choice")
 ecfg["reference_dir"] = str(CODESIGN / "runs/pipeline_v1/retargeting/e000" / choice)  # 보상 계산용 reference (실행에는 무관)
 ecfg["clips"] = [args.s0_motion]
@@ -341,10 +357,13 @@ jit_step = None
 def rest_s0_of(E_batch, settle_s=1.0):
     """S0 = g(E): home 자세 PD 목표로 settle_s 초 세워 둔 안착 상태 (실행과 같은 접촉 설정). E 가 바뀌면 S0 도 바뀐다."""
     out = []
+    radii = []
     for e in E_batch.detach().cpu().numpy().astype(np.float64):
         env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
                                                          torque_limit=cfg.get("torque_limit"), uniforms=e), **ecfg)
         m = env.mj_model
+        if args.task == "obstacle":
+            radii.append(envelope_radius(m))
         d = mujoco.MjData(m)
         d.qpos[:] = m.keyframe("home").qpos
         d.qpos[2] = 1.0
@@ -358,6 +377,9 @@ def rest_s0_of(E_batch, settle_s=1.0):
         contact = [any(floor in (c.geom1, c.geom2) and f in (c.geom1, c.geom2) and c.dist <= 1e-3
                        for c in d.contact[:d.ncon]) for f in feet]
         out.append(features(d.qpos[None].copy(), d.qvel[None].copy(), np.array([contact]))[0])
+    if args.task == "obstacle":
+        # The settled CPU geometry is not differentiable; E still guides through TT dynamics.
+        reward.robot_radius = radii
     return torch.tensor(np.stack(out), device=dev, dtype=torch.float32)
 
 
@@ -438,8 +460,12 @@ def execute(E_np, tq, s0, replan=None):
     """E [13], target_q [EP,12], s0 [42] (free-s0 일 때만 사용) -> MJX 궤적 토큰 [EP,X], mask [EP], 낙상 step (없으면 -1).
     replan(t, qpos, qvel, contact) -> target_q [w,12]: args.replan step 마다 실제 state 로 다음 window 를 받는다."""
     global jit_step
-    env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
-                                                     torque_limit=cfg.get("torque_limit"), uniforms=E_np), **ecfg)
+    def execution_model():
+        model = build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+                            torque_limit=cfg.get("torque_limit"), uniforms=E_np,
+                            scene_fn=(lambda spec: add_pole(spec, reward)) if args.task == "obstacle" else None)
+        return model
+    env = TrackMjxEnv(mj_model_fn=execution_model, **ecfg)
     if jit_step is None:
         jit_step = jax.jit(lambda model, d, c: step(model, d, c, env.n_substeps))
     # Reject obviously invalid generated starts BEFORE forward dynamics.
@@ -557,9 +583,12 @@ def execute(E_np, tq, s0, replan=None):
     off, sc, (lo, hi) = np.asarray(env.action_offset), float(env.action_scale), env.clip_actions
     qs, vs, cs = [], [], []
     fell = -1
+    obstacle_contact = False
     for t in range(EP):
         qs.append(np.asarray(data.qpos)), vs.append(np.asarray(data.qvel))
         geom, dist = np.asarray(data._impl.contact.geom), np.asarray(data._impl.contact.dist)
+        if args.task == "obstacle":
+            obstacle_contact |= pole_contact(env.mj_model, geom, dist)
         # S[38:42] contact means FOOT-FLOOR, not foot-any-geometry.
         cs.append([((((geom[:, 0] == f) & (geom[:, 1] == floor)) |
                       ((geom[:, 1] == f) & (geom[:, 0] == floor))) &
@@ -584,6 +613,10 @@ def execute(E_np, tq, s0, replan=None):
     x[:L, A] = tq[:L]
     m = np.zeros(EP, bool)
     m[:L] = True
+    if args.task == "obstacle":
+        goal_distance = float(np.linalg.norm(x[L-1, :2] - reward.goal))
+        initial["obstacle_task"] = dict(contact=obstacle_contact, goal_distance_m=goal_distance,
+                                        success=bool(not obstacle_contact and fell == -1 and goal_distance <= .2))
     return x, m, fell, np.array(qs), env.mj_model, initial
 
 
@@ -640,7 +673,8 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
     r.close()
 
 
-summary = dict(reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
+summary = dict(s_gradient_scale=0.0 if args.no_guide_s else args.s_gradient_scale, seed=args.seed,
+               reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
                candidates=args.candidates, seconds=args.seconds, replan=args.replan, no_s0_align=args.no_s0_align,
                geometry_s0=args.geometry_s0, max_geometry_lift_m=args.max_geometry_lift_m,
                allow_airborne_s0=args.allow_airborne_s0,
@@ -670,7 +704,7 @@ for si, scale in enumerate(args.scales):
             horizon=H, state_dim=S_DIM, action_dim=X_DIM - S_DIM, e_dim=E_DIM,
             mu=mu, sd=sd, beta=beta, abar=abar, emu=emu, esd=esd,
             guidance_scale=scale, clip=CLIP, seed=args.seed,
-            no_guide_s=args.no_guide_s,
+            no_guide_s=args.no_guide_s, s_gradient_scale=args.s_gradient_scale,
             s0_fn=(warm_s0_of if args.expert_warmup_s0 > 0 else rest_s0_of) if args.e_rest_s0 else None)
     elif args.shared_e_guidance:
         # Scale 0 is the unoptimized baseline. All other scales start from

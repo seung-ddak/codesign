@@ -43,7 +43,7 @@ TT_LEG = {"FR": "right_leg", "FL": "left_leg", "RR": "right_leg_1", "RL": "left_
 N_LEG = 12  # 다리 관절 수 (qpos·actuator 앞쪽 12)
 
 
-def build_model(choice=None, kp=None, tau_scale=None, torque_limit=None, uniforms=None):
+def build_model(choice=None, kp=None, tau_scale=None, torque_limit=None, uniforms=None, scene_fn=None):
     """choice 가 없으면 A1 (menagerie MJCF, kp 100, ±33.5 N·m), 있으면 TT design space 형상 (kp 30, ±23.7 N·m, 팔 제거).
     두 경우 모두 발 geom 이름을 "<LEG>_foot", 렌더링 카메라 body_cam 을 몸통에 둔다."""
     if choice is None:
@@ -98,6 +98,8 @@ def build_model(choice=None, kp=None, tau_scale=None, torque_limit=None, uniform
             g = spec.geom(f"quadruped_manipulator/{TT_LEG[l]}/foot")
             assert np.isclose(g.size[0], RADIUS)
             g.name = f"{l}_foot"
+    if scene_fn is not None:
+        scene_fn(spec)
     if choice is not None:  # TT 형상에는 body_cam 이 이미 있다
         add_terrain(spec)
         m = spec.compile()

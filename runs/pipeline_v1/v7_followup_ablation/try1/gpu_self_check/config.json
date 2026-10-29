@@ -1,0 +1,52 @@
+{
+ "data": [
+  "runs/pipeline_v1/wide16_action/rollouts/e000/primitive_seed0.npz",
+  "runs/pipeline_v1/e_swap/full/e000/primitive_seed0.npz"
+ ],
+ "out": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/pipeline_v1/v7_followup_ablation_try1/gpu_self_check",
+ "horizon": 32,
+ "steps": 2,
+ "batch": 4,
+ "lr": 0.0002,
+ "d_model": 32,
+ "layers": 1,
+ "diff_steps": 5,
+ "val_frac": 0.1,
+ "split_key": null,
+ "norm_from": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/pipeline_v1/fast_mode24_v7_eswap/tt_joint/checkpoint.pt",
+ "eval_episodes": 1,
+ "seed": 0,
+ "eval_only": false,
+ "norm": "minmax",
+ "clip": 1.0,
+ "stride": 0,
+ "pose": "abs",
+ "swap_fraction": 0.5,
+ "mode_weights": [
+  1.0,
+  2.0,
+  2.0
+ ],
+ "modes": [
+  1,
+  2,
+  4
+ ],
+ "diag": false,
+ "sampler": "ddim",
+ "conditioning_version": 4,
+ "episodes": 816,
+ "train": 743,
+ "val": 73,
+ "data_split_audit": {
+  "episodes": 816,
+  "train_episodes": 743,
+  "validation_episodes": 73,
+  "independent_source_groups": 304,
+  "train_source_groups": 274,
+  "validation_source_groups": 30,
+  "distinct_s0_feature_vectors_rounded_1e-5": 20,
+  "split_group_contract": "cross-morphology source_episode or group_id; see rollout_data.source_group_keys",
+  "validation_loss_scope": "all validation episodes, batched; random-window/noise, fixed evaluation RNG seed"
+ }
+}

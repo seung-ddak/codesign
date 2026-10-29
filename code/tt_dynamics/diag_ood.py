@@ -22,7 +22,7 @@ from rollout_data import features
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--out", type=Path, required=True)
-parser.add_argument("--runs", nargs="+", default=["track_try1", "zigzag_try1", "track_try2", "zigzag_try2"])
+parser.add_argument("--runs", nargs="+", default=["track/try1", "zigzag/try1", "track/try2", "zigzag/try2"])
 parser.add_argument("--ref-steps", type=int, default=200000, help="NN 검색에 쓰는 데이터 step 수 (무작위 표본)")
 parser.add_argument("--seed", type=int, default=0)
 args = parser.parse_args()
@@ -81,7 +81,7 @@ for run in args.runs:
             X = step_feats(pred[i, :, :42], pred[i, :, 42:], np.ones(len(pred[i]), bool))
             d = {g: nn_dist(X, g) for g in GROUPS}
             c = sm[sc][i]
-            pk, rk = ("pred_laps", "mjx_laps") if run == "track_try1" else ("pred_progress", "mjx_progress")
+            pk, rk = ("pred_laps", "mjx_laps") if run == "track/try1" else ("pred_progress", "mjx_progress")
             cands.append(dict({f"ood_{g}": float((d[g] > thr[g]).mean()) for g in GROUPS},
                               med_all=float(np.median(d["all"])), gap=abs(c[pk] - c[rk]), fell=c["mjx_fell_step"] >= 0,
                               path_err=c["path_err_m"]))

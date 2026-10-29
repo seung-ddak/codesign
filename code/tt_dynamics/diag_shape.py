@@ -9,7 +9,7 @@ window (H step) 를 rollout 데이터 (3 형상 seq_seed0) 에서 뽑아, 그 �
 
 usage (codesign/ 에서):
   CUDA_VISIBLE_DEVICES=1 MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false ../transformer-transformer/.venv/bin/python \
-      code/tt_dynamics/diag_shape.py --ckpt runs/pipeline_v1/tt/h32_try6 --out runs/pipeline_v1/diag/d4_try1
+      code/tt_dynamics/diag_shape.py --ckpt runs/pipeline_v1/tt/h32/try6 --out runs/pipeline_v1/diag/d4/try1
 """
 
 import argparse

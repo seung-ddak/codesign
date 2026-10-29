@@ -5,7 +5,7 @@
 
 usage (codesign/ 에서):
   CUDA_VISIBLE_DEVICES=1 ../transformer-transformer/.venv/bin/python code/tt_dynamics/diag_grad.py \
-      --ckpt runs/pipeline_v1/tt/h32_try6 --check runs/pipeline_v1/task/track_try4/summary.json
+      --ckpt runs/pipeline_v1/tt/h32/try6 --check runs/pipeline_v1/task/track/try4/summary.json
 """
 
 import argparse

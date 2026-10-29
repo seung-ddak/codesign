@@ -1,0 +1,41 @@
+split metadata: {'episodes': 816, 'train_episodes': 743, 'validation_episodes': 73, 'independent_source_groups': 304, 'train_source_groups': 274, 'validation_source_groups': 30, 'distinct_s0_feature_vectors_rounded_1e-5': 20, 'split_group_contract': 'cross-morphology source_episode or group_id; see rollout_data.source_group_keys', 'validation_loss_scope': 'all validation episodes, batched; random-window/noise, fixed evaluation RNG seed'}
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/tt_model.py:69: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(layer, layers)
+episodes=816 (train 743, val 73) valid steps=102162 horizon=32 sources=[np.str_('e000/primitive_seed0')]
+params=0.02M
+{'step': 2, 'loss': 1.6251764297485352, 'val_loss': 1.549031084530974, 'val_episodes_evaluated': 73, 'val_batches': 19, 'lr': 0.0, 'min': 0.005207264423370361, 'sampled_modes': [0, 1, 3, 0, 4, 0], 'sampled_sources': [4, 4]}
+{
+ "t1": {
+  "n": 1,
+  "joint_rmse_deg": 61.55777359008789,
+  "pos_err_cm": 117.90193176269531
+ },
+ "t10": {
+  "n": 1,
+  "joint_rmse_deg": 66.0035629272461,
+  "pos_err_cm": 117.87539672851562
+ },
+ "t50": {
+  "n": 1,
+  "joint_rmse_deg": 57.50596237182617,
+  "pos_err_cm": 69.3071060180664
+ },
+ "t100": {
+  "n": 1,
+  "joint_rmse_deg": 68.5318603515625,
+  "pos_err_cm": 164.1250457763672
+ },
+ "t250": {
+  "n": 1,
+  "joint_rmse_deg": 56.348506927490234,
+  "pos_err_cm": 379.24566650390625
+ },
+ "all": {
+  "joint_rmse_deg": 65.00016784667969,
+  "pos_err_cm": 254.0860595703125
+ },
+ "baseline_hold_s0_all": {
+  "joint_rmse_deg": 15.938680648803711,
+  "pos_err_cm": 0.6841911673545837
+ }
+}

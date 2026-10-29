@@ -1,7 +1,7 @@
 """Compare old/new TT action sensitivity with MJX on held-out paired starts.
 
 Run from codesign/: python code/tt_dynamics/eval_action_pairs.py --data <pairs.npz> \
-    --new <new-run> --old runs/pipeline_v1/tt/h32_try6 --out <result.json>
+    --new <new-run> --old runs/pipeline_v1/tt/h32/try6 --out <result.json>
 """
 
 import argparse

@@ -5,7 +5,7 @@ window (H step, H-1 간격) 마다 생성 궤적의 그 시점 state 를 s0 로 
 
 usage (codesign/ 에서):
   CUDA_VISIBLE_DEVICES=1 ../transformer-transformer/.venv/bin/python code/tt_dynamics/diag_consistency.py \
-      --ckpt runs/pipeline_v1/tt/h32_try4 --runs runs/pipeline_v1/task/track_try1 runs/pipeline_v1/task/track_try3
+      --ckpt runs/pipeline_v1/tt/h32/try4 --runs runs/pipeline_v1/task/track/try1 runs/pipeline_v1/task/track/try3
 """
 
 import argparse

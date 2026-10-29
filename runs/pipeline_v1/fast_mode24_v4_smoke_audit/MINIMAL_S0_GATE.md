@@ -13,7 +13,7 @@ git pull --ff-only
 ../transformer-transformer/.venv/bin/python -m pytest tests/test_s0_height_clamp.py tests/test_fast_smoke_audit.py
 
 # 기존 TT 체크포인트 사용, 재학습 없음
-QUICK_ROOT=runs/pipeline_v1/fast_mode24_v4_s0_gate_try1 \
+QUICK_ROOT=runs/pipeline_v1/fast_mode24_v4_s0_gate/try1 \
 QUICK_CANDIDATES=4 \
 bash code/tt_dynamics/run_minimal_s0_gate.sh
 ```

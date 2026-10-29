@@ -22,7 +22,7 @@ export MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false CUDA_VISIBLE_DEVICES=0
   --diff-steps 5 --norm minmax --clip 1 --modes 1 --sampler ddim
 ../transformer-transformer/.venv/bin/python code/tt_dynamics/eval_action_pairs.py \
   --data runs/pipeline_v1/action_pairs/e000_seed0.npz \
-  --new runs/pipeline_v1/tt/h32_action_pairs --old runs/pipeline_v1/tt/h32_try6 \
+  --new runs/pipeline_v1/tt/h32_action_pairs --old runs/pipeline_v1/tt/h32/try6 \
   --out runs/pipeline_v1/action_pairs/heldout_d5.json
 ```
 

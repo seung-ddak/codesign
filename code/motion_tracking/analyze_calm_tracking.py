@@ -21,7 +21,7 @@ def main():
     for source in ['Isaac Gym','MJX']:
         errors=[];hits=[];faces=[];ups=[];biases=[];derivative_bias=[];speed_pass=[]
         for i in range(10):
-            isaac=np.load(project/f'runs/calm_balanced_motion_try1/hlc_random_{i:03d}/trace.npz');mjx=np.load(project/f'runs/calm_mjx_closed_loop_try1/episode_{i:03d}.npz')
+            isaac=np.load(project/f'runs/calm_balanced_motion/try1/hlc_random_{i:03d}/trace.npz');mjx=np.load(project/f'runs/calm_mjx_closed_loop/try1/episode_{i:03d}.npz')
             np.testing.assert_allclose(isaac['command'],mjx['command'],atol=1e-7)
             if source=='Isaac Gym':
                 root=isaac['root'];q=np.zeros((300,19));q[:,:3]=root[1:,:3];q[:,3:7]=root[1:,[6,3,4,5]];v=root[1:,7:10];command=isaac['command'];position=root[:,:2]
@@ -37,7 +37,7 @@ def main():
                     idx=np.arange(j*150+90,(j+1)*150);kind=segment['kind'];g=grouped.setdefault(kind,[])
                     g.append(dict(episode=i,segment=j,speed_hit_rate=float(speed_ok[idx].mean()),facing_hit_rate=float((f[idx]<=.5).mean()),up_hit_rate=float((u[idx]<=.2).mean()),velocity_rmse_mps=float(np.sqrt(np.mean(e[idx]**2))),mean_vector_error_mps=float(np.linalg.norm((v[:,:2]-command[:,:2])[idx].mean(0))),mean_actual_speed_mps=float(np.linalg.norm(v[idx,:2],axis=1).mean()),mean_target_speed_mps=float(np.linalg.norm(command[idx,:2],axis=1).mean())))
         engine[source]=dict(tail_velocity_rmse_mps=float(np.sqrt(np.mean(np.array(errors)**2))),tail_joint_hit_rate=float(np.mean(hits)),tail_speed_hit_rate=float(np.mean(speed_pass)),tail_facing_hit_rate=float((np.array(faces)<=.5).mean()),tail_up_hit_rate=float((np.array(ups)<=.2).mean()),world_velocity_bias_mps=np.mean(biases,axis=0).tolist(),position_derived_world_velocity_bias_mps=np.mean(derivative_bias,axis=0).tolist())
-    cmd=np.load(project/'runs/calm_mjx_closed_loop_try1/episode_000.npz')['command'];axes[0].plot(np.arange(300)/30,cmd[:,0],'k--',label='command');axes[0].set_ylabel('World X velocity (m/s)');axes[1].set_ylabel('Velocity error (m/s)');axes[1].set_xlabel('Time (s)')
+    cmd=np.load(project/'runs/calm_mjx_closed_loop/try1/episode_000.npz')['command'];axes[0].plot(np.arange(300)/30,cmd[:,0],'k--',label='command');axes[0].set_ylabel('World X velocity (m/s)');axes[1].set_ylabel('Velocity error (m/s)');axes[1].set_xlabel('Time (s)')
     for ax in axes:ax.legend();ax.grid(alpha=.2)
     fig.tight_layout();fig.savefig(a.out/'comparison.png',dpi=150)
     summary=dict(scope='tracking only; floor penetration excluded from this analysis',window='last 60 frames of each five-second segment, 1200 frames total per engine',engines=engine,mjx_by_command_type={k:{field:float(np.mean([r[field] for r in rows])) for field in rows[0] if field not in ['episode','segment']} for k,rows in grouped.items()},segments=grouped,findings=['Velocity error dominates; facing and up criteria pass in all evaluated tail frames.','Matched command sequences differ in actual response across engines.','World +X bias persists in position-derived velocity; not just a saved instantaneous velocity sampling artifact.'],hypotheses=['PhysX implicit position drive versus explicit torque PD and contact solver differences; not isolated.','Observation/frame discrepancies are not fully excluded, although tested joint mapping and quaternion conversion match source conventions.'],not_tested=['One-step equal state/action torque and acceleration parity across engines','Single-variable drive/contact ablations','Exact original training setting recovery'])

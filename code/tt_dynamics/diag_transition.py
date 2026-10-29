@@ -37,12 +37,12 @@ from tt_model import rebase  # noqa: E402
 
 parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 parser.add_argument("--out", type=Path, required=True)
-parser.add_argument("--runs", nargs="+", default=["track_try1", "zigzag_try1", "track_try2", "zigzag_try2"])
+parser.add_argument("--runs", nargs="+", default=["track/try1", "zigzag/try1", "track/try2", "zigzag/try2"])
 parser.add_argument("--control-episodes", type=int, default=8, help="대조군: 형상당 데이터 episode 수")
 args = parser.parse_args()
 R = CODESIGN / "runs/pipeline_v1"
 H, FOOT_R, TURN_DEG = 32, 0.02, 10.0
-CKPT = {"try1": "h32_try4", "try2": "h32_try5"}
+CKPT = {"try1": "h32/try4", "try2": "h32/try5"}
 
 expert = R / "experts/walkForwardSlow__r00"
 cfg = pickle.load(open(sorted(expert.glob("wandb/offline-run-*/files/config.pkl"))[-1], "rb"))

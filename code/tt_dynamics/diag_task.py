@@ -3,7 +3,7 @@
 절대 오차는 open-loop 누적이 섞이므로 window 안의 증분 (Δyaw, heading frame Δxy) 만 비교한다.
 구간 분류 = TT 예측 window 의 |Δyaw| > TURN_DEG (회전) / 그 외 (직진). MJX 낙상 이후 step 은 제외.
 
-usage (codesign/ 에서): python3 code/tt_dynamics/diag_task.py runs/pipeline_v1/task/track_try1
+usage (codesign/ 에서): python3 code/tt_dynamics/diag_task.py runs/pipeline_v1/task/track/try1
 """
 
 import json

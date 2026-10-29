@@ -96,3 +96,16 @@ def test_optional_state_gradient_disable_leaves_action_gradient():
     assert not meta["s_gradient_nonzero"]
     assert all(x == 0.0 for x in meta["s_gradient_norm_per_step"])
     assert meta["a_gradient_nonzero"]
+
+
+def test_fractional_state_gradient_preserves_first_step_E_and_A():
+    kwargs=dict(n=1,episode_states=7,horizon=4,state_dim=42,action_dim=12,e_dim=13,
+                mu=torch.zeros(54),sd=torch.ones(54),beta=torch.tensor([.1,.3]),
+                abar=torch.tensor([.9,.63]),guidance_scale=.5,clip=5.,seed=42)
+    _,_,one=joint_diffusion_full_reward(TinyShapeSensitiveNet(),ToyDifferentiableTask(),**kwargs)
+    _,_,part=joint_diffusion_full_reward(TinyShapeSensitiveNet(),ToyDifferentiableTask(),s_gradient_scale=.3,**kwargs)
+    assert abs(part['s_gradient_norm_per_step'][0]/one['s_gradient_norm_per_step'][0]-.3)<1e-5
+    assert part['e_gradient_norm_per_step'][0]==one['e_gradient_norm_per_step'][0]
+    assert part['a_gradient_norm_per_step'][0]==one['a_gradient_norm_per_step'][0]
+    _,_,off=joint_diffusion_full_reward(TinyShapeSensitiveNet(),ToyDifferentiableTask(),s_gradient_scale=.3,no_guide_s=True,**kwargs)
+    assert not off['s_gradient_nonzero'] and off['s_gradient_scale']==0

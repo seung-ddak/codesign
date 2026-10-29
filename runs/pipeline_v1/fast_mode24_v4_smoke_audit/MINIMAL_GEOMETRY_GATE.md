@@ -24,7 +24,7 @@ git switch experiment/wide16-experts
 git pull --ff-only
 
 QUICK_CKPT=runs/pipeline_v1/fast_mode24_v4/tt_joint \
-QUICK_ROOT=runs/pipeline_v1/fast_mode24_v4_geometry_gate_try1 \
+QUICK_ROOT=runs/pipeline_v1/fast_mode24_v4_geometry_gate/try1 \
 QUICK_CANDIDATES=4 \
 bash code/tt_dynamics/run_minimal_geometry_gate.sh
 ```
@@ -33,7 +33,7 @@ The script first runs CPU-only contract tests, then exactly one 2s smoke batch f
 
 Read:
 
-- `runs/pipeline_v1/fast_mode24_v4_geometry_gate_try1/smoke_zigzag_joint/summary.json`: generated E/S0 vs corrected/executed S0, initial foot clearance, rejected cause and actual MJX reward (null when not stepped).
+- `runs/pipeline_v1/fast_mode24_v4_geometry_gate/try1/smoke_zigzag_joint/summary.json`: generated E/S0 vs corrected/executed S0, initial foot clearance, rejected cause and actual MJX reward (null when not stepped).
 - `.../smoke_check.json`: gradient reach, physical gate, genuine unmodified versus assisted MJX completions.
 
 ## Success/failure interpretation

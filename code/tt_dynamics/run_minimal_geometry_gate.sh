@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 python=${QUICK_PYTHON:-../transformer-transformer/.venv/bin/python}
 ckpt=${QUICK_CKPT:-runs/pipeline_v1/fast_mode24_v4/tt_joint}
-root=${QUICK_ROOT:-runs/pipeline_v1/fast_mode24_v4_geometry_gate_try1}
+root=${QUICK_ROOT:-runs/pipeline_v1/fast_mode24_v4_geometry_gate/try1}
 task=${QUICK_TASK:-zigzag}
 out="$root/smoke_${task}_joint"
 if [[ ! -f "$ckpt/checkpoint.pt" ]]; then
