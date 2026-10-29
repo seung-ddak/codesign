@@ -19,8 +19,20 @@ STAGES=['collect','prepare','retarget','train_one','evaluate_one','train_five','
 LABELS=['Isaac Gym 10개 수집','기록 검증·대표 5개 선정','TT 고정 형상 리타겟팅','단일 모션 PPO 시험','단일 모션 실제 추종 평가','5개 모션 PPO 확대','5개 모션 실제 추종 평가']
 
 
+def _json_default(value):
+    """Preserve NumPy values in audit JSON without allowing NaN/Inf."""
+    import numpy as np
+    if isinstance(value, np.generic):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    raise TypeError(f'Object of type {type(value).__name__} is not JSON serializable')
+
+
 def save(path,value):
-    tmp=path.with_suffix(path.suffix+'.tmp');tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False));tmp.replace(path)
+    tmp=path.with_suffix(path.suffix+'.tmp')
+    tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False,default=_json_default))
+    tmp.replace(path)
 
 
 def validate_trace(d):
