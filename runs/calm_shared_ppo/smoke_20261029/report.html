@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>공유 PPO 소규모 실행 검증 · 2026-10-29</title>
+  <style>
+    :root{color-scheme:light;--ink:#172b3a;--muted:#5c7180;--line:#dce6eb;--paper:#fff;--bg:#f3f7f9;--blue:#146b8c;--teal:#087f72;--amber:#9a5c00;--amber-bg:#fff5df;--green-bg:#e9f7f3;--shadow:0 12px 32px #15384b0d}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:1080px;margin:0 auto;padding:40px 24px 64px}header{padding:30px 34px;border-radius:22px;background:linear-gradient(125deg,#0d3a52,#126a80 65%,#168477);color:#fff;box-shadow:var(--shadow)}header .eyebrow{font-size:.82rem;letter-spacing:.12em;text-transform:uppercase;opacity:.8}h1{font-size:clamp(2rem,4vw,3rem);line-height:1.15;margin:.35rem 0 .7rem}header p{margin:0;color:#e3f2f6}.badge{display:inline-block;margin-top:18px;padding:5px 11px;border:1px solid #ffffff62;border-radius:999px;font-size:.82rem}
+    section,.conclusion{margin-top:22px;padding:24px 28px;background:var(--paper);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}h2{font-size:1.28rem;margin:0 0 12px}h3{font-size:1.04rem;margin:22px 0 8px}p{margin:.5rem 0}.conclusion{border-left:6px solid var(--teal);background:var(--green-bg);box-shadow:none}.conclusion strong{font-size:1.08rem}.warning{padding:14px 16px;border-radius:12px;background:var(--amber-bg);border:1px solid #f1d8a2;color:#684300;margin-top:12px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0}.card{padding:15px 16px;border:1px solid var(--line);border-radius:14px;background:#fbfdfe}.card b{display:block;color:var(--blue);font-size:1.5rem;line-height:1.2}.card span{color:var(--muted);font-size:.88rem}table{width:100%;border-collapse:collapse;font-size:.94rem;margin:12px 0 4px}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}th{background:#edf4f7;color:#314c5b;font-weight:650}code{font: .9em ui-monospace,SFMono-Regular,Consolas,monospace;background:#edf3f6;padding:2px 5px;border-radius:5px;overflow-wrap:anywhere}ul,ol{padding-left:22px}li{margin:5px 0}.ok{color:#08745f;font-weight:700}.no{color:#9a5c00;font-weight:700}.small{color:var(--muted);font-size:.9rem}.links a{color:var(--blue);text-decoration:none}.links a:hover{text-decoration:underline}.pill{display:inline-block;padding:2px 9px;border-radius:999px;background:#e8f4f8;color:#175a75;font-size:.82rem}footer{margin-top:22px;color:var(--muted);font-size:.85rem;text-align:center}
+    @media(max-width:640px){main{padding:18px 12px 40px}header,section,.conclusion{padding:20px}table{font-size:.85rem}th,td{padding:8px 7px}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">CALM · Shared PPO · Smoke test</div>
+    <h1>공유 PPO 소규모 실행 검증</h1>
+    <p>2026년 10월 29일 · 단일 GPU · 공유 형상 샘플링과 1회 PPO 업데이트 경로 확인</p>
+    <span class="badge">구현 경로 검증 완료 · 성능/수렴 검증 아님</span>
+  </header>
+
+  <div class="conclusion">
+    <strong>결론: 공유 PPO의 소규모 학습·평가 실행은 성공했다.</strong>
+    <p>32개 병렬 환경에서 256 전이를 처리했고, 학습 형상 3종 모두 샘플링됐으며, 학습 후 체크포인트와 rollout 32개가 생성됐다. 다만 단 1회의 PPO 업데이트와 8-step 평가이므로 학습 수렴이나 10초 추종 성능은 판단할 수 없다.</p>
+  </div>
+  <div class="warning"><strong>성능 수치로 해석하지 말 것.</strong> 이 테스트는 환경·JAX 컴파일·최소 업데이트·평가·저장 경로가 작동하는지 확인하는 스모크 테스트다. 평가 에피소드는 최대 8 control step(30Hz에서 약 0.267초)이며, 10초 실험보다 훨씬 짧다.</div>
+
+  <section>
+    <h2>요약</h2>
+    <div class="cards">
+      <div class="card"><b>성공</b><span>GPU 학습 + held-out 평가 실행</span></div>
+      <div class="card"><b>3 / 3</b><span>훈련 형상 rollout에서 관측</span></div>
+      <div class="card"><b>32</b><span>32-env 실행에서 저장된 rollout</span></div>
+      <div class="card"><b>4 / 4</b><span>다중 형상 회귀 테스트 통과</span></div>
+    </div>
+    <p>실행 전 설정과 구현을 현재 존재하는 try4 reference bank에 맞췄다. 데이터 catalog 목록 형식을 지원하고 reference 경로를 정정했다. 이는 연구 파이프라인 구조를 바꾸지 않는 실행 호환 수정이다.</p>
+  </section>
+
+  <section>
+    <h2>실행 구성</h2>
+    <table>
+      <thead><tr><th>항목</th><th>8-env 예비 실행</th><th>32-env 스모크 실행</th></tr></thead>
+      <tbody>
+        <tr><td>전이 수</td><td>64</td><td>256</td></tr>
+        <tr><td>병렬 환경 / batch</td><td>8 / 8</td><td>32 / 32</td></tr>
+        <tr><td>훈련 형상</td><td colspan="2">near_short, near_long, near_body</td></tr>
+        <tr><td>평가 설정</td><td colspan="2">e003·e008, held-out motion <code>calm_random_007</code>; 4 평가 환경</td></tr>
+        <tr><td>시뮬레이션</td><td colspan="2">30Hz control · 300Hz physics · 8-step episode horizon</td></tr>
+        <tr><td>PPO update</td><td colspan="2">1 update · unroll 8 · minibatch 1 · final render off</td></tr>
+        <tr><td>기록</td><td>rollout 저장 켬</td><td>rollout 저장 켬</td></tr>
+      </tbody>
+    </table>
+    <p class="small">정식 설정은 5,242,880 전이, 32개 환경, 5회 평가를 지정한다. 여기서는 명령행 override로 규모를 축소했으며 정식 학습은 실행하지 않았다.</p>
+  </section>
+
+  <section>
+    <h2>실행 결과</h2>
+    <table>
+      <thead><tr><th>측정값</th><th>8-env / 64 전이</th><th>32-env / 256 전이</th><th>해석</th></tr></thead>
+      <tbody>
+        <tr><td>실제 훈련 전이</td><td>64</td><td>256</td><td>요청 스텝까지 업데이트 완료</td></tr>
+        <tr><td>학습 처리량</td><td>2.61 step/s</td><td>10.09 step/s</td><td>짧은 실행의 컴파일 영향 포함; 처리량 벤치마크 아님</td></tr>
+        <tr><td>훈련 wall time</td><td>24.53 s</td><td>25.38 s</td><td>첫 실행 컴파일/초기화 영향 큼</td></tr>
+        <tr><td>평가 wall time</td><td>26.16 s</td><td>26.16 s</td><td>각 4개 평가 환경의 짧은 평가</td></tr>
+        <tr><td>평가 위치 오차 평균</td><td>0.1656 m</td><td>0.1704 m</td><td>정식 품질 기준 또는 장시간 추종 결과가 아님</td></tr>
+        <tr><td>평가 방향 오차 평균</td><td>0.7396 rad</td><td>0.7547 rad</td><td>짧은 초기 구간 통계</td></tr>
+        <tr><td>평가 fallover 종료 비율</td><td>0.50</td><td>0.75</td><td>각 2/4, 3/4; 짧은 smoke 조건에서 관측</td></tr>
+        <tr><td>훈련 rollout 저장</td><td>8개</td><td>32개</td><td>모두 8-step; 저장 배열·수치 유효성 확인</td></tr>
+        <tr><td>체크포인트</td><td>step 0, 64</td><td>step 0, 256</td><td>초기/업데이트 이후 체크포인트 생성</td></tr>
+      </tbody>
+    </table>
+    <p class="small">평가의 fallover 비율은 평가 metric의 <code>eval/episode/done/fellover/mean</code>이다. 저장 rollout의 completed 분류와 같은 집계가 아니므로 서로 바꿔 읽지 않는다.</p>
+  </section>
+
+  <section>
+    <h2>훈련 형상 샘플링 및 저장 검증</h2>
+    <table>
+      <thead><tr><th>형상</th><th>8-env 실행</th><th>32-env 실행</th></tr></thead>
+      <tbody>
+        <tr><td>near_short</td><td>6</td><td>13</td></tr>
+        <tr><td>near_long</td><td>1</td><td>8</td></tr>
+        <tr><td>near_body</td><td>1</td><td>11</td></tr>
+      </tbody>
+    </table>
+    <ul>
+      <li>32-env 실행에서 서로 다른 E 벡터 3종이 모두 실제 rollout에 기록됐다.</li>
+      <li>각 rollout은 action T개, 현재 상태 T개, 다음 상태 T개를 담고 control 간격은 1/30초다. 모든 배열은 유한값이었다.</li>
+      <li>32개 rollout은 기록기의 <code>completed</code> 폴더에 저장됐다. 이것은 8-step 저장 경로 통과를 뜻하며, 평가에서 전도가 없었다는 뜻은 아니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>테스트 판정</h2>
+    <table>
+      <thead><tr><th>검증</th><th>결과</th><th>확인 범위</th></tr></thead>
+      <tbody>
+        <tr><td>다중 형상 단위 테스트</td><td class="ok">통과 4/4</td><td>형상 재선택·분할 검증·catalog 형식·terminal transition 기록기</td></tr>
+        <tr><td>Hydra 설정 해석</td><td class="ok">통과</td><td>공유 PPO 설정과 override 확인</td></tr>
+        <tr><td>GPU PPO 학습 업데이트</td><td class="ok">통과</td><td>64/256 전이 실행 후 체크포인트 생성</td></tr>
+        <tr><td>held-out 평가 실행</td><td class="ok">실행 완료</td><td>짧은 평가가 끝났으나 성능 합격을 뜻하지 않음</td></tr>
+        <tr><td>10초 추종·학습 수렴</td><td class="no">미검증</td><td>현재 결과만으로 판단할 수 없음</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>결론과 다음 단계</h2>
+    <p><strong>구현 및 작은 GPU 실행은 통과했다. 연구 성능 판단은 아직 하지 않는다.</strong> 특히 held-out 평가에서 2/4와 3/4 fallover 종료가 나타났지만, 8-step horizon은 10초 tracking의 안정성 측정에 적합하지 않다.</p>
+    <ol>
+      <li>이 결과를 파이프라인 smoke test로 고정하고, 수정사항은 테스트와 함께 버전 관리한다.</li>
+      <li>성능 검증은 정식 30Hz 설정으로 학습을 충분히 진행한 뒤 수행한다. 처음에는 학습 step과 평가 횟수를 작게 늘려 학습/평가가 유의미해지는지 확인한다.</li>
+      <li>10초 평가에서는 학습/미학습 형상과 모션 결과를 분리하고, 형상별 생존 시간·추종 오차를 보고한다. 그 결과를 보고 96회 수집 파일럿 확대로 넘어간다.</li>
+    </ol>
+    <p><strong>성공 기준:</strong> 학습 업데이트가 끝나고, 실제 전이·형상 E·상태/action 궤적·체크포인트가 유효하게 저장된다. <strong>성능 성공 기준:</strong> 별도 10초 장시간 평가로 판단해야 하며 이번 실행에는 적용하지 않았다.</p>
+  </section>
+
+  <section class="links">
+    <h2>산출물</h2>
+    <ul>
+      <li>32-env rollout: <a href="rollouts_32env/">rollouts_32env/</a></li>
+      <li>8-env rollout: <a href="rollouts/">rollouts/</a></li>
+      <li>실행 설정: <a href="../../../code/motion_tracking/config/run_shared_ppo.yaml">run_shared_ppo.yaml</a> (스모크 실행 override는 위 표 참조)</li>
+      <li>테스트: <a href="../../../tests/test_multi_design_sampling.py">test_multi_design_sampling.py</a></li>
+    </ul>
+    <p class="small">W&amp;B offline 원본은 작업 디렉터리의 <code>wandb/offline-run-20261029_165354-ewhtgqxt/</code>에 남아 있으며, GitHub에는 보고서와 압축 rollout만 포함한다. 집계 값은 실행 출력과 rollout을 대조해 작성했다.</p>
+  </section>
+  <footer>작성: 소규모 실행 결과 요약 · 2026-10-29</footer>
+</main>
+</body>
+</html>

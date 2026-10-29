@@ -79,8 +79,13 @@ def main(cfg):
         from multi_design import make_bank, wrap_for_multi_design
 
         root = Path(cfg.env.reference_dir).parents[1]
-        designs = json.loads((root / "designs.json").read_text())
-        from multi_design import validate_split
+        catalog_path = root / "designs.json"
+        if not catalog_path.is_file():
+            catalog_path = root.parent / "designs.json"
+        if not catalog_path.is_file():
+            raise FileNotFoundError(f"Could not find designs.json under {root} or {root.parent}")
+        from multi_design import normalize_design_catalog, validate_split
+        designs = normalize_design_catalog(json.loads(catalog_path.read_text()), choice)
         design_names = list(cfg.train_designs)
         eval_names = list(cfg.eval_designs)
         validate_split(design_names, eval_names, list(cfg.env.clips), list(cfg.eval_env.clips))

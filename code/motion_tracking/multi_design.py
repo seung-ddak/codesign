@@ -17,6 +17,24 @@ REFERENCE_ATTRS = (
 )
 
 
+def normalize_design_catalog(catalog, topology):
+    """Normalize legacy mappings and pilot lists to {name: E, topology: ...}."""
+    if isinstance(catalog, list):
+        designs = {}
+        for item in catalog:
+            if not isinstance(item, dict) or "id" not in item or "E" not in item:
+                raise ValueError("Design catalog entries must contain id and E")
+            name = item["id"]
+            if name in designs:
+                raise ValueError(f"Duplicate design in catalog: {name}")
+            designs[name] = item["E"]
+        designs["topology"] = topology
+        return designs
+    if isinstance(catalog, dict):
+        return catalog
+    raise ValueError("Design catalog must be a mapping or a list of design records")
+
+
 def make_bank(envs, uniforms):
     """Stack design-dependent MJX fields and matching reference arrays."""
     if len(envs) != len(uniforms) or len(envs) < 1:

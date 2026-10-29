@@ -7,7 +7,8 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 from t2.mjx_env.base_env import State
-from multi_design import MultiDesignVmapWrapper, EpisodeDesignReset, validate_split
+from multi_design import (MultiDesignVmapWrapper, EpisodeDesignReset,
+                          normalize_design_catalog, validate_split)
 
 
 class ToySampler(MultiDesignVmapWrapper):
@@ -58,6 +59,19 @@ def test_disjoint_splits():
     validate_split(['e000'], ['e008'], ['walk'], ['turn'])
     with pytest.raises(ValueError):validate_split(['e000'], ['e000'], ['walk'], ['turn'])
     with pytest.raises(ValueError):validate_split(['e000'], ['e008'], ['walk'], ['walk'])
+
+
+def test_normalize_design_catalog():
+    catalog = [{'id': 'near_short', 'E': [.5] * 13},
+               {'id': 'near_long', 'E': [.6] * 13}]
+    normalized = normalize_design_catalog(catalog, '00000011')
+    assert normalized['topology'] == '00000011'
+    np.testing.assert_array_equal(normalized['near_short'], [.5] * 13)
+    assert normalize_design_catalog({'topology': '00000011', 'e000': [.5] * 13},
+                                    '00000011')['e000'] == [.5] * 13
+    with pytest.raises(ValueError):
+        normalize_design_catalog([{'id': 'duplicate', 'E': [.5] * 13},
+                                  {'id': 'duplicate', 'E': [.6] * 13}], '00000011')
 
 
 def test_recorder_keeps_terminal_transition(tmp_path):
