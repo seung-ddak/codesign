@@ -1,0 +1,28 @@
+{
+  "reference_hz": 30,
+  "foot_lock": false,
+  "requested_environment_steps": 5242880,
+  "seed": 0,
+  "num_envs": 32,
+  "policy": "one shared PPO policy for five reference clips; trained from scratch",
+  "checkpoint_selection": "last fixed-budget checkpoint",
+  "training": "MJX GPU",
+  "comparison": "MuJoCo CPU with try1 physical settings and initialization",
+  "reference_hashes": {
+    "calm_random_001": "d8d78d60970cbd96195e21d83a444609124712ce8970cf92eebce92fca0b0063",
+    "calm_random_002": "40131f0038c08984d1ae50414edd4c733e6964cc3729242ef22ae852c79825b0",
+    "calm_random_004": "1fa3e4fdfa1e02d0564a06e8039ea0ba730a83264f92046c1769382d01346e3e",
+    "calm_random_006": "0053226ba7651f4ddb8c149a352dce79851a593fd57ab36a65a2c768d1b999b3",
+    "calm_random_007": "72feb3a41fab559dd47fa0a38b9951bbc09376367e52a5b17fa19e2978ee8249"
+  },
+  "source_sha256": {
+    "code/motion_tracking/train_rl_procedural.py": "535bb58329da892d5c51f8b961d3c3c00f648504670ea6a966594e19b7cacb6d",
+    "code/motion_tracking/track_env.py": "bc19f88eca5b63fd7acfe2b3ef4b797bbc43aacc53873b9d72d0e5d2c98c7e79",
+    "code/motion_tracking/pd_replay.py": "d740db54d475c27063c05d369472f0288fb70f6dd95e7aaa4550f7a660ddf5b7",
+    "code/motion_tracking/eval_calm_pd_tracking.py": "7dd2caf91a1e86a019af01ef226e98f28bc13437ef38f6088fa781dc1031cf01"
+  },
+  "expected_saved_steps": 5246976,
+  "expected_midpoint_steps": 2623488,
+  "evaluation_termination": "same as try1: tilt beyond 60 degrees, or full ten seconds",
+  "paired_comparison": "same source reference hashes, initial pose/finite-difference velocity, CPU model, timestep, contact settings, gains and limits"
+}

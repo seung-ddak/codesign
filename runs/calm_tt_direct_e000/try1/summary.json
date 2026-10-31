@@ -1,0 +1,84 @@
+{
+  "status": "NOT_APPROVED",
+  "source": "Frozen CALM A1 HLC+LLC -> TT 00000011 e000 -> MJX feedback",
+  "note": "Diagnostic only. 10s survival is not command-following approval; no PPO/retargeting.",
+  "observations": "23 slots; TT hip/thigh shoulder proxies differ from CALM A1 geometry",
+  "actions": "Original CALM joint targets, name mapped to TT; PD 40/1.5 at 600Hz, torque clipped",
+  "dynamics": "actual MJX qpos/qvel/contact (T+1), joint target (T), no resets",
+  "contact": "MJX contact buffer: foot vs plane",
+  "choice": "00000011",
+  "design": "e000",
+  "E": [
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+  ],
+  "control_dt": 0.03333333333333333,
+  "physics_dt": 0.0016666666666666668,
+  "substeps": 20,
+  "kp": 40,
+  "kd": 1.5,
+  "torque_limit_nm": 15.0,
+  "original_tt_actuators_disabled": true,
+  "self_collision": false,
+  "floor_collision": true,
+  "episodes": 1,
+  "seed": 0,
+  "checkpoint_sha256": {
+    "lowLevelController.pth": "a023eb35757086dde8386b8deebad0c095ba1d654794995845695b6bf58b1fbf",
+    "highLevelPolicy.pth": "0a65e7223ed38a35c7cdfbd95f83b95c8324478ec34b3238b221a112937f9276"
+  },
+  "jax_devices": "[CudaDevice(id=0)]",
+  "code_sha256": "72538629e3aa982b70ebf6ab72a9e304f948d0bd0fa8d5c0b227893315b6319a",
+  "results": [
+    {
+      "seconds": 10.0,
+      "transitions": 300,
+      "termination": "duration",
+      "resets": 0,
+      "survived_10s": true,
+      "velocity_rmse_mps": 0.3921202882722448,
+      "speed_screening_threshold_mps": 0.15,
+      "screening_pass": false,
+      "path_length_m": 1.5001790354342366,
+      "displacement_xy_m": [
+        -0.9575862884521484,
+        -0.31913119554519653
+      ],
+      "min_up": 0.9939882861656826,
+      "slip_contact_foot_center_mps": 0.1371557486052767,
+      "contact_fraction": 0.4368770764119601,
+      "slip_definition": "foot-center XY speed while foot-floor contact holds at both endpoints",
+      "episode": 0,
+      "segments": [
+        {
+          "start": 0.0,
+          "end": 5.0,
+          "kind": "forward",
+          "speed": 0.3846235820887782,
+          "transition_seconds": 1.6038418470063296,
+          "yaw_rate": 0.0
+        },
+        {
+          "start": 5.0,
+          "end": 10.0,
+          "kind": "stop_restart",
+          "speed": 0.36192380879501423,
+          "transition_seconds": 1.203247942544679,
+          "yaw_rate": 0.0
+        }
+      ],
+      "max_initial_pd_torque_nm": 15.0
+    }
+  ]
+}

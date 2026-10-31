@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd /home/cgr-ugrad-2026/quad_ws/codesign
+export WANDB_MODE=offline
+export WANDB_DIR="$PWD/runs/calm_pilot_tracking/try2"
+export MUJOCO_GL=egl
+export XLA_PYTHON_CLIENT_PREALLOCATE=false
+export PYTHONUNBUFFERED=1
+export MPLCONFIGDIR=/tmp/mpl-calm
+exec ../transformer-transformer/.venv/bin/python code/motion_tracking/train_rl_procedural.py \
+ choice=00000011 multi_design=false torque_limit=33.5 \
+ env.reference_dir="$PWD/runs/calm_pilot_retarget/try3/references/e000" \
+ eval_env.reference_dir="$PWD/runs/calm_pilot_retarget/try3/references/e000" \
+ 'env.clips=[calm_random_004,calm_random_006,calm_random_002,calm_random_001,calm_random_007]' \
+ 'eval_env.clips=[calm_random_004,calm_random_006,calm_random_002,calm_random_001,calm_random_007]' \
+ env.ctrl_dt=0.03333333333333333 eval_env.ctrl_dt=0.03333333333333333 \
+ env.sim_dt=0.0033333333333333335 eval_env.sim_dt=0.0033333333333333335 \
+ env.max_episode_length=300 eval_env.max_episode_length=300 \
+ env.termination_pose_consecutive_steps=15 \
+ 'env.velocity_kick=[0,0]' env.reset_qvel=0 env.reset_qpos=0 \
+ train.num_timesteps=5242880 train.num_envs=32 train.batch_size=32 \
+ train.num_eval_envs=5 train.num_evals=3 train.num_minibatches=4 \
+ train.unroll_length=24 render_final=false seed=0 \
+ hydra.run.dir="$PWD/runs/calm_pilot_tracking/try2/hydra"

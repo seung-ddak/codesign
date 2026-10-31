@@ -1,0 +1,52 @@
+{
+  "reference_hz": 30,
+  "physics_hz": 300,
+  "physics_substeps": 10,
+  "control": "deterministic PPO policy; native TT position PD actuators",
+  "self_collision": false,
+  "ground_collision": true,
+  "torque_limit_nm": 33.5,
+  "kp": [
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0
+  ],
+  "kd": [
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+  ],
+  "initialization": "reference first pose and finite-difference initial velocity; no resets or height shifts",
+  "survival": "body up-axis world Z >= 0.5, tested at 30Hz",
+  "slip": "horizontal velocity at force-bearing foot-plane contact points; not reference contact labels",
+  "source_script_sha256": "7dd2caf91a1e86a019af01ef226e98f28bc13437ef38f6088fa781dc1031cf01",
+  "mujoco_version": "3.10.0",
+  "checkpoint": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_pilot_tracking/try2/wandb/offline-run-20261029_130428-utdk7d6i/files/checkpoints/5246976",
+  "training_backend": "MJX",
+  "evaluation_backend": "MuJoCo CPU",
+  "observation_noise": {
+    "qpos": 0.001,
+    "qvel": 0.01,
+    "lin_vel": 0.02,
+    "ang_vel": 0.005,
+    "gravity": 0.005
+  }
+}

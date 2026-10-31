@@ -1,0 +1,26 @@
+{
+  "training_backend": "MJX GPU",
+  "evaluation_backend": "MJX GPU",
+  "checkpoint": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_pilot_tracking/try2/wandb/offline-run-20261029_130428-utdk7d6i/files/checkpoints/5246976",
+  "reference_hz": 30,
+  "physics_hz": 300,
+  "solver_iterations": 5,
+  "solver_ls_iterations": 7,
+  "seed": 0,
+  "initialization": "first reference pose; same raw finite-difference qvel and initial ctrl as prior CPU comparison",
+  "observation": "native environment observation; CPU comparison key sequence and previous action; saved observation noise retained",
+  "measurement": "native MJX forward contact forces; refreshed measurement state not fed back into integration",
+  "termination": "body up-axis Z < 0.5; no autoreset; metrics truncated at first fall",
+  "observation_noise": {
+    "qpos": 0.001,
+    "qvel": 0.01,
+    "lin_vel": 0.02,
+    "ang_vel": 0.005,
+    "gravity": 0.005
+  },
+  "jax_devices": [
+    "cuda:0"
+  ],
+  "source_sha256": "c862d1d9446964a930a4ae3a0e2d2d3a12b18fbcf30ead14360a54834f03ef7b",
+  "max_float32_clock_error_s": 0.000278472900390625
+}

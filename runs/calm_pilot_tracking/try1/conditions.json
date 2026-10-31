@@ -1,0 +1,42 @@
+{
+  "reference_hz": 30,
+  "physics_hz": 300,
+  "physics_substeps": 10,
+  "control": "native TT position PD; reference target held for each interval; no PPO",
+  "self_collision": false,
+  "ground_collision": true,
+  "torque_limit_nm": 33.5,
+  "kp": [
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0,
+    30.0
+  ],
+  "kd": [
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+  ],
+  "initialization": "reference first pose and finite-difference initial velocity; no resets or height shifts",
+  "survival": "body up-axis world Z >= 0.5, tested at 30Hz",
+  "slip": "horizontal velocity at force-bearing foot-plane contact points; not reference contact labels",
+  "source_script_sha256": "7a30c8734c0eda5c2274ac72115ad407b53f1b03b23c2a6034369fa3f3eedfdb",
+  "mujoco_version": "3.10.0"
+}
