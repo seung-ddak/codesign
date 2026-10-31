@@ -251,5 +251,5 @@
 
 ### 다른 PC 이어받기 (2026-10-31, 브랜치 cleanup/shared-ppo)
 - 복원: 기존 portability 묶음을 푼 뒤 `transformer-transformer/` 에서 `patch -p1 < ../codesign/portability/tt_local.patch`. 묶음은 재생성하지 않음 (이 서버에 external/a1-calm-main 이 없어 재생성하면 CALM 이 빠짐).
-- v9 는 이 커밋 시점에 실행 중: 포함 = run.sh·형상 목록·측정 코드·기존 모델 측정값. 미포함 = 수집 데이터·체크포인트·결과.
+- v9 수집 데이터 포함 (학습 형상 32 × 행동 128, 시험 형상 8 × 행동 512). 학습 도중 저장 기능이 없어 체크포인트는 없음. 다른 PC 에서 run.sh 를 돌리면 수집을 건너뛰고 학습을 0 step 부터 시작 (약 45 분).
 - 재실행: `bash ../scripts/tmux_run.sh v9_coverage "bash runs/pipeline_v1/fast_mode24_v9_e_coverage/run.sh"`.
