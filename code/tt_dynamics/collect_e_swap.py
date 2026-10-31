@@ -42,6 +42,7 @@ parser.add_argument("--steps", type=int, default=100, help="실행 길이 (state
 parser.add_argument("--settle", type=float, default=1.0, help="home 자세 안착 시간 (s), generate_task.rest_s0_of 와 같음")
 parser.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts_wide16/walkForwardSlow__r00")
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--designs", type=Path, default=ROOT / "runs/pipeline_v1/retargeting/designs.json", help="대상 형상 E 목록")
 args = parser.parse_args()
 
 cfg = pickle.load(open(sorted(args.expert_config.glob("wandb/offline-run-*/files/config.pkl"))[-1], "rb"))
@@ -50,7 +51,7 @@ ecfg.pop("_target_")
 choice = cfg.get("choice")
 ecfg["reference_dir"] = str(ROOT / "runs/pipeline_v1/retargeting/e000" / choice)
 ecfg["clips"] = ["walkForwardSlow__r00"]
-designs = json.loads((ROOT / "runs/pipeline_v1/retargeting/designs.json").read_text())
+designs = json.loads(args.designs.read_text())
 
 # 원본 A: 형상마다 T step 이상 유효한 episode 중 무작위 (seed 고정)
 rng = np.random.default_rng(args.seed)

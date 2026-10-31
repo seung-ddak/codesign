@@ -3,7 +3,6 @@ import json
 import os
 import pickle
 import sys
-import time
 from pathlib import Path
 
 # Reuse the original TT runtime; only the tracking environment/config live here.
@@ -11,42 +10,36 @@ TT = Path(__file__).resolve().parents[3] / "transformer-transformer"
 if str(TT) not in sys.path:
     sys.path.insert(0, str(TT))
 
+import hydra
 import jax
 import jax.numpy as jnp
+import numpy as np
+import wandb
 from absl import logging
-from mujoco import mjx
+from flax.training import orbax_utils
+from omegaconf import OmegaConf
+from orbax import checkpoint as ocp
 
-from t2.mjx_env.base_env import MjxEnv, State
-
-# Ignore the info logs from brax
-logging.set_verbosity(logging.WARNING)
 from t2.mjx_env.utils import render_policy
 from t2.mjx_env.wrapper import wrap_for_brax_training
 
+from multi_design import build_bank, load_catalog, validate_split, wrap_for_multi_design
+from pd_replay import build_model
+from policy_io import load_normalizer
+
+logging.set_verbosity(logging.WARNING)  # brax info 로그 끔
+
 # Tell XLA to use Triton GEMM, this improves steps/sec by ~30% on some GPUs
-xla_flags = os.environ.get("XLA_FLAGS", "")
-xla_flags += " --xla_gpu_triton_gemm_any=True"
-os.environ["XLA_FLAGS"] = xla_flags
+os.environ["XLA_FLAGS"] = os.environ.get("XLA_FLAGS", "") + " --xla_gpu_triton_gemm_any=True"
 jax.config.update("jax_enable_compilation_cache", True)
 jax.config.update("jax_compilation_cache_dir", "./jax_cache")
 jax.config.update("jax_persistent_cache_min_entry_size_bytes", -1)
 jax.config.update("jax_persistent_cache_min_compile_time_secs", 0)
 
 
-import hydra
-import jax
-from flax.training import orbax_utils
-from omegaconf import OmegaConf
-from orbax import checkpoint as ocp
-
-import wandb
-
-
-@hydra.main(
-    config_path="config", config_name="run_rl_procedural", version_base="1.2"
-)
-def main(cfg):
-    # hydra 가 00000010 을 정수 10 으로 읽는 경우를 막는다. reference 는 형상별 폴더
+def resolve_cfg(cfg):
+    """choice 와 형상별 reference 경로를 확정한다."""
+    # hydra 가 00000010 을 정수 10 으로 읽는 경우를 막는다.
     # choice=A1 이면 A1 몸 + 리타겟 없는 원본 reference (artifacts/pd_replay) — 좌표 변환 대조용
     choice = "A1" if str(cfg.choice) == "A1" else str(cfg.choice).zfill(8)
     cfg.choice = choice
@@ -54,226 +47,109 @@ def main(cfg):
     for e in (cfg.env, cfg.eval_env):
         e.reference_dir = (os.path.join(os.path.dirname(e.reference_dir), "pd_replay") if choice == "A1"
                            else os.path.join(e.reference_dir, choice))
-    config_dict = OmegaConf.to_container(cfg, resolve=True)
-    wandb.init(
-        project="transformer-transformer",
-        tags=cfg.wandb.tags,
-        config=config_dict,
-    )
-    pickle.dump(cfg, open(f"{wandb.run.dir}/config.pkl", "wb"))
+    return choice
 
-    # Set up checkpoint directory
-    ckpt_path = wandb.run.dir + "/checkpoints"
-    os.makedirs(ckpt_path, exist_ok=True)
-    print(f"Checkpoint path: {ckpt_path}")
 
-    # TT model and its retargeted reference must use the same morphology.
-    from pd_replay import build_model
+def build_envs(cfg, choice):
+    """TT model and its retargeted reference must use the same morphology."""
+    model_fn = functools.partial(build_model, kp=cfg.kp, tau_scale=cfg.get("tau_scale"),
+                                 torque_limit=cfg.get("torque_limit"))
+    if not cfg.get("multi_design"):
+        single = functools.partial(model_fn, choice=None if choice == "A1" else choice)
+        return (hydra.utils.instantiate(cfg.env, mj_model_fn=single),
+                hydra.utils.instantiate(cfg.eval_env, mj_model_fn=single))
 
-    mj_model_fn = functools.partial(build_model, choice=None if choice == "A1" else choice, kp=cfg.kp,
-                                    tau_scale=cfg.get("tau_scale"), torque_limit=cfg.get("torque_limit"))
+    root = Path(cfg.env.reference_dir).parents[1]
+    designs = load_catalog(root, choice)
+    validate_split(list(cfg.train_designs), list(cfg.eval_designs), list(cfg.env.clips), list(cfg.eval_env.clips))
+    if choice != designs["topology"]:
+        raise ValueError("Multi-design training requires matching topology")
+    designs_model_fn = functools.partial(model_fn, choice=choice)
+    env, bank = build_bank(list(cfg.train_designs), cfg.env, root, choice, designs, designs_model_fn,
+                           list(cfg.design_unlock_steps))
+    eval_env, eval_bank = build_bank(list(cfg.eval_designs), cfg.eval_env, root, choice, designs, designs_model_fn,
+                                     [0] * len(cfg.eval_designs))
+    bank["rollout_dir"] = cfg.get("rollout_dir")
+    env.design_bank, eval_env.design_bank = bank, eval_bank
+    return env, eval_env
 
-    randomization_fn = None
 
-    if cfg.get("multi_design"):
-        from multi_design import make_bank, wrap_for_multi_design
-
-        root = Path(cfg.env.reference_dir).parents[1]
-        catalog_path = root / "designs.json"
-        if not catalog_path.is_file():
-            catalog_path = root.parent / "designs.json"
-        if not catalog_path.is_file():
-            raise FileNotFoundError(f"Could not find designs.json under {root} or {root.parent}")
-        from multi_design import normalize_design_catalog, validate_split
-        designs = normalize_design_catalog(json.loads(catalog_path.read_text()), choice)
-        design_names = list(cfg.train_designs)
-        eval_names = list(cfg.eval_designs)
-        validate_split(design_names, eval_names, list(cfg.env.clips), list(cfg.eval_env.clips))
-        if choice != designs["topology"]:
-            raise ValueError("Multi-design training requires matching topology")
-
-        def build_bank(names, env_cfg, unlock_steps):
-            envs = []
-            for name in names:
-                if name not in designs:
-                    raise ValueError(f"Unknown design: {name}")
-                design_cfg = OmegaConf.create(OmegaConf.to_container(env_cfg, resolve=True))
-                design_cfg.reference_dir = str(root / name / choice)
-                for clip in design_cfg.clips:
-                    import numpy as np
-                    path = Path(design_cfg.reference_dir) / (clip + ".npz")
-                    with np.load(path) as ref:
-                        if "uniforms" not in ref or not np.allclose(ref["uniforms"], designs[name], rtol=0, atol=1e-7):
-                            raise ValueError(f"Reference E mismatch: {path}")
-                        if not all(np.isfinite(ref[k]).all() for k in ["fix_q", "fix_base_pos", "fix_base_quat"]):
-                            raise ValueError(f"Nonfinite reference: {path}")
-                candidate = hydra.utils.instantiate(design_cfg, mj_model_fn=functools.partial(
-                    build_model, choice=choice, uniforms=designs[name], kp=cfg.kp,
-                    tau_scale=cfg.get("tau_scale"), torque_limit=cfg.get("torque_limit")))
-                for path in candidate.reference_files:
-                    with np.load(path) as ref:
-                        q = ref["fix_q"]
-                        if np.any(q < np.asarray(candidate._lowers) - 1e-5) or np.any(q > np.asarray(candidate._uppers) + 1e-5):
-                            raise ValueError(f"Reference violates joint limits: {path}")
-                envs.append(candidate)
-            bank = make_bank(envs, [designs[name] for name in names])
-            if len(unlock_steps) != len(names) or min(unlock_steps) < 0 or 0 not in unlock_steps:
-                raise ValueError("Each design needs a nonnegative unlock step; at least one starts at zero")
-            bank["unlock_steps"] = list(unlock_steps)
-            return envs[0], bank
-
-        env, bank = build_bank(design_names, cfg.env, list(cfg.design_unlock_steps))
-        eval_env, eval_bank = build_bank(eval_names, cfg.eval_env, [0] * len(eval_names))
-        bank["rollout_dir"] = cfg.get("rollout_dir")
-        env.design_bank = bank
-        eval_env.design_bank = eval_bank
-    else:
-        env = hydra.utils.instantiate(cfg.env, mj_model_fn=mj_model_fn)
-        eval_env = hydra.utils.instantiate(cfg.eval_env, mj_model_fn=mj_model_fn)
-
-    def randomization_obs_fn(model: mjx.Model):
-        extra_obs = []
-        for attr in cfg.extra_obs_attrs:
-            extra_obs.append(getattr(model, attr).flatten())
-        return jnp.hstack(extra_obs)
-
-    jit_randomization_obs_fn = jax.jit(randomization_obs_fn)
-
-    def reset(rng: jax.Array):
-        state = eval_env.reset(rng)
-        if cfg.get("multi_design"):
-            state = state.replace(obs=jnp.concatenate((state.obs, eval_env.design_bank["uniforms"][0])))
-        if cfg.observe_domain_randomized_attrs:
-            extra_obs = jit_randomization_obs_fn(eval_env.mjx_model)
-            state = state.replace(
-                obs=jax.tree.map(
-                    lambda x, y: jnp.hstack([x, y]),
-                    state.obs,
-                    extra_obs,
-                )
-            )
-        return state
-
-    jit_reset = jax.jit(reset)
-
-    def step(state: State, action: jax.Array):
-        state = eval_env.step(state, action)
-        if cfg.get("multi_design"):
-            state = state.replace(obs=jnp.concatenate((state.obs, eval_env.design_bank["uniforms"][0])))
-        if cfg.observe_domain_randomized_attrs:
-            extra_obs = jit_randomization_obs_fn(eval_env.mjx_model)
-            state = state.replace(
-                obs=jax.tree.map(
-                    lambda x, y: jnp.hstack([x, y]),
-                    state.obs,
-                    extra_obs,
-                )
-            )
-        return state
-
-    jit_step = jax.jit(step)
-
-    def render_rollout(
-        make_policy,
-        params,
-        video_path: str,
-        seed: int = 0,
-    ):
-        # Create inference function
-        # params should be a tuple of (normalizer_params, policy_params, ....) (only first two are used)
-        inference_fn = make_policy(params, deterministic=True)
-        jit_inference_fn = jax.jit(inference_fn)
-
-        return render_policy(
-            reset_fn=jit_reset,
-            step_fn=jit_step,
-            policy=jit_inference_fn,
-            env=eval_env,
-            video_path=video_path,
-            camera="body_cam",
-            seed=seed,
-        )
-
-    # Define policy parameters function for saving checkpoints
-    def policy_params_fn(current_step, make_policy, params):
-        orbax_checkpointer = ocp.PyTreeCheckpointer()
-        save_args = orbax_utils.save_args_from_target(params)
-        path = ckpt_path + f"/{current_step}"
-        orbax_checkpointer.save(path, params, force=True, save_args=save_args)
-        if cfg.render_on_checkpoint:
-            render_path = path + f"/{current_step:06d}.mp4"
-            start_time = time.time()
-            render_rollout(
-                make_policy,
-                (params[0], params[1], params[2]),
-                str(render_path),
-            )
-            end_time = time.time()
-            print(f"Rendered rollout in {end_time - start_time:.2f} seconds")
-            wandb.log(
-                {"rollout_video": wandb.Video(str(render_path), format="mp4")},
-                step=current_step,
-            )
-
-    # Save the raw metrics available from this PPO implementation; never
-    # fabricate KL or individual loss values when the learner omits them.
-    metric_path = Path(wandb.run.dir) / "training_metrics.jsonl"
-
+def make_progress_fn(metric_path):
+    """Save the raw metrics this PPO exposes; never fabricate missing KL or losses."""
     def progress(num_steps, metrics):
-        import numpy as np
-
         if any(not bool(jnp.all(jnp.isfinite(v))) for v in jax.tree_util.tree_leaves(metrics)):
             raise ValueError(f"Nonfinite PPO metric at step {num_steps}")
-        values = {}
-        for key, value in metrics.items():
-            arr = np.asarray(value)
-            if arr.size == 1:
-                values[str(key)] = float(arr.reshape(-1)[0])
+        scalars = {str(k): float(np.asarray(v).reshape(-1)[0]) for k, v in metrics.items() if np.asarray(v).size == 1}
         with metric_path.open("a", encoding="utf-8") as fp:
-            fp.write(json.dumps({"step": int(num_steps), **values}, ensure_ascii=False) + "\n")
+            fp.write(json.dumps({"step": int(num_steps), **scalars}, ensure_ascii=False) + "\n")
         wandb.log(metrics, step=num_steps)
         print("-" * 40 + f"{num_steps}" + "-" * 40)
         for key, value in metrics.items():
             print(f"{key}: {value}")
         print("-" * 80)
+    return progress
 
-    # restore_ckpt: 이전 run checkpoint (normalizer·policy·value) 에서 이어 학습 (사용자 결정 2026-10-12)
-    restore = None
-    if cfg.get("restore_ckpt"):
-        import dataclasses
 
-        from brax.training.acme import running_statistics
+def load_restore_params(path):
+    """이전 run checkpoint (normalizer·policy·value) 에서 이어 학습 (사용자 결정 2026-10-12)."""
+    params = ocp.PyTreeCheckpointer().restore(os.path.abspath(path))
+    normalizer = load_normalizer(params[0])
+    # 학습 루프의 count dtype (int32) 와 맞춤. {hi,lo} 합은 uint32
+    print(f"restored {path}")
+    return normalizer.replace(count=normalizer.count.astype(jnp.int32)), params[1], params[2]
 
-        p = ocp.PyTreeCheckpointer().restore(os.path.abspath(cfg.restore_ckpt))
-        fields = {f.name for f in dataclasses.fields(running_statistics.RunningStatisticsState)}
-        norm = running_statistics.RunningStatisticsState(**{  # orbax 는 dataclass 를 dict 로 복원 (stair_design.load_run 과 같은 변환)
-            k: jnp.asarray(sum(jnp.asarray(x) for x in v.values()) if isinstance(v, dict) else v)
-            for k, v in p[0].items() if k in fields})
-        norm = norm.replace(count=norm.count.astype(jnp.int32))  # 학습 루프의 count dtype (int32) 와 맞춤. {hi,lo} 합은 uint32
-        restore = (norm, p[1], p[2])
-        print(f"restored {cfg.restore_ckpt}")
 
-    # Train or load the model
-    make_inference_fn, params, _ = hydra.utils.instantiate(  # restore_params 는 hydra merge 불가 (jax 배열) → partial 후 전달
+def render_final(cfg, eval_env, make_policy, params, video_path):
+    def with_morphology(state):
+        if not cfg.get("multi_design"):
+            return state
+        return state.replace(obs=jnp.concatenate((state.obs, eval_env.design_bank["uniforms"][0])))
+
+    render_policy(
+        reset_fn=jax.jit(lambda rng: with_morphology(eval_env.reset(rng))),
+        step_fn=jax.jit(lambda state, action: with_morphology(eval_env.step(state, action))),
+        policy=jax.jit(make_policy(params, deterministic=True)),
+        env=eval_env,
+        video_path=video_path,
+        camera="body_cam",
+        seed=0,
+    )
+
+
+@hydra.main(config_path="config", config_name="run_rl_procedural", version_base="1.2")
+def main(cfg):
+    choice = resolve_cfg(cfg)
+    wandb.init(project="transformer-transformer", tags=cfg.wandb.tags,
+               config=OmegaConf.to_container(cfg, resolve=True))
+    run_dir = Path(wandb.run.dir)
+    pickle.dump(cfg, (run_dir / "config.pkl").open("wb"))
+    ckpt_path = run_dir / "checkpoints"
+    ckpt_path.mkdir(exist_ok=True)
+    print(f"Checkpoint path: {ckpt_path}")
+
+    env, eval_env = build_envs(cfg, choice)
+
+    def save_checkpoint(current_step, make_policy, params):
+        ocp.PyTreeCheckpointer().save(str(ckpt_path / str(current_step)), params, force=True,
+                                      save_args=orbax_utils.save_args_from_target(params))
+
+    wrap_env_fn = (functools.partial(wrap_for_multi_design, full_reset=cfg.full_reset) if cfg.get("multi_design")
+                   else functools.partial(wrap_for_brax_training, full_reset=cfg.full_reset))
+    # restore_params 는 hydra merge 불가 (jax 배열) → partial 후 전달
+    make_inference_fn, params, _ = hydra.utils.instantiate(
         cfg.train,
         _partial_=True,
-        policy_params_fn=policy_params_fn,
-        wrap_env_fn=(functools.partial(wrap_for_multi_design, full_reset=cfg.full_reset)
-                     if cfg.get("multi_design") else functools.partial(
-                         wrap_for_brax_training,
-                         full_reset=cfg.full_reset,
-                         randomization_obs_fn=(jit_randomization_obs_fn
-                                               if cfg.observe_domain_randomized_attrs else None))),
-        randomization_fn=randomization_fn,
+        policy_params_fn=save_checkpoint,
+        wrap_env_fn=wrap_env_fn,
         environment=env,
-        progress_fn=progress,
+        progress_fn=make_progress_fn(run_dir / "training_metrics.jsonl"),
         eval_env=eval_env,
-    )(restore_params=restore)
+    )(restore_params=load_restore_params(cfg.restore_ckpt) if cfg.get("restore_ckpt") else None)
 
     if cfg.get("render_final", True):
-        render_path = wandb.run.dir + "/final-rollout.mp4"
-        render_rollout(make_inference_fn, params, str(render_path))
-        wandb.log({"rollout_video": wandb.Video(str(render_path))})
+        video = str(run_dir / "final-rollout.mp4")
+        render_final(cfg, eval_env, make_inference_fn, params, video)
+        wandb.log({"rollout_video": wandb.Video(video)})
 
 
 if __name__ == "__main__":

@@ -59,7 +59,7 @@ def check_fixed_e_rest_checkpoint(config):
 
 
 class Net(nn.Module):
-    def __init__(self, H, d, layers):
+    def __init__(self, H, d, layers, film=False):
         super().__init__()
         self.inp = nn.Linear(2 * X_DIM, d)
         self.inp_e = nn.Linear(2 * E_DIM, d)
@@ -69,14 +69,50 @@ class Net(nn.Module):
         self.enc = nn.TransformerEncoder(layer, layers)
         self.out, self.out_e = nn.Linear(d, X_DIM), nn.Linear(d, E_DIM)
         self.d = d
+        # film: E token drives a per-layer scale and shift; zero start = no modulation
+        self.film = nn.ModuleList(nn.Sequential(nn.Linear(d, d), nn.SiLU(), nn.Linear(d, 2 * d))
+                                  for _ in range(layers)) if film else None
+        for block in self.film or ():
+            nn.init.zeros_(block[-1].weight)
+            nn.init.zeros_(block[-1].bias)
 
     def forward(self, x, e, kx, ke, k, pad):
         half = self.d // 2
         f = torch.exp(-math.log(10000) * torch.arange(half, device=x.device) / half)
         t = self.temb(torch.cat([torch.sin(k[:, None] * f), torch.cos(k[:, None] * f)], 1))[:, None]
-        h = torch.cat([self.inp_e(torch.cat([e, ke], -1))[:, None], self.inp(torch.cat([x, kx], -1))], 1) + self.pos + t
-        h = self.enc(h, src_key_padding_mask=torch.cat([torch.zeros_like(pad[:, :1]), pad], 1))
+        e_token = self.inp_e(torch.cat([e, ke], -1))[:, None]
+        h = torch.cat([e_token, self.inp(torch.cat([x, kx], -1))], 1) + self.pos + t
+        mask = torch.cat([torch.zeros_like(pad[:, :1]), pad], 1)
+        if self.film is None:
+            h = self.enc(h, src_key_padding_mask=mask)
+        else:
+            for layer, block in zip(self.enc.layers, self.film):
+                scale, shift = block(e_token + t).chunk(2, -1)
+                h = layer(h, src_key_padding_mask=mask) * (1 + scale) + shift
         return self.out(h[:, 1:]), self.out_e(h[:, 0])
+
+
+def make_net(config):
+    return Net(config["horizon"], config["d_model"], config["layers"], film=config.get("film", False))
+
+
+class EGuidedNet:
+    """Strengthen a known E: push the prediction from "E hidden" toward "E given".
+
+    Needs a checkpoint trained with --e-dropout. weight 1 = plain model.
+    Rows whose E is being generated (ke = 0) stay unchanged.
+    """
+
+    def __init__(self, net, weight):
+        self.net, self.weight = net, weight
+
+    def __call__(self, x, e, kx, ke, k, pad):
+        ex, ee = self.net(x, e, kx, ke, k, pad)
+        known = ke.bool().any(1)
+        if self.weight == 1 or not known.any():
+            return ex, ee
+        hidden, _ = self.net(x, torch.zeros_like(e), kx, torch.zeros_like(ke), k, pad)
+        return torch.where(known[:, None, None], hidden + self.weight * (ex - hidden), ex), ee
 
 
 def schedule(n, dev):

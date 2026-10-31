@@ -123,9 +123,7 @@ class StraightReward(TrackReward):
     def __init__(self, half_width=0.15, **kw):
         super().__init__(half_width=half_width, **kw)
 
-    def r_progress(self, x, m):
-        dx = x[:, 1:, 0] - x[:, :-1, 0]
-        return (dx * (m[:, 1:] & m[:, :-1])).sum(1)
+    r_progress = ZigzagReward.r_progress
 
     def p_lane(self, x, m):
         outside = torch.relu(x[..., 1].abs() - self.half_width) ** 2

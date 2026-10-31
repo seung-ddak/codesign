@@ -11,6 +11,17 @@ from brax.training.agents.ppo import networks as ppo_networks
 from orbax import checkpoint as ocp
 
 
+def load_normalizer(saved):
+    """orbax restores the dataclass as a dict; UInt64 count comes back as {hi, lo}."""
+    if not isinstance(saved, dict):
+        return saved
+    fields = {f.name for f in dataclasses.fields(running_statistics.RunningStatisticsState)}
+    return running_statistics.RunningStatisticsState(**{
+        k: jnp.asarray(sum(jnp.asarray(x) for x in v.values()) if isinstance(v, dict) else v)
+        for k, v in saved.items() if k in fields
+    })
+
+
 def load_run(ckpt_path):
     path = Path(ckpt_path)
     with (path.parent.parent / "config.pkl").open("rb") as file:
@@ -23,12 +34,5 @@ def load_run(ckpt_path):
     network = hydra.utils.instantiate(cfg.train.network_factory)(
         obs_size, action_size, preprocess_observations_fn=normalize
     )
-    normalizer = params[0]
-    if isinstance(normalizer, dict):
-        fields = {f.name for f in dataclasses.fields(running_statistics.RunningStatisticsState)}
-        normalizer = running_statistics.RunningStatisticsState(**{
-            k: jnp.asarray(sum(jnp.asarray(x) for x in v.values()) if isinstance(v, dict) else v)
-            for k, v in normalizer.items() if k in fields
-        })
-    policy = ppo_networks.make_inference_fn(network)((normalizer, params[1]), deterministic=True)
+    policy = ppo_networks.make_inference_fn(network)((load_normalizer(params[0]), params[1]), deterministic=True)
     return cfg, policy

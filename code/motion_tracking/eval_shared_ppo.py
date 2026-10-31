@@ -22,7 +22,7 @@ from scipy.spatial.transform import Rotation
 
 from eval_calm_mjx_tracking import check_reference_morphology
 from eval_calm_pd_tracking import foot_contacts, tracking_errors
-from multi_design import normalize_design_catalog
+from multi_design import load_catalog
 from pd_replay import LEGS, build_model
 from policy_io import load_run
 from track_env import TrackMjxEnv
@@ -33,7 +33,7 @@ def reference_root(cfg):
     return Path(str(cfg.env.reference_dir)).resolve().parents[1]
 
 
-def evaluate_one(cfg, policy, reference_root_dir, design, E, clip, seed):
+def evaluate_clip(cfg, policy, reference_root_dir, design, E, clip, seeds):
     choice = str(cfg.choice).zfill(8)
     refdir = reference_root_dir / design / choice
     refpath = refdir / (clip + ".npz")
@@ -61,7 +61,6 @@ def evaluate_one(cfg, policy, reference_root_dir, design, E, clip, seed):
     ghost = mujoco.MjData(model)
     morph_obs = jnp.asarray(E, dtype=jnp.float32)
 
-    state = env.reset_with_traj(jax.random.PRNGKey(seed), jnp.int32(0), env.clip_start[0])
     ref_qpos_host = np.asarray(env.ref_qpos)
 
     def advance(s, key):
@@ -71,59 +70,63 @@ def evaluate_one(cfg, policy, reference_root_dir, design, E, clip, seed):
         return next_state, mjx.forward(env.mjx_model, next_state.data)
 
     advance = jax.jit(advance)
-    key = jax.random.PRNGKey(seed + 101)
-    qpos, refpos, footpos, reffootpos, slips = [], [], [], [], []
-    fell = False
-    invalid = False
+    def rollout(seed):
+        state = env.reset_with_traj(jax.random.PRNGKey(seed), jnp.int32(0), env.clip_start[0])
+        key = jax.random.PRNGKey(seed + 101)
+        qpos, refpos, footpos, reffootpos, slips = [], [], [], [], []
+        fell = False
+        invalid = False
 
-    for i in range(300):
-        key, subkey = jax.random.split(key)
-        state, snapshot = advance(state, subkey)
-        invalid = bool(np.asarray(state.info["state_is_nan"]) > 0)
-        if invalid:
-            break
-        native = mjx.get_data(model, snapshot)
-        native = native[0] if isinstance(native, (list, tuple)) else native
-        r = ref_qpos_host[int(np.asarray(state.info["frame"]))]
-        ghost.qpos[:] = r
-        mujoco.mj_forward(model, ghost)
-        _, slip = foot_contacts(model, native, feet, planes)
-        qpos.append(native.qpos.copy())
-        refpos.append(r.copy())
-        footpos.append(native.geom_xpos[feet].copy())
-        reffootpos.append(ghost.geom_xpos[feet].copy())
-        slips.extend(np.asarray(slip)[np.isfinite(slip)].tolist())
-        fell = bool(np.asarray(state.info["done/fellover"]) > 0)
-        if bool(np.asarray(state.done) > 0):
-            break
+        for i in range(300):
+            key, subkey = jax.random.split(key)
+            state, snapshot = advance(state, subkey)
+            invalid = bool(np.asarray(state.info["state_is_nan"]) > 0)
+            if invalid:
+                break
+            native = mjx.get_data(model, snapshot)
+            native = native[0] if isinstance(native, (list, tuple)) else native
+            r = ref_qpos_host[int(np.asarray(state.info["frame"]))]
+            ghost.qpos[:] = r
+            mujoco.mj_forward(model, ghost)
+            _, slip = foot_contacts(model, native, feet, planes)
+            qpos.append(native.qpos.copy())
+            refpos.append(r.copy())
+            footpos.append(native.geom_xpos[feet].copy())
+            reffootpos.append(ghost.geom_xpos[feet].copy())
+            slips.extend(np.asarray(slip)[np.isfinite(slip)].tolist())
+            fell = bool(np.asarray(state.info["done/fellover"]) > 0)
+            if bool(np.asarray(state.done) > 0):
+                break
 
-    n = len(qpos)
-    row = dict(design=design, motion=clip, evaluated_steps=n, evaluated_seconds=n / 30,
-               survived_10s=bool(n == 300 and not fell and not invalid),
-               fell=bool(fell), nonfinite_state=bool(invalid))
-    if n == 0:
-        row["error"] = "No valid MJX states"
+        n = len(qpos)
+        row = dict(design=design, motion=clip, seed=seed, evaluated_steps=n, evaluated_seconds=n / 30,
+                   survived_10s=bool(n == 300 and not fell and not invalid),
+                   fell=bool(fell), nonfinite_state=bool(invalid))
+        if n == 0:
+            row["error"] = "No valid MJX states"
+            return row
+        q, r = np.asarray(qpos), np.asarray(refpos)
+        fp, rf = np.asarray(footpos), np.asarray(reffootpos)
+        rot = Rotation.from_quat(q[:, [4, 5, 6, 3]]).as_matrix()
+        rr = Rotation.from_quat(r[:, [4, 5, 6, 3]]).as_matrix()
+        f_body = np.einsum("tfi,tij->tfj", fp - q[:, None, :3], rot)
+        r_body = np.einsum("tfi,tij->tfj", rf - r[:, None, :3], rr)
+        row.update(tracking_errors(q, r, fp, rf))
+        row["foot_body_mean_error_m"] = float(np.linalg.norm(f_body - r_body, axis=-1).mean())
+        row["slip_mean_mps"] = float(np.mean(slips)) if slips else None
+        row["supported_foot_samples"] = len(slips)
+        row["tracking_error_screen_pass"] = bool(
+            row["survived_10s"] and row["joint_rmse_deg"] < 5
+            and row["foot_body_mean_error_m"] < .03
+            and row["orientation_mean_deg"] < 5
+        )
         return row
-    q, r = np.asarray(qpos), np.asarray(refpos)
-    fp, rf = np.asarray(footpos), np.asarray(reffootpos)
-    rot = Rotation.from_quat(q[:, [4, 5, 6, 3]]).as_matrix()
-    rr = Rotation.from_quat(r[:, [4, 5, 6, 3]]).as_matrix()
-    f_body = np.einsum("tfi,tij->tfj", fp - q[:, None, :3], rot)
-    r_body = np.einsum("tfi,tij->tfj", rf - r[:, None, :3], rr)
-    row.update(tracking_errors(q, r, fp, rf))
-    row["foot_body_mean_error_m"] = float(np.linalg.norm(f_body - r_body, axis=-1).mean())
-    row["slip_mean_mps"] = float(np.mean(slips)) if slips else None
-    row["supported_foot_samples"] = len(slips)
-    row["tracking_error_screen_pass"] = bool(
-        row["survived_10s"] and row["joint_rmse_deg"] < 5
-        and row["foot_body_mean_error_m"] < .03
-        and row["orientation_mean_deg"] < 5
-    )
-    return row
+
+    return [rollout(seed) for seed in seeds]
 
 
 def write_html(rows, out):
-    headers = ["design", "motion", "survived_10s", "evaluated_seconds",
+    headers = ["design", "motion", "seed", "survived_10s", "evaluated_seconds",
                "joint_rmse_deg", "body_position_rmse_m",
                "foot_body_mean_error_m", "orientation_mean_deg", "slip_mean_mps"]
     lines = ["<!doctype html><html lang='ko'><meta charset='utf-8'>",
@@ -152,7 +155,7 @@ def main():
     ap.add_argument("--out", type=Path, required=True)
     ap.add_argument("--designs", nargs="+", help="Default: train + held-out designs")
     ap.add_argument("--clips", nargs="+", help="Default: all train and held-out clips")
-    ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     args = ap.parse_args()
     if args.out.exists() and any(args.out.iterdir()):
         ap.error("Output directory is not empty; do not overwrite measurements")
@@ -160,12 +163,7 @@ def main():
     if not cfg.get("multi_design"):
         ap.error("Checkpoint was not trained with multi_design=true")
     root = reference_root(cfg)
-    catalog_path = root / "designs.json"
-    if not catalog_path.is_file():
-        catalog_path = root.parent / "designs.json"
-    if not catalog_path.is_file():
-        raise FileNotFoundError(catalog_path)
-    catalog = normalize_design_catalog(json.loads(catalog_path.read_text()), str(cfg.choice).zfill(8))
+    catalog = load_catalog(root, str(cfg.choice).zfill(8))
     designs = list(dict.fromkeys(args.designs or (list(cfg.train_designs) + list(cfg.eval_designs))))
     clips = list(dict.fromkeys(args.clips or (list(cfg.env.clips) + list(cfg.eval_env.clips))))
     missing = [name for name in designs if name not in catalog]
@@ -181,13 +179,13 @@ def main():
     for design in designs:
         E = np.asarray(catalog[design], dtype=float)
         for clip in clips:
-            row = evaluate_one(cfg, policy, root, design, E, clip, args.seed)
-            row["train_design"] = design in cfg.train_designs
-            row["train_motion"] = clip in cfg.env.clips
-            rows.append(row)
-            print(json.dumps(row, ensure_ascii=False), flush=True)
+            for row in evaluate_clip(cfg, policy, root, design, E, clip, args.seeds):
+                row["train_design"] = design in cfg.train_designs
+                row["train_motion"] = clip in cfg.env.clips
+                rows.append(row)
+                print(json.dumps(row, ensure_ascii=False), flush=True)
     (args.out / "conditions.json").write_text(
-        json.dumps({"checkpoint": str(args.checkpoint.resolve()), "seed": args.seed,
+        json.dumps({"checkpoint": str(args.checkpoint.resolve()), "seeds": args.seeds,
                     "designs": designs, "clips": clips, "ctrl_dt": 1 / 30,
                     "physics_dt": 1 / 300, "source": "native MJX 10s first-frame evaluation"},
                    ensure_ascii=False, indent=2), encoding="utf-8"

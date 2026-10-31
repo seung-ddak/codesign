@@ -29,7 +29,7 @@ import torch
 import torch.nn as nn
 
 from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, load, source_group_keys  # noqa: F401
-from tt_model import CONDITIONING_VERSION, Net, condition_masks, rebase, schedule, unbase
+from tt_model import CONDITIONING_VERSION, condition_masks, make_net, rebase, schedule, unbase
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
 
@@ -57,6 +57,8 @@ parser.add_argument("--swap-fraction", type=float, help="training minibatch frac
 parser.add_argument("--mode-weights", nargs="+", type=float, help="sampling weights in --modes order")
 parser.add_argument("--modes", type=int, nargs="+", choices=(0, 1, 2, 3, 4, 5), default=[0, 1, 2], help="학습 조건: 0 joint (s0), 1 dynamics (E·s0·A), 2 given_E (E·s0), 3 free (없음), 4 anchor (s0 XY/yaw만 고정), 5 fixed-E anchor (E·s0 XY/yaw 고정)")
 parser.add_argument("--diag", action="store_true", help="이어 붙이지 않은 단일 window 예측의 몸통 yaw·속도 오차를 모션 종류별로 (eval-only)")
+parser.add_argument("--film", action="store_true", help="E 를 모든 transformer 층에 곱·합으로 주입")
+parser.add_argument("--e-dropout", type=float, default=0.0, help="E 가 주어지는 학습 행에서 E 를 가릴 확률")
 parser.add_argument("--sampler", choices=("ddpm", "ddim"), default="ddpm", help="평가 샘플링. ddim = 결정적 (eta 0)")
 args = parser.parse_args()
 if args.swap_fraction is not None and (not math.isfinite(args.swap_fraction) or not 0 <= args.swap_fraction <= 1):
@@ -222,7 +224,7 @@ mu_t, sd_t = torch.tensor(mu, device=dev), torch.tensor(sd, device=dev)
 En = torch.tensor((E - emu) / esd, device=dev)
 args.out.mkdir(parents=True, exist_ok=True)
 beta, abar = schedule(args.diff_steps, dev)
-net = Net(H, args.d_model, args.layers).to(dev)
+net = make_net({"horizon": H, "d_model": args.d_model, "layers": args.layers, "film": args.film}).to(dev)
 ckpt_path = args.out / "checkpoint.pt"
 print(f"episodes={len(X)} (train {len(tr)}, val {n_val}) valid steps={int(M.sum())} horizon={H} sources={sorted(set(src))}")
 print(f"params={sum(p.numel() for p in net.parameters()) / 1e6:.2f}M")
@@ -260,9 +262,15 @@ if not args.eval_only:
         nx, ne = torch.randn(x0.shape, device=dev, generator=gen), torch.randn(e0.shape, device=dev, generator=gen)
         xt = ab.sqrt()[:, None, None] * x0 + (1 - ab).sqrt()[:, None, None] * nx
         et = ab.sqrt()[:, None] * e0 + (1 - ab).sqrt()[:, None] * ne
-        px, pe = net(torch.where(kx > 0, x0, xt), torch.where(ke > 0, e0, et), kx, ke, k.float(), ~m)
+        e_in = torch.where(ke > 0, e0, et)
+        e_weight = 1 - ke
+        if gen is None and args.e_dropout:  # 학습 때만: E 를 0 으로 가리고 E 출력 손실은 뺀다
+            hide = (ke.any(1) & (torch.rand(n, device=dev) < args.e_dropout))[:, None]
+            e_in, ke = torch.where(hide, 0.0, e_in), torch.where(hide, 0.0, ke)
+            e_weight = torch.where(hide, 0.0, e_weight)
+        px, pe = net(torch.where(kx > 0, x0, xt), e_in, kx, ke, k.float(), ~m)
         wx = (1 - kx) * m[..., None]
-        return ((px - nx) ** 2 * wx).sum() / wx.sum() + (((pe - ne) ** 2) * (1 - ke)).mean()
+        return ((px - nx) ** 2 * wx).sum() / wx.sum() + (((pe - ne) ** 2) * e_weight).mean()
 
     for step in range(1, args.steps + 1):
         idx = (balanced_sample(pools, args.batch, args.swap_fraction) if args.swap_fraction is not None

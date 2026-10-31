@@ -41,9 +41,9 @@ Check *stage-1* promotion using full 10s metrics on near_short:
   --out runs/calm_shared_ppo/stage1_eval/gate.json
 ~~~
 
-Exit code `0` permits promotion; `2` means **do not** unlock and inspect results. Initial **engineering** thresholds (not research success thresholds): >=4 runs per current design, >=80% 10s survival, survivor mean body RMSE <=0.20m, joint RMSE <=12deg and orientation mean <=10deg.
+Exit code `0` permits promotion; `2` means **do not** unlock and inspect results. The gate counts training motions only; held-out motion 007 is reported but never promotes. `eval_shared_ppo.py` runs seeds 0/1/2, which vary observation noise. Initial **engineering** thresholds (not research success thresholds): >=12 runs per current design (4 motions x 3 seeds), >=80% 10s survival, survivor mean body RMSE <=0.20m, joint RMSE <=12deg and orientation mean <=10deg.
 
-After promotion, resume from the saved checkpoint, keeping the 13-dimensional morphology observation unchanged:
+After promotion, resume from the saved checkpoint, keeping the 13-dimensional morphology observation unchanged (E is scaled to [-1, 1] by `make_fixed_e_ppo_networks`, not by running statistics, so unlocked or held-out designs stay in range):
 
 ~~~bash
 WANDB_MODE=offline MUJOCO_GL=egl XLA_PYTHON_CLIENT_PREALLOCATE=false \

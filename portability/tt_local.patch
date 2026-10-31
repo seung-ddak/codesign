@@ -1,0 +1,139 @@
+--- a/t2/mjx_env/train.py
++++ b/t2/mjx_env/train.py
+@@ -214,6 +214,7 @@
+     gae_lambda: float = 0.95,
+     max_grad_norm: Optional[float] = None,
+     normalize_advantage: bool = True,
++    desired_kl: Optional[float] = None,
+     network_factory: types.NetworkFactory[
+         ppo_networks.PPONetworks
+     ] = ppo_networks.make_ppo_networks,
+@@ -397,13 +398,11 @@
+     )
+     make_policy = ppo_networks.make_inference_fn(ppo_network)
+ 
+-    optimizer = optax.adam(learning_rate=learning_rate)
++    # learning_rate is an injected hyperparameter so desired_kl can adapt it in place.
++    optimizer = optax.inject_hyperparams(optax.adam)(learning_rate=learning_rate)
+     if max_grad_norm is not None:
+         # TODO(btaba): Move gradient clipping to `training/gradients.py`.
+-        optimizer = optax.chain(
+-            optax.clip_by_global_norm(max_grad_norm),
+-            optax.adam(learning_rate=learning_rate),
+-        )
++        optimizer = optax.chain(optax.clip_by_global_norm(max_grad_norm), optimizer)
+ 
+     loss_fn = functools.partial(
+         ppo_losses.compute_ppo_loss,
+@@ -419,6 +418,26 @@
+     gradient_update_fn = gradients.gradient_update_fn(
+         loss_fn, optimizer, pmap_axis_name=_PMAP_AXIS_NAME, has_aux=True
+     )
++    loss_and_pgrad_fn = gradients.loss_and_pgrad(
++        loss_fn, pmap_axis_name=_PMAP_AXIS_NAME, has_aux=True
++    )
++
++    def adaptive_kl_update(params, normalizer_params, data, key_loss, optimizer_state):
++        """rsl_rl PPO schedule='adaptive': the minibatch KL(old || current) measured before
++        the step rescales the learning rate by 1.5 toward desired_kl, bounded to [1e-5, 1e-2]."""
++        (loss, metrics), grads = loss_and_pgrad_fn(params, normalizer_params, data, key_loss)
++        kl = jax.lax.pmean(metrics["kl_mean"], axis_name=_PMAP_AXIS_NAME)
++        inject = optimizer_state[-1] if max_grad_norm is not None else optimizer_state
++        lr = inject.hyperparams["learning_rate"]
++        lr = jnp.where(kl > desired_kl * 2.0, jnp.maximum(1e-5, lr / 1.5),
++                       jnp.where((kl < desired_kl / 2.0) & (kl > 0.0),
++                                 jnp.minimum(1e-2, lr * 1.5), lr))
++        inject = inject._replace(hyperparams={**inject.hyperparams, "learning_rate": lr})
++        optimizer_state = ((*optimizer_state[:-1], inject) if max_grad_norm is not None
++                           else inject)
++        updates, optimizer_state = optimizer.update(grads, optimizer_state)
++        params = optax.apply_updates(params, updates)
++        return (loss, {**metrics, "learning_rate": lr}), params, optimizer_state
+ 
+     metrics_aggregator = metric_logger.EpisodeMetricsLogger(
+         steps_between_logging=training_metrics_steps or env_step_per_training_step,
+@@ -432,13 +451,18 @@
+     ):
+         optimizer_state, params, key = carry
+         key, key_loss = jax.random.split(key)
+-        (_, metrics), params, optimizer_state = gradient_update_fn(
+-            params,
+-            normalizer_params,
+-            data,
+-            key_loss,
+-            optimizer_state=optimizer_state,
+-        )
++        if desired_kl is not None:
++            (_, metrics), params, optimizer_state = adaptive_kl_update(
++                params, normalizer_params, data, key_loss, optimizer_state
++            )
++        else:
++            (_, metrics), params, optimizer_state = gradient_update_fn(
++                params,
++                normalizer_params,
++                data,
++                key_loss,
++                optimizer_state=optimizer_state,
++            )
+ 
+         return (optimizer_state, params, key), metrics
+ 
+@@ -522,6 +546,7 @@
+                 metrics_aggregator.update_episode_metrics,
+                 data.extras["state_extras"]["episode_metrics"],
+                 data.extras["state_extras"]["episode_done"],
++                {},
+             )
+ 
+         # Update normalization params and normalize observations.
+@@ -638,9 +663,13 @@
+             {},
+         )
+ 
++    # jax >= 0.10 removed device_put_replicated. Stacking a leading device axis
++    # and pushing it through an identity pmap gives the same pmap-sharded layout
++    # the rest of this file expects.
++    _n_devices = len(jax.local_devices()[:local_devices_to_use])
+     training_state = jax.pmap(lambda x: x, axis_name=_PMAP_AXIS_NAME)(
+         jax.tree_util.tree_map(
+-            lambda x: jnp.stack([x] * local_devices_to_use), training_state
++            lambda x: jnp.stack([x] * _n_devices), training_state
+         )
+     )
+ 
+--- a/t2/mjx_env/track_env.py
++++ b/t2/mjx_env/track_env.py
+@@ -896,7 +896,7 @@
+     is_penalized = jnp.where(in_bounds, penalized_keys[idx] == contact_keys, False)
+ 
+     # Penetration depth (positive if colliding)
+-    depth = jnp.clip(contact_threshold - contact_dists, a_min=0.0)
++    depth = jnp.clip(contact_threshold - contact_dists, 0.0)  # jax 0.10: a_min 제거됨
+ 
+     if mode == "hinge":
+         # linear penalty on depth
+--- a/t2/mjx_env/wrapper.py
++++ b/t2/mjx_env/wrapper.py
+@@ -196,17 +196,14 @@
+         next_info = state.info
+         done_count_key = f"{self._info_key}_done_count"
+         if self._full_reset and reset_state:
+-            completed_episode = {
+-                key: state.info[key]
+-                for key in ("episode_done", "episode_metrics")
+-                if key in state.info
+-            }
+             next_info = jax.tree.map(where_done, reset_state.info, state.info)
+-            next_info.update(completed_episode)
+             next_info[done_count_key] = state.info[done_count_key]
+ 
+-            if "steps" in next_info:
+-                next_info["steps"] = state.info["steps"]
++            # Keep the finished episode's EpisodeWrapper bookkeeping (brax AutoResetWrapper
++            # never resets info); EpisodeWrapper zeroes it on the next step via prev_done.
++            for key in ("steps", "episode_done", "episode_metrics"):
++                if key in next_info:
++                    next_info[key] = state.info[key]
+             preserve_info_key = f"{self._info_key}_preserve_info"
+             if preserve_info_key in next_info:
+                 next_info[preserve_info_key] = state.info[preserve_info_key]

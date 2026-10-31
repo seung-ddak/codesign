@@ -1,4 +1,4 @@
-"""rollout npz -> TT 토큰용 특징. train_tt.py 와 diag_mlp.py 가 같이 쓴다."""
+"""rollout npz -> TT 토큰용 특징. train_tt.py 가 쓴다."""
 
 from pathlib import Path
 

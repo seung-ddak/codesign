@@ -108,3 +108,16 @@ def test_recorder_keeps_terminal_transition(tmp_path):
             assert len(d['qpos'])==1 and d['failed']
             np.testing.assert_allclose(d['next_qpos'],d['qpos']+1)
             np.testing.assert_allclose(d['ctrl'],1)
+
+
+def test_unseen_morphology_stays_in_range_after_constant_training():
+    from brax.training.acme import running_statistics as rs, specs
+    from multi_design import make_fixed_e_ppo_networks
+    obs = jnp.concatenate((jnp.arange(4.), jnp.full(13, .4)))
+    stats = rs.update(rs.init_state(specs.Array((17,), jnp.float32)), jnp.tile(obs, (8, 1)))
+    def spy(x, s):
+        return rs.normalize(x, s)
+    net = make_fixed_e_ppo_networks(17, 12, spy, policy_hidden_layer_sizes=(8,), value_hidden_layer_sizes=(8,))
+    params = net.policy_network.init(jax.random.PRNGKey(0))
+    unseen = obs.at[-13:].set(.9)
+    assert float(jnp.abs(net.policy_network.apply(stats, params, unseen)).max()) < 100

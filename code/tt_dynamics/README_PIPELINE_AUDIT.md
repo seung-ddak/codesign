@@ -6,7 +6,7 @@ Tracked in [GitHub issue #6](https://github.com/seung-ddak/codesign/issues/6). B
 
 **Active, supported research-smoke route:** `run_minimal_geometry_gate.sh` → `run_quick_validation.sh smoke` → Mode 2/4 joint E/S/A reward-guided generation → morphology-specific MJX 2-second replay. One user, one GPU, sequential jobs. Retain fixed CP-Design semantics (reward-agnostic dynamics TT training; task reward at inference; no target-motion imitation).
 
-**Legacy / experimental, not evidence of the current pipeline:** `run_foot_anchored_pipeline.sh` (D4/D5, fixed-E shared SPSA, pose-heldout evaluation), historical first-window and other gate runners. Legacy mode 5 is now accepted by training CLI, but the branch must be assessed separately. It does not automatically prove unseen morphology transfer.
+**Legacy / experimental, not evidence of the current pipeline:** Foot-Anchored route (removed in cleanup; see git history), historical first-window and other gate runners. Legacy mode 5 is now accepted by training CLI, but the branch must be assessed separately. It does not automatically prove unseen morphology transfer.
 
 ## Audit disposition (14 findings)
 

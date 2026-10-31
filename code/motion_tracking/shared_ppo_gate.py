@@ -10,12 +10,12 @@ import math
 from pathlib import Path
 
 
-def assess(rows, designs, min_trials=4, min_survival=0.8,
+def assess(rows, designs, min_trials=12, min_survival=0.8,
            max_body_rmse_m=0.20, max_joint_rmse_deg=12.0,
            max_orientation_deg=10.0):
     results = {}
     for design in designs:
-        subset = [r for r in rows if r.get("design") == design]
+        subset = [r for r in rows if r.get("design") == design and r.get("train_motion") is True]
         passed = [r for r in subset if r.get("survived_10s") is True]
         notes = []
         if len(subset) < min_trials:
@@ -53,7 +53,7 @@ def main():
     ap.add_argument("--metrics", type=Path, required=True)
     ap.add_argument("--designs", nargs="+", required=True,
                     help="ALL already-unlocked training designs; no held-out designs")
-    ap.add_argument("--min-trials", type=int, default=4)
+    ap.add_argument("--min-trials", type=int, default=12)
     ap.add_argument("--min-survival", type=float, default=0.8)
     ap.add_argument("--max-body-rmse-m", type=float, default=0.20)
     ap.add_argument("--max-joint-rmse-deg", type=float, default=12.0)

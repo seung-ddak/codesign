@@ -18,6 +18,8 @@ train:
   num_evals: 9
   log_training_metrics: true
   training_metrics_steps: 24576
+  network_factory:
+    _target_: multi_design.make_fixed_e_ppo_networks  # E 는 running normalizer 를 거치지 않는다
 
 env:
   reference_dir: ${hydra:runtime.cwd}/runs/calm_pilot_tracking/try4/references/e003

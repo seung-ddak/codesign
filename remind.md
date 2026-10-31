@@ -243,3 +243,13 @@
 ### 보고서 형식 선호 (2026-10-22)
 - 이후 실험 보고서는 `runs/pipeline_v1/final/report.html`의 시각적 HTML 구성(요약, 탐색, 결과 표, 그래프, 해석과 한계)을 기본으로 사용한다. Markdown 보고서 대신 브라우저에서 볼 수 있는 `report.html`을 생성한다.
 - Mode 2·4 FAST 학습 보고서: `runs/pipeline_v1/fast_mode24_v4/report.html`. 기존 `REPORT.md`는 사용자 요청으로 삭제했다.
+
+### 8-33. E 주입 강화 → v8 (2026-10-31, 사용자 결정 = 전 층 주입 + E 가리기, v7 대비 구조만 변경)
+- 결과: A·B 게이트 4건 전부 실패 (최저 p 0.14, 최고 순위상관 +0.49, 2초 경로오차 0.22→0.12 m). MJX η² 0.71~0.88 유지.
+- 원인: E 교체 일치도가 평균은 높이 0.91~0.93이나 움직임은 −0.04~+0.09. E 영향 2배는 크기만 키움. 기존 "≈0" 측정은 생성 궤적 기준으로 정정.
+- 다음: E 주입 추가 개선 중단, 형상 추가로 10좌표의 빈 방향 채움 (현재 16형상은 독립 7방향). report `runs/pipeline_v1/fast_mode24_v8_film/report.html`.
+
+### 다른 PC 이어받기 (2026-10-31, 브랜치 cleanup/shared-ppo)
+- 복원: 기존 portability 묶음을 푼 뒤 `transformer-transformer/` 에서 `patch -p1 < ../codesign/portability/tt_local.patch`. 묶음은 재생성하지 않음 (이 서버에 external/a1-calm-main 이 없어 재생성하면 CALM 이 빠짐).
+- v9 는 이 커밋 시점에 실행 중: 포함 = run.sh·형상 목록·측정 코드·기존 모델 측정값. 미포함 = 수집 데이터·체크포인트·결과.
+- 재실행: `bash ../scripts/tmux_run.sh v9_coverage "bash runs/pipeline_v1/fast_mode24_v9_e_coverage/run.sh"`.

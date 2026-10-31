@@ -47,7 +47,7 @@ from t2.mjx_env.base_env import make_data, step  # noqa: E402
 from obstacle_task import ObstacleReward, add_pole, envelope_radius, pole_contact
 from task_reward import StraightReward, TrackReward, ZigzagReward  # noqa: E402
 from track_env import TrackMjxEnv  # noqa: E402
-from tt_model import Net, check_fixed_e_rest_checkpoint, check_free_checkpoint, check_rest_checkpoint, condition_masks, rest_s0, schedule, unbase  # noqa: E402
+from tt_model import EGuidedNet, check_fixed_e_rest_checkpoint, check_free_checkpoint, check_rest_checkpoint, make_net, condition_masks, rest_s0, schedule, unbase  # noqa: E402
 
 EP, FOOT_R, A = 500, 0.02, slice(S_DIM, X_DIM)
 
@@ -79,6 +79,7 @@ parser.add_argument("--max-geometry-lift-m", type=float, default=0.04,
 parser.add_argument("--allow-airborne-s0", action="store_true",
                     help="test geometry-clear zero-contact starts in MJX instead of rejecting as unsupported")
 parser.add_argument("--no-render", action="store_true")
+parser.add_argument("--e-cfg", type=float, default=1.0, help="알려진 E 의 영향 배율 (1 = 끔)")
 parser.add_argument("--joint-full-guidance", action="store_true",
                     help="per-denoising-step reward gradient guides noisy E and complete 10s S/A (not SPSA)")
 parser.add_argument("--e-rest-s0", action="store_true",
@@ -159,9 +160,13 @@ if not 0 <= args.replan < H:
 PER_DESIGN = args.candidates
 if args.fixed_e:
     args.candidates *= len(args.fixed_e)  # 후보 = 형상 × seed (형상 순서대로 PER_DESIGN 개씩)
-net = Net(H, ta["d_model"], ta["layers"]).to(dev)
+net = make_net(ta).to(dev)
 net.load_state_dict(ck["net"])
 net.eval().requires_grad_(False)
+if args.e_cfg != 1:
+    if not ta.get("e_dropout"):
+        parser.error("--e-cfg requires a checkpoint trained with --e-dropout")
+    net = EGuidedNet(net, args.e_cfg)
 mu, sd = torch.tensor(ck["mu"], device=dev), torch.tensor(ck["sd"], device=dev)
 emu, esd = (0.5, 0.5) if ta["norm"] == "minmax" else (0.5, 0.25)
 beta, abar = schedule(ta["diff_steps"], dev)

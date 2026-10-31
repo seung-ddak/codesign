@@ -2,11 +2,18 @@
 
 import contextlib
 import dataclasses
+import functools
+import json
+from pathlib import Path
+from uuid import uuid4
 
+import hydra
 import jax
 import jax.numpy as jnp
 import numpy as np
 from brax.envs.wrappers import training as brax_training
+from brax.training.agents.ppo import networks as ppo_networks
+from omegaconf import OmegaConf
 
 from t2.mjx_env.wrapper import Wrapper
 
@@ -15,6 +22,25 @@ REFERENCE_ATTRS = (
     "ref_qpos", "ref_qvel", "ref_foot", "ref_contact", "init_q", "action_offset",
     "_lowers", "_uppers", "_soft_lowers", "_soft_uppers", "base_mass",
 )
+
+
+ROLLOUT_FIELDS = ("qpos", "qvel", "next_qpos", "next_qvel", "action", "ctrl")
+FAILURE_KEYS = ("done/fellover", "done/pos_err", "done/orn_err", "state_is_nan")
+E_SIZE = 13
+
+
+def make_fixed_e_ppo_networks(observation_size, action_size, preprocess_observations_fn, **kwargs):
+    """Scale E in [0, 1] to [-1, 1] instead of running statistics.
+
+    A coordinate constant during training has std 1e-6, so any other morphology
+    would otherwise enter the networks at about 1e5. Normalizes all other inputs.
+    """
+    def preprocess(obs, normalizer):
+        normalized = preprocess_observations_fn(obs, normalizer)
+        return jnp.concatenate((normalized[..., :-E_SIZE], 2 * obs[..., -E_SIZE:] - 1), axis=-1)
+
+    return ppo_networks.make_ppo_networks(
+        observation_size, action_size, preprocess_observations_fn=preprocess, **kwargs)
 
 
 def normalize_design_catalog(catalog, topology):
@@ -33,6 +59,46 @@ def normalize_design_catalog(catalog, topology):
     if isinstance(catalog, dict):
         return catalog
     raise ValueError("Design catalog must be a mapping or a list of design records")
+
+
+def load_catalog(root, topology):
+    """Find designs.json at the reference root or one level above it."""
+    for folder in (root, root.parent):
+        if (folder / "designs.json").is_file():
+            return normalize_design_catalog(json.loads((folder / "designs.json").read_text()), topology)
+    raise FileNotFoundError(f"Could not find designs.json under {root} or {root.parent}")
+
+
+def check_reference(path, E, lowers=None, uppers=None):
+    """Reject a reference whose morphology, values or joint range cannot be trained."""
+    with np.load(path) as ref:
+        if "uniforms" not in ref or not np.allclose(ref["uniforms"], E, rtol=0, atol=1e-7):
+            raise ValueError(f"Reference E mismatch: {path}")
+        if not all(np.isfinite(ref[k]).all() for k in ["fix_q", "fix_base_pos", "fix_base_quat"]):
+            raise ValueError(f"Nonfinite reference: {path}")
+        if lowers is not None and (np.any(ref["fix_q"] < lowers - 1e-5) or np.any(ref["fix_q"] > uppers + 1e-5)):
+            raise ValueError(f"Reference violates joint limits: {path}")
+
+
+def build_bank(names, env_cfg, root, choice, designs, model_fn, unlock_steps):
+    """Instantiate one validated env per morphology and stack them into a bank."""
+    if len(unlock_steps) != len(names) or min(unlock_steps) < 0 or 0 not in unlock_steps:
+        raise ValueError("Each design needs a nonnegative unlock step; at least one starts at zero")
+    envs = []
+    for name in names:
+        if name not in designs:
+            raise ValueError(f"Unknown design: {name}")
+        design_cfg = OmegaConf.create(OmegaConf.to_container(env_cfg, resolve=True))
+        design_cfg.reference_dir = str(root / name / choice)
+        for clip in design_cfg.clips:
+            check_reference(Path(design_cfg.reference_dir) / f"{clip}.npz", designs[name])
+        env = hydra.utils.instantiate(design_cfg, mj_model_fn=functools.partial(model_fn, uniforms=designs[name]))
+        for path in env.reference_files:
+            check_reference(path, designs[name], np.asarray(env._lowers), np.asarray(env._uppers))
+        envs.append(env)
+    bank = make_bank(envs, [designs[name] for name in names])
+    bank["unlock_steps"] = list(unlock_steps)
+    return envs[0], bank
 
 
 def make_bank(envs, uniforms):
@@ -156,8 +222,9 @@ class EpisodeDesignReset(Wrapper):
             info = {k: jax.tree.map(select, fresh.info[k], v) if k in fresh.info else v
                     for k, v in current.info.items()}
             if self.rollout_dir:
-                for name in ("rollout_qpos", "rollout_qvel", "rollout_next_qpos", "rollout_next_qvel", "rollout_action", "rollout_ctrl"):
-                    info[name] = select(jnp.zeros_like(info[name]), info[name])
+                for name in ROLLOUT_FIELDS:
+                    key = "rollout_" + name
+                    info[key] = select(jnp.zeros_like(info[key]), info[key])
             return current.replace(
                 data=jax.tree.map(select, fresh.data, current.data),
                 obs=select(fresh.obs, current.obs),
@@ -171,7 +238,6 @@ class EpisodeDesignReset(Wrapper):
         info["design_rng"] = keys[:, 1]
         return terminal.replace(info=info)
 
-
     def init_recording(self, state):
         for name, value in [("qpos", state.data.qpos), ("qvel", state.data.qvel),
                             ("next_qpos", state.data.qpos), ("next_qvel", state.data.qvel),
@@ -179,33 +245,33 @@ class EpisodeDesignReset(Wrapper):
                             ("ctrl", state.data.ctrl)]:
             state.info["rollout_" + name] = jnp.zeros((len(state.done), self.episode_length, value.shape[-1]), dtype=value.dtype)
 
+    def save_finished(self, done, lengths, design_ids, clips, frames, failed, *arrays):
+        """Host callback: write every finished episode, success or failure, to disk."""
+        for i in np.flatnonzero(done):
+            folder = Path(self.rollout_dir) / ("failed" if failed[i] else "completed")
+            folder.mkdir(parents=True, exist_ok=True)
+            n = int(lengths[i])
+            np.savez_compressed(folder / f"{uuid4().hex}.npz",
+                                E=self.host_uniforms[design_ids[i]],
+                                clip=int(clips[i]), end_frame=int(frames[i]), failed=bool(failed[i]),
+                                ctrl_dt=float(self.dt),
+                                **{name: arr[i, :n] for name, arr in zip(ROLLOUT_FIELDS, arrays)})
+
     def record(self, terminal, qpos, qvel, action):
-        names = ["qpos", "qvel", "next_qpos", "next_qvel", "action", "ctrl"]
         values = [qpos, qvel, terminal.data.qpos, terminal.data.qvel, action, terminal.data.ctrl]
         index = jnp.minimum(terminal.info["steps"].astype(jnp.int32) - 1, self.episode_length - 1)
-        for name, value in zip(names, values):
+        for name, value in zip(ROLLOUT_FIELDS, values):
             key = "rollout_" + name
             terminal.info[key] = terminal.info[key].at[jnp.arange(len(index)), index].set(value)
-        def save(done, lengths, design_ids, clips, frames, failed, *arrays):
-            from pathlib import Path
-            from uuid import uuid4
-            root = Path(self.rollout_dir)
-            for i in np.flatnonzero(done):
-                folder = root / ("failed" if failed[i] else "completed")
-                folder.mkdir(parents=True, exist_ok=True)
-                n = int(lengths[i])
-                np.savez_compressed(folder / (uuid4().hex + ".npz"),
-                    E=self.host_uniforms[design_ids[i]],
-                    clip=int(clips[i]), end_frame=int(frames[i]), failed=bool(failed[i]),
-                    ctrl_dt=float(self.dt),
-                    **{name: arr[i, :n] for name, arr in zip(names, arrays)})
+
         def emit(_):
-            jax.debug.callback(save, terminal.done, terminal.info["steps"], terminal.info["design_id"],
-                               terminal.info["clip"], terminal.info["frame"],
-                               sum(terminal.info.get(k, jnp.zeros_like(terminal.done)) for k in
-                                   ["done/fellover", "done/pos_err", "done/orn_err", "state_is_nan"]) > 0,
-                               *[terminal.info["rollout_" + n] for n in names], ordered=False)
+            info = terminal.info
+            failed = sum(info.get(k, jnp.zeros_like(terminal.done)) for k in FAILURE_KEYS) > 0
+            jax.debug.callback(self.save_finished, terminal.done, info["steps"], info["design_id"],
+                               info["clip"], info["frame"], failed,
+                               *[info["rollout_" + n] for n in ROLLOUT_FIELDS], ordered=False)
             return jnp.int32(0)
+
         jax.lax.cond(jnp.any(terminal.done), emit, lambda _: jnp.int32(0), operand=None)
 
 
