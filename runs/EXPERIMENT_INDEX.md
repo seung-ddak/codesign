@@ -67,3 +67,5 @@
 [TT 추종 try3: 발·바닥 마찰 0.8→1.0 비교](calm_pilot_tracking/try3/report_try3.html)
 
 [PD kp 테스트 (remind 8-36): e000 kp 60/100/200 전진 속도 표 — 전진 부호 복원, 측면·회전 후진 편향 잔존](pipeline_v1/pd_kp_test/drift_table.txt)
+
+[v11 PD kp200 재수집 TT (remind 8-37): 게이트 미달, 전진 일부 회복·낙상 급증](pipeline_v1/fast_mode24_v11_pd_kp200/report.html)

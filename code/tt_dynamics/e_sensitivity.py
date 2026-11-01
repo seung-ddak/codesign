@@ -19,10 +19,18 @@ GROUPS = dict(pos=(0, 2), height=(2, 3), yaw=(3, 5), tilt=(5, 8), linvel=(8, 11)
 EP = 500
 
 
+def local_path(path):
+    """다른 PC 절대 경로가 박힌 checkpoint (v9) 의 데이터 경로를 이 저장소 기준으로 옮긴다 (README 경고 항목)."""
+    p = Path(path)
+    if p.exists() or "runs" not in p.parts:
+        return p
+    return Path(__file__).resolve().parents[2] / Path(*p.parts[p.parts.index("runs"):])
+
+
 def load_pairs(ck, seed, per_group=12):
     """Pairs of held-out E-swap episodes sharing one action sequence."""
     val, offset, episodes, groups = set(np.asarray(ck["val"]).tolist()), 0, [], {}
-    for path in ck["args"]["data"]:
+    for path in map(local_path, ck["args"]["data"]):
         with np.load(path, allow_pickle=True) as z:
             keep = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
             if "source_design" in z.files:

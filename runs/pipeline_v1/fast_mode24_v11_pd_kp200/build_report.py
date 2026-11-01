@@ -145,7 +145,7 @@ def main():
     best_rows = best_videos = ""
     for task in ("zigzag", "circle"):
         files = sorted((OUT / f"check_w1/joint_{task}_4s/videos").glob("*.mp4"))
-        assert len(files) == 16
+        assert files, task  # 낙상·무효 후보는 영상이 없을 수 있다 (v11: 15/16)
         joint = read(OUT / f"check_w1/joint_{task}_4s/summary.json")["runs"]["scale_10"]
         survived = [i for i, row in enumerate(joint) if row["mjx_fell_step"] == -1 and row["mjx_total"] is not None]
         best = max(survived, key=lambda i: joint[i]["mjx_total"])

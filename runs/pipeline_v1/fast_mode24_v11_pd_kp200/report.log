@@ -1,0 +1,20 @@
+STAGE report
+Traceback (most recent call last):
+  File "/mnt/gstore/home/xiangyue/RL/codesign_cleanup/runs/pipeline_v1/fast_mode24_v11_pd_kp200/run_comparison.py", line 129, in <module>
+    main()
+  File "/mnt/gstore/home/xiangyue/RL/codesign_cleanup/runs/pipeline_v1/fast_mode24_v11_pd_kp200/run_comparison.py", line 74, in main
+    worker(sys.argv[2])
+  File "/mnt/gstore/home/xiangyue/RL/codesign_cleanup/runs/pipeline_v1/fast_mode24_v11_pd_kp200/run_comparison.py", line 69, in worker
+    runpy.run_path(args[0], run_name="__main__")
+  File "<frozen runpy>", line 287, in run_path
+  File "<frozen runpy>", line 98, in _run_module_code
+  File "<frozen runpy>", line 88, in _run_code
+  File "/mnt/gstore/home/xiangyue/RL/codesign_cleanup/runs/pipeline_v1/fast_mode24_v11_pd_kp200/build_report.py", line 192, in <module>
+    main()
+  File "/mnt/gstore/home/xiangyue/RL/codesign_cleanup/runs/pipeline_v1/fast_mode24_v11_pd_kp200/build_report.py", line 148, in main
+    assert len(files) == 16
+           ^^^^^^^^^^^^^^^^
+AssertionError
+STAGE report
+기존 동일 평가에서 PD 데이터 모델은 형상 효과 개선 기준을 통과하지 못했다. PD 미학습 시작점에서 v8보다 움직임 오차가 낮은 핵심 항목: 몸통 높이, 몸통 기울기, 이동 속도.
+{"main_sensitivity_pass": false, "tasks": {"zigzag": {"pred_effect_p": 0.1893, "pred_effect_eta2": 0.302740093382627, "rank_correlation": null, "smoke_path_error_m": 0.08688855916261673, "smoke_survived": 15, "smoke_total": 16, "fixed_valid": 60, "fixed_total": 64, "joint_survived": 11, "joint_total": 16, "joint_reward_median": -1.2500063180923462, "joint_progress_median": -0.5101358294487, "joint_progress_unit": "m", "gate": false, "predicted_design_reward": [1.3836240619421005, 0.8570359796285629, 1.1418556421995163, 0.6634671464562416, 0.8650441318750381, 0.8674150258302689, 0.6632032506167889, 0.6261338293552399, 0.3220236152410507, 0.9350466951727867, 0.8160640997812152, 0.6828159876167774, 1.209405779838562, 0.12010742165148258, 0.5359213408082724, 1.239630963653326], "actual_design_reward": [-0.7238173484802246, -0.42990146577358246, -1.8317409232258797, -0.316468458622694, -0.5911457389593124, -0.8557230532169342, -0.6835392825305462, null, -0.3487865515053272, -0.39125046133995056, -1.432862475514412, -2.2025123238563538, -0.24337877333164215, -1.8955568373203278, -0.5652285106480122, -2.886929601430893]}, "circle": {"pred_effect_p": 0.5091, "pred_effect_eta2": 0.2293152481078896, "rank_correlation": null, "smoke_path_error_m": 0.08688855916261673, "smoke_survived": 15, "smoke_total": 16, "fixed_valid": 60, "fixed_total": 64, "joint_survived": 12, "joint_total": 16, "joint_reward_median": -1.0595982074737549, "joint_progress_median": -0.03282690420746803, "joint_progress_unit": "laps", "gate": false, "predicted_design_reward": [0.6283521354198456, 1.5354568362236023, 1.3786813020706177, 1.451507419347763, 1.2481196522712708, 1.6567485928535461, 1.052260883152485, 0.7189329043030739, 0.7652747854590416, 1.1672973185777664, 0.9378966465592384, 0.6816375963389874, 1.7089708223938942, 0.5313772559165955, 0.5964527651667595, 0.5828285291790962], "actual_design_reward": [-2.1265503615140915, -1.5926102548837662, -1.9712835997343063, -0.3124340642243624, -1.0536613762378693, -0.7696595788002014, -0.14973675459623337, null, -1.0657581514678895, -0.534854918718338, -0.6850426197052002, -1.9903169944882393, -0.9432358741760254, -1.300883375108242, -0.401140458881855, -1.1753764525055885]}}}
