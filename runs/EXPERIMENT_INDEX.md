@@ -6,6 +6,8 @@
 
 | 실험·시도 | 보고서 |
 |---|---|
+| pipeline_v1/fast_mode24_v10_pd_reference | [PD rollout · PPO 데이터 비교](pipeline_v1/fast_mode24_v10_pd_reference/report.html) |
+| pipeline_v1/fast_mode24_v9_e_coverage | [v9 형상 확대 평가](pipeline_v1/fast_mode24_v9_e_coverage/report.html) |
 | calm_pilot_tracking/try4 | [형상 전이 보고서](calm_pilot_tracking/try4/report_try4.html) |
 | calm_balanced_mjx/try3 | [보고서](calm_balanced_mjx/try3/report_try3.html) |
 | calm_balanced_motion/try1 | [보고서](calm_balanced_motion/try1/report_try1.html) |

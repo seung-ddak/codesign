@@ -9,10 +9,22 @@ from rollout_data import S_DIM
 from tt_model import EGuidedNet, condition_masks, make_net, rebase, schedule
 
 V8 = Path("runs/pipeline_v1/fast_mode24_v8_film")
-RUNS = dict(v7=("runs/pipeline_v1/fast_mode24_v7_eswap/tt_joint", 1), A=(V8 / "A/tt_joint", 1), B_w2=(V8 / "B/tt_joint", 2))
-RUNS.update(json.loads(sys.argv[2]) if len(sys.argv) > 2 else {})
-OUT = Path(sys.argv[1])
-HELD = sorted(Path(sys.argv[3]).glob("n*/primitive_seed0.npz")) if len(sys.argv) > 3 else []
+import argparse
+ap = argparse.ArgumentParser()
+ap.add_argument("out", type=Path)
+ap.add_argument("models", nargs="?", default="{}")
+ap.add_argument("held", nargs="?", default="")
+ap.add_argument("--only-requested", action="store_true")
+ap.add_argument("--pair-checkpoint", type=Path)
+ap.add_argument("--metric-reference", type=Path)
+args = ap.parse_args()
+RUNS = {} if args.only_requested else dict(v7=("runs/pipeline_v1/fast_mode24_v7_eswap/tt_joint", 1), A=(V8 / "A/tt_joint", 1), B_w2=(V8 / "B/tt_joint", 2))
+RUNS.update(json.loads(args.models))
+assert RUNS
+OUT = args.out
+HELD = sorted(Path(args.held).glob("n*/primitive_seed0.npz")) if args.held else []
+pair_ck = torch.load(args.pair_checkpoint / "checkpoint.pt", map_location="cpu", weights_only=False) if args.pair_checkpoint else None
+metric_ck = torch.load(args.metric_reference / "checkpoint.pt", map_location="cpu", weights_only=False) if args.metric_reference else None
 
 
 dev = "cuda"
@@ -52,7 +64,7 @@ for name, (path, w) in RUNS.items():
     H, clip = cfg["horizon"], cfg["clip"]
     mu, sd = [torch.as_tensor(v, device=dev, dtype=torch.float32) for v in (ck["mu"], ck["sd"])]
     beta, abar = schedule(cfg["diff_steps"], dev)
-    eps, pairs = es.load_pairs(ck, 0)
+    eps, pairs = es.load_pairs(pair_ck if pair_ck is not None else ck, 0)
     if HELD:
         val_ep = {int(eps[d]["source_episode"][b]) for p in pairs for d, b in p}
         eps = [{k: z[k] for k in ("qpos", "qvel", "contact", "target_q", "valid", "E", "source_design", "source_episode")} for z in map(np.load, HELD)]
@@ -67,6 +79,8 @@ for name, (path, w) in RUNS.items():
     for start in (0, 30):
         rows = [(es.window(eps[di], bi, start, H), es.window(eps[dj], bj, start, H), eps[di]["E"], eps[dj]["E"]) for (di, bi), (dj, bj) in pairs]
         rows = [r for r in rows if r[0] is not None and r[1] is not None]
+        assert rows, "No matched physical evaluation pairs"
+        assert all(np.allclose(r[0][..., S_DIM:], r[1][..., S_DIM:]) for r in rows), "Paired actions differ"
         t_ = lambda c: torch.tensor(np.stack([r[c] for r in rows]), device=dev, dtype=torch.float32)
         xi, xj = rebase(t_(0)), rebase(t_(1)); ei, ej = (t_(2) - .5) / .5, (t_(3) - .5) / .5
         ni, nj = (xi - mu) / sd, (xj - mu) / sd
@@ -78,7 +92,7 @@ for name, (path, w) in RUNS.items():
         r = dict(pairs=len(rows))
         for g, (lo, hi) in GROUPS.items():
             s = lambda v: v[..., lo:hi]
-            sc = sd[lo:hi]
+            sc = (torch.as_tensor(metric_ck["sd"], device=dev, dtype=sd.dtype) if metric_ck is not None else sd)[lo:hi]
             nrm = lambda v: s(v) / sc
             pc = lambda p: float(np.corrcoef(moving(nrm(p)).flatten().cpu(), moving(nrm(tj)).flatten().cpu())[0, 1])
             r[g] = dict(free_rmse=err(nrm(free_jj), nrm(tj)), pin_rmse=err(nrm(pin_jj), nrm(tj)), wrongE_rmse=err(nrm(pin_ji), nrm(tj)), wrongA_rmse=err(nrm(other_a), nrm(tj)),
@@ -88,5 +102,6 @@ for name, (path, w) in RUNS.items():
         res[f"start{start}"] = r
     out[name] = res
     print(name, json.dumps({g: {k: round(v, 3) for k, v in res["start30"][g].items()} for g in GROUPS}), flush=True)
+out["_comparison"] = dict(pair_checkpoint=str(args.pair_checkpoint), metric_reference=str(args.metric_reference), held_files=[str(p) for p in HELD], equal_actions_checked=True)
 OUT.write_text(json.dumps(out, indent=1))
 print("MEASURE_OK")

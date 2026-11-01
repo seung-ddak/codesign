@@ -253,3 +253,15 @@
 - 복원: 기존 portability 묶음을 푼 뒤 `transformer-transformer/` 에서 `patch -p1 < ../codesign/portability/tt_local.patch`. 묶음은 재생성하지 않음 (이 서버에 external/a1-calm-main 이 없어 재생성하면 CALM 이 빠짐).
 - v9 수집 데이터 포함 (학습 형상 32 × 행동 128, 시험 형상 8 × 행동 512). 학습 도중 저장 기능이 없어 체크포인트는 없음. 다른 PC 에서 run.sh 를 돌리면 수집을 건너뛰고 학습을 0 step 부터 시작 (약 45 분).
 - 재실행: `bash ../scripts/tmux_run.sh v9_coverage "bash runs/pipeline_v1/fast_mode24_v9_e_coverage/run.sh"`.
+
+### 8-34. v9 형상 확대 학습·실제 평가 (2026-11-01)
+- 결론: 미학습 E의 움직임 개선과 두 Task Co-Design Gate 모두 미달. 높이·기울기·속도 일치도 변화 +0.028/+0.108/−0.089.
+- 60k 학습 완료. 2초 경로 차 중앙값 v8 12.2 → v9 18.2 cm; 4초 공동 생성 생존 zigzag 8/16, circle 4/16. 형상 평균 보상 순위 상관 −0.18/−0.60.
+- 동일 516쌍·8 seed·v8 오차 단위로 비교. 실제 평가 후보 176개, 절대 경로 영상 32개. 보고서 `runs/pipeline_v1/fast_mode24_v9_e_coverage/report.html`; 형상수·데이터양 동시 변경이므로 원인 분리는 미검증.
+
+### PD rollout 기반 TT 비교 (2026-11-01)
+- PD 수집 검증: 16형상, 2,432 episode, 유효 제어 238,226 step, 낙상 139 episode. 데이터는 실제 MJX 결과이며 PPO도 실제 물리 데이터라는 점은 유지한다.
+- PD-only TT 60k 학습 완료. v8과 같은 FiLM·h32·batch32·Mode2/4·diffusion5·minmax·DDIM·seed0. 기존 516쌍·8 seed·v8 단위 평가와 PD 미학습 시작점 평가를 분리했다.
+- PD 검증 움직임 상관(높이/기울기/속도): v8 0.123/0.635/0.182 → PD 0.339/0.784/0.369. 기존 시험 형상 E 효과 개선 기준은 미달. PD 자체 예측 개선과 기존 분포 일반화는 구분한다.
+- 실제 MJX 176후보 완료. 2초 경로 차 중앙값 12.2→9.6cm, 4초 공동 생성 생존 zigzag 16/16·circle 15/16. 형상 보상 순위 상관 0.159/0.053으로 Gate 둘 다 미달. 공동 생성 진행 중앙값은 -0.361m/-0.072바퀴이며 생존을 Task 성공으로 해석하지 않는다.
+- 보고서 runs/pipeline_v1/fast_mode24_v10_pd_reference/report.html (영상32개). 수집 방식·데이터 양·분포의 인과 효과는 분리하지 않았고 10초 평가는 미실행. GPU 최대 약2.1GiB, RAM 여유 최소13.4GiB로 자원 문제 없이 완료.

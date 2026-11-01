@@ -9,9 +9,12 @@ Linux PC에서 아래 순서로 실행한다. 기존 작업 폴더와 충돌하�
 ```bash
 mkdir -p ~/quad_ws
 cd ~/quad_ws
-git clone --branch experiment/calm-tt-e000-direct-mjx https://github.com/seung-ddak/codesign.git
+git clone --branch cleanup/shared-ppo https://github.com/seung-ddak/codesign.git
 cd codesign
 python3 code/portable_workspace.py restore
+cd ../transformer-transformer
+patch -p1 < ../codesign/portability/tt_local.patch
+cd ../codesign
 ```
 
 `../transformer-transformer`, `../external/a1-calm-main`, Git에서 제외되었던 체크포인트가 원래 상대 위치로 복원된다. 기존 파일 내용이 다르면 덮어쓰지 않고 중단한다. `restore`는 Python 3.12 이상을 사용한다. 원본 PC에서 복원 명령을 다시 실행할 필요는 없다.

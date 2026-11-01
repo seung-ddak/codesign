@@ -471,6 +471,8 @@ def execute(E_np, tq, s0, replan=None):
                             scene_fn=(lambda spec: add_pole(spec, reward)) if args.task == "obstacle" else None)
         return model
     env = TrackMjxEnv(mj_model_fn=execution_model, **ecfg)
+    # Keep morphology-specific solver statistics; only disable the frame shortcut.
+    env.mjx_model = env.mjx_model.replace(geom_sameframe=np.zeros_like(env.mjx_model.geom_sameframe))
     if jit_step is None:
         jit_step = jax.jit(lambda model, d, c: step(model, d, c, env.n_substeps))
     # Reject obviously invalid generated starts BEFORE forward dynamics.
