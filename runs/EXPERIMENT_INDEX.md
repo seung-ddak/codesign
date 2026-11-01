@@ -65,3 +65,5 @@
 [TT 30Hz 추종: try1 PD와 try2 PPO 비교](calm_pilot_tracking/try2/report_try2.html)
 
 [TT 추종 try3: 발·바닥 마찰 0.8→1.0 비교](calm_pilot_tracking/try3/report_try3.html)
+
+[PD kp 테스트 (remind 8-36): e000 kp 60/100/200 전진 속도 표 — 전진 부호 복원, 측면·회전 후진 편향 잔존](pipeline_v1/pd_kp_test/drift_table.txt)
