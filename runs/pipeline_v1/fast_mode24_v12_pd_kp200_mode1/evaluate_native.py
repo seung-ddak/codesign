@@ -70,7 +70,7 @@ def main():
     for name, directory in models.items():
         ck = torch.load(Path(directory) / "checkpoint.pt", map_location="cpu", weights_only=False)
         cfg = ck["args"]
-        assert cfg["horizon"] == 32 and cfg["modes"] == [2, 4]
+        assert cfg["horizon"] == 32 and 2 in cfg["modes"] and 4 in cfg["modes"]  # v12: modes 1/2/4
         net = make_net(cfg).cuda()
         net.load_state_dict(ck["net"])
         net.eval()

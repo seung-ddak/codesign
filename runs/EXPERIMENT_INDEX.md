@@ -69,3 +69,5 @@
 [PD kp 테스트 (remind 8-36): e000 kp 60/100/200 전진 속도 표 — 전진 부호 복원, 측면·회전 후진 편향 잔존](pipeline_v1/pd_kp_test/drift_table.txt)
 
 [v11 PD kp200 재수집 TT (remind 8-37): 게이트 미달, 전진 일부 회복·낙상 급증](pipeline_v1/fast_mode24_v11_pd_kp200/report.html)
+
+[v12 PD kp200 + Mode 1 (remind 8-38): A→S 3배 강화·고정 E 전진 첫 양수, 공동 생성·낙상 미달](pipeline_v1/fast_mode24_v12_pd_kp200_mode1/report.html)

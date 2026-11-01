@@ -17,6 +17,7 @@ ap.add_argument("held", nargs="?", default="")
 ap.add_argument("--only-requested", action="store_true")
 ap.add_argument("--pair-checkpoint", type=Path)
 ap.add_argument("--metric-reference", type=Path)
+ap.add_argument("--pin-mode", type=int, default=2, choices=(1, 2), help="A 고정 시 조건 mode: 2 = 기존 (A 를 노이즈 수준으로 강제), 1 = Mode 1 (A 를 알려진 조건으로 입력, Mode 1 학습 모델용. remind 8-38)")
 args = ap.parse_args()
 RUNS = {} if args.only_requested else dict(v7=("runs/pipeline_v1/fast_mode24_v7_eswap/tt_joint", 1), A=(V8 / "A/tt_joint", 1), B_w2=(V8 / "B/tt_joint", 2))
 RUNS.update(json.loads(args.models))
@@ -34,8 +35,11 @@ GROUPS = {k: es.GROUPS[k] for k in ("pos", "height", "yaw", "tilt", "linvel", "j
 def gen(net, s0, e, a, H, mu, beta, abar, clip, seeds):
     """Mean Mode-2 sample. a=None lets TT choose A; otherwise A is forced (noised to level k) on every step."""
     n = len(e); mask = torch.ones(n, H, dtype=torch.bool, device=dev)
-    kx, ke = condition_masks(torch.full((n,), 2, device=dev), mask)
+    mode = args.pin_mode if a is not None else 2
+    kx, ke = condition_masks(torch.full((n,), mode, device=dev), mask)
     known = torch.zeros(n, H, mu.numel(), device=dev); known[:, 0, :S_DIM] = s0
+    if mode == 1:
+        known[..., S_DIM:] = a
     total = 0
     for seed in range(seeds):
         g = torch.Generator(device=dev).manual_seed(seed)
