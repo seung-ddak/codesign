@@ -79,6 +79,8 @@ parser.add_argument("--max-geometry-lift-m", type=float, default=0.04,
 parser.add_argument("--allow-airborne-s0", action="store_true",
                     help="test geometry-clear zero-contact starts in MJX instead of rejecting as unsupported")
 parser.add_argument("--no-render", action="store_true")
+parser.add_argument("--designs", type=Path, help="--fixed-e 이름의 E 목록 (기본 retargeting/designs.json)")
+parser.add_argument("--kp", type=float, help="실행 MJX position actuator kp (PD 수집과 동일 값, remind 8-36)")
 parser.add_argument("--e-cfg", type=float, default=1.0, help="알려진 E 의 영향 배율 (1 = 끔)")
 parser.add_argument("--joint-full-guidance", action="store_true",
                     help="per-denoising-step reward gradient guides noisy E and complete 10s S/A (not SPSA)")
@@ -276,7 +278,7 @@ def plan_window(cur, e_norm, scale, seed, w):
 def generate_fixed_designs(scale):
     """co-design 대조군: E = 학습 형상 고정, S0 = rest_s0_of(E), window 마다 plan_window (Mode 2 + 같은 guidance).
     형상마다 같은 seed 집합 (후보 j 의 노이즈 공유) 이라 형상 간 차이는 E 에서만 온다."""
-    designs = json.loads((CODESIGN / "runs/pipeline_v1/retargeting/designs.json").read_text())
+    designs = json.loads((args.designs or CODESIGN / "runs/pipeline_v1/retargeting/designs.json").read_text())
     E = torch.tensor([designs[d] for d in args.fixed_e for _ in range(PER_DESIGN)], device=dev, dtype=torch.float32)
     e_norm = (E - emu) / esd
     traj = torch.zeros(len(E), EP, X_DIM, device=dev)
@@ -351,6 +353,7 @@ expert = args.expert_config if args.expert_config is not None else CODESIGN / "r
 cfg = pickle.load(open(sorted(expert.glob("wandb/offline-run-*/files/config.pkl"))[-1], "rb"))
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
+KP = args.kp if args.kp is not None else cfg.get("kp")  # 수집 kp 와 동일해야 한다 (remind 8-36, train-eval parity)
 if dev == "cpu":
     ecfg["impl"] = "jax"
 choice = cfg.get("choice")
@@ -364,7 +367,7 @@ def rest_s0_of(E_batch, settle_s=1.0):
     out = []
     radii = []
     for e in E_batch.detach().cpu().numpy().astype(np.float64):
-        env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+        env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=KP, tau_scale=cfg.get("tau_scale"),
                                                          torque_limit=cfg.get("torque_limit"), uniforms=e), **ecfg)
         m = env.mj_model
         if args.task == "obstacle":
@@ -399,7 +402,7 @@ def warm_s0_of(E_batch):
     from policy_io import load_run
     retarget = CODESIGN / "runs/pipeline_v1/retargeting"
     mk = lambda u, name: TrackMjxEnv(  # noqa: E731
-        mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+        mj_model_fn=lambda: build_model(choice, kp=KP, tau_scale=cfg.get("tau_scale"),
                                         torque_limit=cfg.get("torque_limit"), uniforms=u),
         **{**ecfg, "reference_dir": str(retarget / name / choice)})
     if not _warm:
@@ -466,7 +469,7 @@ def execute(E_np, tq, s0, replan=None):
     replan(t, qpos, qvel, contact) -> target_q [w,12]: args.replan step 마다 실제 state 로 다음 window 를 받는다."""
     global jit_step
     def execution_model():
-        model = build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+        model = build_model(choice, kp=KP, tau_scale=cfg.get("tau_scale"),
                             torque_limit=cfg.get("torque_limit"), uniforms=E_np,
                             scene_fn=(lambda spec: add_pole(spec, reward)) if args.task == "obstacle" else None)
         return model
@@ -638,7 +641,7 @@ def score(x, m):
 
 def save_design(model, E_np, name):
     """생성 형상: json (build_model 로 재생성 가능한 정의) + 컴파일된 MuJoCo 모델 .mjb."""
-    json.dump(dict(choice=choice, uniforms=E_np.round(6).tolist(), kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+    json.dump(dict(choice=choice, uniforms=E_np.round(6).tolist(), kp=KP, tau_scale=cfg.get("tau_scale"),
                    torque_limit=cfg.get("torque_limit"), total_mass_kg=float(model.body_subtreemass[0]),
                    rebuild="pd_replay.build_model(choice, kp=kp, tau_scale=tau_scale, torque_limit=torque_limit, uniforms=uniforms)"),
               open(args.out / "designs" / f"{name}.json", "w"), indent=1)
