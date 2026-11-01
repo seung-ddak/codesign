@@ -291,3 +291,8 @@
 - 바뀐 것: 데이터는 전진 부호 정상 (16형상 부호 불일치 0, 낙상 139 → 93/2432). 고정 E 4초 MJX dx 중앙값 zigzag −0.388 → −0.094 m, 양수 후보 9 → 21/64; circle 10 → 21/64. 즉 전진이 일부 나오지만 낙상이 2 → 14/64, 3 → 23/64 로 급증 — 생성 A 가 kp200 의 빠른 응답에서 불안정 (추정).
 - 해석: 데이터 후진 결함은 A 실패의 원인 중 하나였지만 전부가 아님. 고친 뒤에도 TT 예측 dx (+0.79) 와 MJX (−0.09) 의 괴리는 그대로라 "TT 가 A→S 를 모른다" 가 남은 병목. 학습 47.7 분 (v10 9 분, 이 PC CPU 2코어 고정 영향 추정).
 - 이 PC 이식 수정: v9 체크포인트 절대 경로 → `e_sensitivity.local_path`; build_report 영상 수 assert 완화 (낙상 후보 영상 없음). report `runs/pipeline_v1/fast_mode24_v11_pd_kp200/report.html`, 데이터 `runs/pipeline_v1/pd_rollouts_kp200/`. 다음 = 사용자 결정 (잔존 후진 편향·kd / PPO 복귀 / Mode 1 진단 중).
+
+### 8-38. v12 = v11 + Mode 1 학습 (2026-11-01, 사용자 결정, 단변수 = --modes 2 4 → 1 2 4, 가중 20/40/40 = v7 balanced_mode1 과 동일)
+- 목적: "TT 가 A→S 를 모른다" 가 모델 한계인지 측정 방식 (Mode 2 에 A 고정) 의 영향인지 분리. 데이터·kp 200·평가 전부 v11 과 동일.
+- 측정: (1) train_tt 내장 Mode-1 dynamics 진단 `tt_joint/eval_dynamics*.json` (2) v11 동일 516쌍·native 평가 (3) MJX 176후보. 통과 기준: 틀린 A 추가 오차 (속도) v11 0.0011 → 0.01 이상 + TT 예측 dx 와 MJX dx 부호 일치 ≥ 50 % + 고정 E 낙상 ≤ v11 (14/23). 분기: A 통과 → Mode 1 유지 + Mode 1 조건 guidance 설계 / B A→S 개선되나 생성 불변 → 생성·guidance 쪽 문제 / C 불변 → 데이터 (A 다양성) 문제, PPO·변형 A 검토.
+- 과거 겹침: v7 후속 balanced_mode1 (PPO+E-swap 데이터) 는 경로 차 0.39 → 0.27 m, 진행 개선 없음, 성공 0 %. PD 데이터·kp200 조합은 처음.
