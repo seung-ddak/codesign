@@ -112,6 +112,7 @@ def main():
     parser.add_argument("--min-steps", type=int, default=32, help="시작 후 남아야 하는 reference 길이")
     parser.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts_wide16/walkForwardSlow__r00")
     parser.add_argument("--notify-issue", type=int, help="수집이 모두 끝나면 기존 GitHub 이슈에 멘션 댓글 전송")
+    parser.add_argument("--kp", type=float, help="position actuator kp 교체 (remind 8-36 정상상태 처짐 점검). 기본 = expert config / build_model 기본값")
     args = parser.parse_args()
     token = None
     if args.notify_issue is not None:
@@ -134,7 +135,8 @@ def main():
         ecfg["reference_dir"] = str(RETARGET / design / choice)
         with np.load(RETARGET / design / choice / f"{args.motions[0]}.npz") as z:
             uniforms = np.asarray(z["uniforms"], np.float32)
-        env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=cfg.get("kp"), tau_scale=cfg.get("tau_scale"),
+        kp = cfg.get("kp") if args.kp is None else args.kp
+        env = TrackMjxEnv(mj_model_fn=lambda: build_model(choice, kp=kp, tau_scale=cfg.get("tau_scale"),
                                                          torque_limit=cfg.get("torque_limit"), uniforms=uniforms), **ecfg)
         n, starts, ends = env.n_ctrl, np.asarray(env.clip_start), np.asarray(env.clip_end)
         clips, frames = [], []
@@ -184,6 +186,7 @@ def main():
         out["target_q"] = np.asarray(env.action_offset[:n]) + np.clip(out["action"], *env.clip_actions) * env.action_scale
         out.update(group_id=group_ids, start_frame=frames - starts[clips], fell=fell, E=uniforms,
                    motions=np.array(args.motions), dt=env.dt, design=design, mode="pd_reference",
+                   kp=np.float32(np.nan if kp is None else kp),
                    contact_definition="foot_floor", clip_start=starts, clip_end=ends, action_offset=np.asarray(env.action_offset[:n]),
                    action_scale=env.action_scale, clip_actions=np.asarray(env.clip_actions), seed=0)
         path = args.out / design / "primitive_seed0.npz"
