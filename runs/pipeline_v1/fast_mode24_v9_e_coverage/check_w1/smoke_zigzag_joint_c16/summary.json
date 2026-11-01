@@ -1,0 +1,1640 @@
+{
+ "s_gradient_scale": 1.0,
+ "seed": 0,
+ "reward": {
+  "task": "zigzag",
+  "amp": 0.3,
+  "period": 2.0,
+  "half_width": 0.15,
+  "rewards": {
+   "progress": 1.0
+  },
+  "penalties": {
+   "lane": 20.0,
+   "fall": 20.0,
+   "action_rate": 0.05
+  },
+  "min_height_frac": 0.6,
+  "unit": "m"
+ },
+ "task": "zigzag",
+ "ckpt": "runs/pipeline_v1/fast_mode24_v9_e_coverage/tt_joint",
+ "s0_motion": null,
+ "candidates": 16,
+ "seconds": 2.0,
+ "replan": 0,
+ "no_s0_align": true,
+ "geometry_s0": false,
+ "max_geometry_lift_m": 0.04,
+ "allow_airborne_s0": false,
+ "shared_e_guidance": false,
+ "joint_full_guidance": true,
+ "initial_condition": "E-derived home stance (S0 = g(E))",
+ "shared_e_method": "per-step full-horizon gradient on shared noisy E and S/A",
+ "shared_e_settings": null,
+ "runs": {
+  "scale_0": [
+   {
+    "E": [
+     0.5,
+     0.6690000295639038,
+     0.5799999833106995,
+     0.640999972820282,
+     0.5600000023841858,
+     0.3230000138282776,
+     0.4779999852180481,
+     0.5590000152587891,
+     0.5230000019073486,
+     0.628000020980835,
+     0.503000020980835,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.016512885689735413,
+    "pred_progress": 0.17617183923721313,
+    "mjx_total": -0.2768080234527588,
+    "mjx_progress": -0.14349263906478882,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.16208191215991974,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0002743522922957105,
+      0.0002543533622001333,
+      -0.00011845048122740773,
+      -0.00021424991893634684
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9993622424997429,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.017546524644548096,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.21211452782154083,
+      "foot_clearance_m": [
+       0.0002743522922957105,
+       0.0002543533622001333,
+       -0.00011845048122740773,
+       -0.00021424991893634684
+      ],
+      "max_foot_penetration_m": 0.00021424991893634684,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.21211452782154083,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 0.17617183923721313,
+     "p_lane": 0.002648225985467434,
+     "p_fall": 0.006777665577828884,
+     "p_action_rate": 0.08333777636289597
+    },
+    "mjx_terms": {
+     "r_progress": -0.14349263906478882,
+     "p_lane": 0.000660808989778161,
+     "p_fall": 0.005796615965664387,
+     "p_action_rate": 0.08333777636289597
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.7919999957084656,
+     0.11699999868869781,
+     0.6420000195503235,
+     0.6729999780654907,
+     0.703000009059906,
+     0.8140000104904175,
+     0.13899999856948853,
+     0.7250000238418579,
+     0.2329999953508377,
+     0.7649999856948853,
+     0.5,
+     0.5
+    ],
+    "pred_total": -3.7436976432800293,
+    "pred_progress": -0.3717820644378662,
+    "mjx_total": -4.110893726348877,
+    "mjx_progress": -0.22744864225387573,
+    "mjx_fell_step": 26,
+    "mjx_valid_s": 0.54,
+    "path_err_m": 0.057960204780101776,
+    "initial_physics": {
+     "raw_four_foot_contact": false,
+     "raw_contact": [
+      false,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 3,
+     "raw_foot_z_m": [
+      0.00752913560507933,
+      0.00043890439156513486,
+      -1.2517797166513439e-05,
+      -2.1146065499712957e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9703849125584729,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.00390279070156136,
+     "mjx_four_foot_floor_contact": false,
+     "mjx_foot_floor_contact": [
+      false,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 3,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.18370793759822845,
+      "foot_clearance_m": [
+       0.00752913560507933,
+       0.00043890439156513486,
+       -1.2517797166513439e-05,
+       -2.1146065499712957e-05
+      ],
+      "max_foot_penetration_m": 2.1146065499712957e-05,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 3
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.18370793759822845,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": -0.3717820644378662,
+     "p_lane": 0.003816046752035618,
+     "p_fall": 0.16461950540542603,
+     "p_action_rate": 0.06409244239330292
+    },
+    "mjx_terms": {
+     "r_progress": -0.22744864225387573,
+     "p_lane": 1.2024405805277638e-05,
+     "p_fall": 0.19387561082839966,
+     "p_action_rate": 0.11385130137205124
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.5090000033378601,
+     0.47200000286102295,
+     0.492000013589859,
+     0.515999972820282,
+     0.5350000262260437,
+     0.5189999938011169,
+     0.42800000309944153,
+     0.5389999747276306,
+     0.4699999988079071,
+     0.5569999814033508,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.30854129791259766,
+    "pred_progress": 1.3704676628112793,
+    "mjx_total": 0.3645833730697632,
+    "mjx_progress": 0.9568464159965515,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.24586325883865356,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.00020352981428370734,
+      0.0002008768307644633,
+      2.8466874113595303e-05,
+      2.7744060435642287e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9995888215846689,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.031227076179261265,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.22766752541065216,
+      "foot_clearance_m": [
+       0.00020352981428370734,
+       0.0002008768307644633,
+       2.8466874113595303e-05,
+       2.7744060435642287e-05
+      ],
+      "max_foot_penetration_m": 0.0,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.22766752541065216,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 1.3704676628112793,
+     "p_lane": 0.021327562630176544,
+     "p_fall": 0.06243448331952095,
+     "p_action_rate": 0.07536207139492035
+    },
+    "mjx_terms": {
+     "r_progress": 0.9568464159965515,
+     "p_lane": 0.0004576123901642859,
+     "p_fall": 0.02896713651716709,
+     "p_action_rate": 0.07536207139492035
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.3400000035762787,
+     0.5899999737739563,
+     0.8360000252723694,
+     0.2619999945163727,
+     0.621999979019165,
+     0.6690000295639038,
+     0.7350000143051147,
+     0.6899999976158142,
+     0.5509999990463257,
+     0.8980000019073486,
+     0.5,
+     0.5
+    ],
+    "pred_total": -3.1823959350585938,
+    "pred_progress": -0.39761558175086975,
+    "mjx_total": -0.7369016408920288,
+    "mjx_progress": -0.0961272343993187,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.18919087946414948,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0001569380531631255,
+      0.00037740435860144153,
+      -0.00014493382019997378,
+      8.162726546811008e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 0.9999999999999999,
+     "raw_upright_cosine": 0.993781161045197,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.05560008131965607,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.23247960209846497,
+      "foot_clearance_m": [
+       0.0001569380531631255,
+       0.00037740435860144153,
+       -0.00014493382019997378,
+       8.162726546811008e-05
+      ],
+      "max_foot_penetration_m": 0.00014493382019997378,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.23247960209846497,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": -0.39761558175086975,
+     "p_lane": 1.972243353520753e-06,
+     "p_fall": 0.13902506232261658,
+     "p_action_rate": 0.08479015529155731
+    },
+    "mjx_terms": {
+     "r_progress": -0.0961272343993187,
+     "p_lane": 0.002739338669925928,
+     "p_fall": 0.029087405651807785,
+     "p_action_rate": 0.08479015529155731
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.6600000262260437,
+     0.24799999594688416,
+     0.3540000021457672,
+     0.44999998807907104,
+     0.8029999732971191,
+     0.05000000074505806,
+     0.5360000133514404,
+     0.10000000149011612,
+     0.8700000047683716,
+     0.871999979019165,
+     0.5,
+     0.5
+    ],
+    "pred_total": -1.499878168106079,
+    "pred_progress": -0.09717387706041336,
+    "mjx_total": -4.38853645324707,
+    "mjx_progress": -0.4153308570384979,
+    "mjx_fell_step": 60,
+    "mjx_valid_s": 1.22,
+    "path_err_m": 0.13728883862495422,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0004369323899846879,
+      0.00036524312790424743,
+      -9.977309094650472e-06,
+      -1.2119163304399189e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 0.9999999999999999,
+     "raw_upright_cosine": 0.9707663555125351,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.007981172120450016,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.251769483089447,
+      "foot_clearance_m": [
+       0.0004369323899846879,
+       0.00036524312790424743,
+       -9.977309094650472e-06,
+       -1.2119163304399189e-05
+      ],
+      "max_foot_penetration_m": 1.2119163304399189e-05,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.251769483089447,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": -0.09717387706041336,
+     "p_lane": 0.0003047056670766324,
+     "p_fall": 0.06963042914867401,
+     "p_action_rate": 0.08003075420856476
+    },
+    "mjx_terms": {
+     "r_progress": -0.4153308570384979,
+     "p_lane": 0.017346147447824478,
+     "p_fall": 0.18120835721492767,
+     "p_action_rate": 0.04231678694486618
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.5260000228881836,
+     0.6899999976158142,
+     0.7009999752044678,
+     0.703000009059906,
+     0.6460000276565552,
+     0.5099999904632568,
+     0.6850000023841858,
+     0.3149999976158142,
+     0.34200000762939453,
+     0.289000004529953,
+     0.5,
+     0.5
+    ],
+    "pred_total": -1.5796749591827393,
+    "pred_progress": 1.0584471225738525,
+    "mjx_total": 0.8186904191970825,
+    "mjx_progress": 0.9154753088951111,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.30216044187545776,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.00014412954620721466,
+      0.00015005261472822787,
+      7.785934057092173e-05,
+      9.289923253978996e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.999925044816974,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.009452819293385803,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.1926986128091812,
+      "foot_clearance_m": [
+       0.00014412954620721466,
+       0.00015005261472822787,
+       7.785934057092173e-05,
+       9.289923253978996e-05
+      ],
+      "max_foot_penetration_m": 0.0,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.1926986128091812,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 1.0584471225738525,
+     "p_lane": 0.06932280212640762,
+     "p_fall": 0.062269024550914764,
+     "p_action_rate": 0.12571382522583008
+    },
+    "mjx_terms": {
+     "r_progress": 0.9154753088951111,
+     "p_lane": 0.00034484811476431787,
+     "p_fall": 0.0041801114566624165,
+     "p_action_rate": 0.12571382522583008
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.4059999883174896,
+     0.3569999933242798,
+     0.5619999766349792,
+     0.6349999904632568,
+     0.5659999847412109,
+     0.37599998712539673,
+     0.4309999942779541,
+     0.3140000104904175,
+     0.6800000071525574,
+     0.609000027179718,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.5257444381713867,
+    "pred_progress": 0.19986757636070251,
+    "mjx_total": -1.4033279418945312,
+    "mjx_progress": -0.5942713618278503,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.4257311522960663,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0004552680108329023,
+      0.00038987324136796966,
+      -0.0001954998812044688,
+      -0.00022424112851055986
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 0.9999999999999999,
+     "raw_upright_cosine": 0.9807187698395613,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.003218626377123629,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.20788662135601044,
+      "foot_clearance_m": [
+       0.0004552680108329023,
+       0.00038987324136796966,
+       -0.0001954998812044688,
+       -0.00022424112851055986
+      ],
+      "max_foot_penetration_m": 0.00022424112851055986,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.20788662135601044,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 0.19986757636070251,
+     "p_lane": 0.0005554150557145476,
+     "p_fall": 0.035504210740327835,
+     "p_action_rate": 0.08838987350463867
+    },
+    "mjx_terms": {
+     "r_progress": -0.5942713618278503,
+     "p_lane": 0.008234179578721523,
+     "p_fall": 0.0319976769387722,
+     "p_action_rate": 0.08838987350463867
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.32600000500679016,
+     0.7409999966621399,
+     0.621999979019165,
+     0.35100001096725464,
+     0.7329999804496765,
+     0.30399999022483826,
+     0.7360000014305115,
+     0.3089999854564667,
+     0.6169999837875366,
+     0.3889999985694885,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.5004838705062866,
+    "pred_progress": -0.09740140289068222,
+    "mjx_total": 0.2864406108856201,
+    "mjx_progress": 0.3643118143081665,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.191088005900383,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      9.617336282373781e-05,
+      0.00010159923265966667,
+      8.55164277177474e-05,
+      8.587521575158588e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9994385148102529,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.013790114263188352,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.22874559462070465,
+      "foot_clearance_m": [
+       9.617336282373781e-05,
+       0.00010159923265966667,
+       8.55164277177474e-05,
+       8.587521575158588e-05
+      ],
+      "max_foot_penetration_m": 0.0,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.22874559462070465,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": -0.09740140289068222,
+     "p_lane": 0.007442192640155554,
+     "p_fall": 0.012504559941589832,
+     "p_action_rate": 0.08294901251792908
+    },
+    "mjx_terms": {
+     "r_progress": 0.3643118143081665,
+     "p_lane": 0.0,
+     "p_fall": 0.0036861873231828213,
+     "p_action_rate": 0.08294901251792908
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.3400000035762787,
+     0.382999986410141,
+     0.6930000185966492,
+     0.5920000076293945,
+     0.5460000038146973,
+     0.4790000021457672,
+     0.4009999930858612,
+     0.5370000004768372,
+     0.5360000133514404,
+     0.7070000171661377,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.23382428288459778,
+    "pred_progress": 0.4918155372142792,
+    "mjx_total": -0.6742504835128784,
+    "mjx_progress": -0.3046156167984009,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.3950175344944,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0004873659078511762,
+      0.0004506307887600404,
+      -0.00030297260660723524,
+      -0.00031908943063232303
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9915033254671898,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.0004393010686004203,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.19527581334114075,
+      "foot_clearance_m": [
+       0.0004873659078511762,
+       0.0004506307887600404,
+       -0.00030297260660723524,
+       -0.00031908943063232303
+      ],
+      "max_foot_penetration_m": 0.00031908943063232303,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.19527581334114075,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 0.4918155372142792,
+     "p_lane": 0.0007616901420988142,
+     "p_fall": 0.035238124430179596,
+     "p_action_rate": 0.1128707155585289
+    },
+    "mjx_terms": {
+     "r_progress": -0.3046156167984009,
+     "p_lane": 0.00040253729093819857,
+     "p_fall": 0.01779702864587307,
+     "p_action_rate": 0.1128707155585289
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.4699999988079071,
+     0.5479999780654907,
+     0.5360000133514404,
+     0.5239999890327454,
+     0.5249999761581421,
+     0.5189999938011169,
+     0.4359999895095825,
+     0.5299999713897705,
+     0.43299999833106995,
+     0.5519999861717224,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.19891393184661865,
+    "pred_progress": 1.130542516708374,
+    "mjx_total": 0.07171544432640076,
+    "mjx_progress": 0.4887910783290863,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.24942870438098907,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0001925113775345412,
+      0.0001895922954695435,
+      2.6801795543793944e-05,
+      2.394194706509603e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9999750861739283,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.041120676199209706,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.22332435846328735,
+      "foot_clearance_m": [
+       0.0001925113775345412,
+       0.0001895922954695435,
+       2.6801795543793944e-05,
+       2.394194706509603e-05
+      ],
+      "max_foot_penetration_m": 0.0,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.22332435846328735,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 1.130542516708374,
+     "p_lane": 0.0007492564036510885,
+     "p_fall": 0.06553712487220764,
+     "p_action_rate": 0.07457643747329712
+    },
+    "mjx_terms": {
+     "r_progress": 0.4887910783290863,
+     "p_lane": 0.0027527115307748318,
+     "p_fall": 0.017914630472660065,
+     "p_action_rate": 0.07457643747329712
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.40400001406669617,
+     0.6200000047683716,
+     0.5740000009536743,
+     0.29499998688697815,
+     0.6600000262260437,
+     0.35100001096725464,
+     0.6460000276565552,
+     0.38199999928474426,
+     0.5260000228881836,
+     0.4729999899864197,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.47996604442596436,
+    "pred_progress": -0.3654204308986664,
+    "mjx_total": -0.33244946599006653,
+    "mjx_progress": -0.2759258449077606,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.07500288635492325,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      9.421048606824203e-05,
+      9.396761724607752e-05,
+      0.00010534133387704939,
+      0.00010550469686592193
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9981402190926677,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.005333901505331373,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.23470856249332428,
+      "foot_clearance_m": [
+       9.421048606824203e-05,
+       9.396761724607752e-05,
+       0.00010534133387704939,
+       0.00010550469686592193
+      ],
+      "max_foot_penetration_m": 0.0,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.23470856249332428,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": -0.3654204308986664,
+     "p_lane": 6.890573422424495e-05,
+     "p_fall": 0.00540456548333168,
+     "p_action_rate": 0.10152387619018555
+    },
+    "mjx_terms": {
+     "r_progress": -0.2759258449077606,
+     "p_lane": 0.0003415633109398186,
+     "p_fall": 0.002230808138847351,
+     "p_action_rate": 0.10152387619018555
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.8029999732971191,
+     0.12200000137090683,
+     0.6370000243186951,
+     0.6669999957084656,
+     0.734000027179718,
+     0.8379999995231628,
+     0.15299999713897705,
+     0.718999981880188,
+     0.210999995470047,
+     0.7440000176429749,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.21438860893249512,
+    "pred_progress": 0.6639038920402527,
+    "mjx_total": -1.785926342010498,
+    "mjx_progress": -0.2628348767757416,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.32660388946533203,
+    "initial_physics": {
+     "raw_four_foot_contact": false,
+     "raw_contact": [
+      false,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 3,
+     "raw_foot_z_m": [
+      0.006734178799606739,
+      0.0004318130823000414,
+      -5.412125775942911e-05,
+      -7.365577077942179e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 0.9999999999999999,
+     "raw_upright_cosine": 0.9730637637742802,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.00648779242191301,
+     "mjx_four_foot_floor_contact": false,
+     "mjx_foot_floor_contact": [
+      false,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 3,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.18392182886600494,
+      "foot_clearance_m": [
+       0.006734178799606739,
+       0.0004318130823000414,
+       -5.412125775942911e-05,
+       -7.365577077942179e-05
+      ],
+      "max_foot_penetration_m": 7.365577077942179e-05,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 3
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.18392182886600494,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 0.6639038920402527,
+     "p_lane": 0.012323438189923763,
+     "p_fall": 0.03138524666428566,
+     "p_action_rate": 0.08237650245428085
+    },
+    "mjx_terms": {
+     "r_progress": -0.2628348767757416,
+     "p_lane": 0.0,
+     "p_fall": 0.07594863325357437,
+     "p_action_rate": 0.08237650245428085
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.5460000038146973,
+     0.49300000071525574,
+     0.5270000100135803,
+     0.4580000042915344,
+     0.5230000019073486,
+     0.4959999918937683,
+     0.5040000081062317,
+     0.5699999928474426,
+     0.5260000228881836,
+     0.578000009059906,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.21078847348690033,
+    "pred_progress": 0.20844502747058868,
+    "mjx_total": -0.9805608987808228,
+    "mjx_progress": -0.8409689664840698,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.31537869572639465,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.00018977611259342678,
+      0.000197310702487994,
+      2.2023768668808646e-05,
+      3.1275179685697624e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9999950966194875,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.04072111702549835,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.23178188502788544,
+      "foot_clearance_m": [
+       0.00018977611259342678,
+       0.000197310702487994,
+       2.2023768668808646e-05,
+       3.1275179685697624e-05
+      ],
+      "max_foot_penetration_m": 0.0,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.23178188502788544,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 0.20844502747058868,
+     "p_lane": 2.4294220565934666e-05,
+     "p_fall": 0.02074994146823883,
+     "p_action_rate": 0.07497532665729523
+    },
+    "mjx_terms": {
+     "r_progress": -0.8409689664840698,
+     "p_lane": 0.0010296829277649522,
+     "p_fall": 0.005762474611401558,
+     "p_action_rate": 0.07497532665729523
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.49300000071525574,
+     0.49900001287460327,
+     0.503000020980835,
+     0.5120000243186951,
+     0.49300000071525574,
+     0.5049999952316284,
+     0.4880000054836273,
+     0.503000020980835,
+     0.4790000021457672,
+     0.4950000047683716,
+     0.5,
+     0.5
+    ],
+    "pred_total": 0.1301303505897522,
+    "pred_progress": 0.911312460899353,
+    "mjx_total": 0.22815372049808502,
+    "mjx_progress": 0.3308907747268677,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.2754993140697479,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.00020443976477111173,
+      0.00020318425050114622,
+      1.624369867474565e-05,
+      1.5609474228298753e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9996741764742912,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.0604857123410454,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.22558927536010742,
+      "foot_clearance_m": [
+       0.00020443976477111173,
+       0.00020318425050114622,
+       1.624369867474565e-05,
+       1.5609474228298753e-05
+      ],
+      "max_foot_penetration_m": 0.0,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.22558927536010742,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 0.911312460899353,
+     "p_lane": 0.012226921506226063,
+     "p_fall": 0.026568613946437836,
+     "p_action_rate": 0.10542722046375275
+    },
+    "mjx_terms": {
+     "r_progress": 0.3308907747268677,
+     "p_lane": 3.179302075295709e-05,
+     "p_fall": 0.0048414915800094604,
+     "p_action_rate": 0.10542722046375275
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.6200000047683716,
+     0.3449999988079071,
+     0.5640000104904175,
+     0.5730000138282776,
+     0.5830000042915344,
+     0.6359999775886536,
+     0.36000001430511475,
+     0.5720000267028809,
+     0.37299999594688416,
+     0.6000000238418579,
+     0.5,
+     0.5
+    ],
+    "pred_total": -1.7459996938705444,
+    "pred_progress": -0.788366436958313,
+    "mjx_total": -0.558548629283905,
+    "mjx_progress": 0.03905502334237099,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.35138651728630066,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0003518095040438325,
+      0.00032953873338141884,
+      -0.000178580517003573,
+      -0.00015232689761958754
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 0.9999999999999999,
+     "raw_upright_cosine": 0.9972040838801679,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.03297943316029206,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.2105751782655716,
+      "foot_clearance_m": [
+       0.0003518095040438325,
+       0.00032953873338141884,
+       -0.000178580517003573,
+       -0.00015232689761958754
+      ],
+      "max_foot_penetration_m": 0.000178580517003573,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.2105751782655716,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": -0.788366436958313,
+     "p_lane": 0.02129477821290493,
+     "p_fall": 0.026219340041279793,
+     "p_action_rate": 0.14701709151268005
+    },
+    "mjx_terms": {
+     "r_progress": 0.03905502334237099,
+     "p_lane": 0.0,
+     "p_fall": 0.029512641951441765,
+     "p_action_rate": 0.14701709151268005
+    }
+   },
+   {
+    "E": [
+     0.5,
+     0.3779999911785126,
+     0.675000011920929,
+     0.4569999873638153,
+     0.5910000205039978,
+     0.6179999709129333,
+     0.5809999704360962,
+     0.48399999737739563,
+     0.5059999823570251,
+     0.5220000147819519,
+     0.3540000021457672,
+     0.5,
+     0.5
+    ],
+    "pred_total": -0.12569698691368103,
+    "pred_progress": 0.482040137052536,
+    "mjx_total": 0.4156031012535095,
+    "mjx_progress": 0.5266100764274597,
+    "mjx_fell_step": -1,
+    "mjx_valid_s": 2.0,
+    "path_err_m": 0.06056814268231392,
+    "initial_physics": {
+     "raw_four_foot_contact": true,
+     "raw_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "raw_foot_contact_count": 4,
+     "raw_foot_z_m": [
+      0.0002203237126010317,
+      0.00023967902964171575,
+      -0.00012745760290543487,
+      -3.7585958712334916e-05
+     ],
+     "raw_feet_penetration_ok": true,
+     "raw_nonfoot_penetration_m": 0.0,
+     "raw_self_penetration_m": 0.0,
+     "raw_joint_limit_violation": false,
+     "raw_quaternion_norm": 1.0,
+     "raw_upright_cosine": 0.9959508463782082,
+     "initial_support_ok": true,
+     "initial_linear_speed_m_s": 0.044434221727917174,
+     "mjx_four_foot_floor_contact": true,
+     "mjx_foot_floor_contact": [
+      true,
+      true,
+      true,
+      true
+     ],
+     "mjx_foot_contact_count": 4,
+     "physically_valid": true,
+     "initial_support_mode": "grounded",
+     "preprojection": {
+      "body_height_m": 0.2182178795337677,
+      "foot_clearance_m": [
+       0.0002203237126010317,
+       0.00023967902964171575,
+       -0.00012745760290543487,
+       -3.7585958712334916e-05
+      ],
+      "max_foot_penetration_m": 0.00012745760290543487,
+      "nonfoot_penetration_m": 0.0,
+      "self_penetration_m": 0.0,
+      "cpu_foot_contacts": 4
+     },
+     "geometry_projection": {
+      "needed": false,
+      "allowed": true,
+      "requested_lift_m": 0.0,
+      "applied_lift_m": 0.0,
+      "reason": "disabled",
+      "max_lift_m": 0.04
+     },
+     "geometry_adjusted": false,
+     "executed_body_height_m": 0.2182178795337677,
+     "applied_body_z_shift_m": 0.0,
+     "execution_skipped": false,
+     "skip_reason": null
+    },
+    "physically_valid_s0": true,
+    "execution_skipped": false,
+    "skip_reason": null,
+    "pred_terms": {
+     "r_progress": 0.482040137052536,
+     "p_lane": 0.0002691917179618031,
+     "p_fall": 0.029919438064098358,
+     "p_action_rate": 0.07928990572690964
+    },
+    "mjx_terms": {
+     "r_progress": 0.5266100764274597,
+     "p_lane": 0.004353113938122988,
+     "p_fall": 0.0009990101680159569,
+     "p_action_rate": 0.07928990572690964
+    }
+   }
+  ]
+ },
+ "joint_full_guidance_audit": {
+  "scale_0": {
+   "algorithm": "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X",
+   "guidance_scale": 0.0,
+   "s_gradient_scale": 1.0,
+   "s0_source": "s0_fn(E) rest stance (Mode 2 only)",
+   "windows": 4,
+   "diffusion_steps": 5,
+   "e_gradient_norm_per_step": [],
+   "s_gradient_norm_per_step": [],
+   "a_gradient_norm_per_step": [],
+   "predicted_reward_during_guidance": [],
+   "e_gradient_nonzero": false,
+   "s_gradient_nonzero": false,
+   "a_gradient_nonzero": false
+  }
+ }
+}

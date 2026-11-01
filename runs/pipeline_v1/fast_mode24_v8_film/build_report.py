@@ -76,6 +76,7 @@ body = f"""
 <h1>v8 · E 주입 강화 결과</h1>
 <p class=lead>TT에 E를 더 세게 넣어도 형상 선택 게이트는 통과하지 못함. 평균 자세 예측은 좋아졌지만 움직임 변화 예측은 그대로임.</p>
 
+<section class=verdict><h2>정정 (v9에서 확인)</h2><p>아래 "움직임 일치도"는 TT가 행동까지 생성한 궤적과 같은 행동의 실제 결과를 비교한 값이라 측정 결함이 있음. 행동 고정 재측정과 후속 판단은 <code>fast_mode24_v9_e_coverage/report.html</code>을 봐야 함. 형상 추가 권고도 v9에서 지지되지 않았음.</p></section>
 <section class=verdict><h2>결론</h2>
 <ul>
 <li><b>판정: 실패.</b> A·B 모두 zigzag·circle 게이트 4건을 전부 통과하지 못함.</li>
