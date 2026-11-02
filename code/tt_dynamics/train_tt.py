@@ -52,6 +52,7 @@ parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--eval-only", action="store_true")
 parser.add_argument("--norm", choices=("zscore", "minmax"), default="zscore", help="minmax = 학습 데이터 범위를 [-1,1] 로 (TT 원본)")
 parser.add_argument("--clip", type=float, default=10.0, help="정규화 공간 x0_hat clip (TT 원본 clip_sample = 1)")
+parser.add_argument("--contact-range", type=float, default=1.0, help="접지 4 채널 (38:42) 정규화 범위. minmax 에서 1.0 = ±1 (기존), 0.3 = ±0.3 (remind 8-43 (2))")
 parser.add_argument("--stride", type=int, default=0, help="평가 시 window 당 전진 step (0 = horizon-1, 겹침 없음)")
 parser.add_argument("--pose", choices=("abs", "delta"), default="abs", help="delta = S 의 위치·yaw 4 칸을 직전 step 대비 변화량 (dx, dy: 직전 heading frame, dyaw, 0) 으로")
 parser.add_argument("--swap-fraction", type=float, help="training minibatch fraction from E-swap source_design/source_episode rows")
@@ -232,6 +233,7 @@ else:
     if args.norm == "minmax":
         lo, hi = flat.min(0), flat.max(0)
         mu, sd = (hi + lo) / 2, (hi - lo) / 2 + 1e-3
+        sd[38:42] /= args.contact_range  # 접지 채널만 ±contact_range 로 (1.0 = 기존과 동일)
     else:
         mu, sd = flat.mean(0), flat.std(0) + 1e-3
 emu, esd = (0.5, 0.5) if args.norm == "minmax" else (0.5, 0.25)

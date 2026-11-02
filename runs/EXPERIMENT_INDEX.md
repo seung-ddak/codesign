@@ -77,3 +77,7 @@
 [실제 출발 상태×행동 출처 2×2 MJX (remind 8-45): 공통 생존 그룹0개로 학습 비교 불가; e000 사후 검증에서 kp30→200 이식 불안정 확인](pipeline_v1/factorial_init_action/report.html)
 
 [v13 실제 손실 기여율20/20/20/20/10/10: 60000step 학습 완료, 기본8episode 예측은 v12보다 악화](pipeline_v1/fast_mode24_v13_group_loss/report.html)
+
+[v13 을 8-43 사전 기준으로 평가 (remind 8-46): 틀린 A 오차 0.0038·E 부호 0.72/0.62 미달, 생존 10/12 통과 → 손실 비중 가설 미지지](pipeline_v1/fast_mode24_v13_group_loss/report.html)
+
+[2×2 MJX kp30 재실행 (remind 8-47): 낙상 급감으로 이득 불일치 확정, 공통 생존 5/76 로 주 판정 재차 불가](pipeline_v1/factorial_init_action_kp30/report.html)
