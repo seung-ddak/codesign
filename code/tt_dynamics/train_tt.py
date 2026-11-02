@@ -29,7 +29,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, intervention_pairs, load, source_group_keys  # noqa: F401
+from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, intervention_pairs, is_e_swap, load, source_group_keys  # noqa: F401
 from tt_model import CONDITIONING_VERSION, condition_masks, make_net, rebase, schedule, unbase
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
@@ -131,7 +131,7 @@ for path in args.data:
         rows = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
         keys = source_group_keys(path, z, length=len(z["valid"]))
         groups.extend(keys[b] for b in rows)
-        swapped.extend(["source_design" in z and "source_episode" in z] * len(rows))
+        swapped.extend([is_e_swap(z)] * len(rows))
 assert len(groups) == len(X)
 unique, inverse = np.unique(groups, return_inverse=True)
 if args.split_key:

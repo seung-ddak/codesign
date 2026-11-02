@@ -46,6 +46,11 @@ def source_group_keys(path, archive, *, length):
     return [f"source:{stem}:{i}" for i in range(length)]
 
 
+def is_e_swap(archive):
+    """e_swap 형식 = source_design 이 episode 별 배열. action_pairs 는 스칼라 source_design 이라 제외."""
+    return "source_design" in archive and "source_episode" in archive and archive["source_design"].ndim == 1
+
+
 def intervention_pairs(paths, H):
     """load() 와 같은 순서로 episode 를 세면서 개입 쌍을 전역 index 로 만든다 (remind 8-49).
 
@@ -58,7 +63,7 @@ def intervention_pairs(paths, H):
     for fi, p in enumerate(paths):
         with np.load(p) as d:
             valid = d["valid"]
-            is_swap = "source_design" in d and "source_episode" in d
+            is_swap = is_e_swap(d)
             is_pair = "group_id" in d and "variant" in d
             sd = d["source_design"] if is_swap else None
             se = d["source_episode"] if is_swap else None

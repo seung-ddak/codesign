@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from rollout_data import S_DIM, features
+from rollout_data import S_DIM, features, is_e_swap
 from tt_model import EGuidedNet, condition_masks, make_net, rebase, schedule
 
 GROUPS = dict(pos=(0, 2), height=(2, 3), yaw=(3, 5), tilt=(5, 8), linvel=(8, 11), angvel=(11, 14),
@@ -33,7 +33,7 @@ def load_pairs(ck, seed, per_group=12):
     for path in map(local_path, ck["args"]["data"]):
         with np.load(path, allow_pickle=True) as z:
             keep = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
-            if "source_design" in z.files:
+            if is_e_swap(z):
                 d = {k: z[k] for k in ("qpos", "qvel", "contact", "target_q", "valid", "E", "source_design", "source_episode")}
                 episodes.append(d)
                 for i, b in enumerate(keep):
