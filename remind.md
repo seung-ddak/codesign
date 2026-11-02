@@ -304,3 +304,8 @@
 - 결론: 분기 A (신호 있음 + 구조적). 같은 (모션, 시작) group 안 16 형상 간 vx std 0.077 m/s = 움직임 크기의 29 % (yaw_rate 103 %, z 15 %), 형상 순위가 시작 프레임 간 일관 (Spearman vx 0.55, 교호작용 중 E×motion 69 %), E 13 좌표 ridge LODO R² vx 0.36 (1 s 0.45) / z 0.95 / yaw_rate ≈0. 가장 느린 형상 e014·e016 과 가장 빠른 e015 는 전 모션 공통 (평균 vx −0.217 vs −0.099).
 - 해석: E 효과는 데이터에 있고 TT 2 s 위치 오차 (v12 7~13 cm) 와 같은 자릿수 (2 s × 0.077 ≈ 15 cm) 라 "배울 것이 없다" 는 기각. TT 가 E→몸통 (D4·v8·v12 ≈0) 을 못 배우는 건 데이터가 아니라 모델/학습 목표 쪽. yaw_rate 는 E 효과가 크지만 좌표 선형으론 설명 안 됨 (비선형 또는 형상 16 개 부족).
 - 조건: 지평 = group 별 16 형상 공통 valid 길이 (상한 2 s, 중앙값 1.76 s, clip 끝 때문), 낙상 group 제외 (112/152). 코드 `code/tt_dynamics/measure_e_signal.py`, report `runs/pipeline_v1/e_signal/report.html`. 다음 = 사용자 결정 (2 번 순수 회귀 dynamics 통과 시험).
+
+### 8-40. 2 번 통과 시험: 순수 회귀 dynamics 가 E→몸통 속도를 배우는가 (2026-11-02, 사용자 결정, 8-39 후속)
+- 결론: 사전 기준 분기 C (미통과). 안 본 형상 4-fold 에서 MLP(E, s0, A) vx RMSE 0.111 m/s (|vx| 의 41 %, 기준 1 통과) 이나 group 평균 B0 (0.098) 보다 나쁨 (gain −14 %, 기준 ≥ +20 %), E 효과 부호 일치 66 % (기준 70 %). z 만 통과 (gain +58 %, 부호 100 %). yaw_rate 전부 미달.
+- 사후 분석 (사실): 신호는 있으나 과소결정. group 별 ridge(E 13 → y − B0) 의 vx gain 이 학습 형상 수에 비례 — 15 형상 LODO +31 %, 12 형상 +11 %, 8 형상 +13 % (부호 일치 70 %, 효과 상관 0.50). E 효과를 모션 공통으로 가정하면 0 (η² E 주효과 0.01, 8-39 와 일치). 안 본 시작 프레임 fold 는 vx RMSE 86 % — 19 모션으론 A→S 도 일반화 안 됨.
+- 해석: 13 차원 E 를 16 형상으로 (그것도 모션마다 다른 효과를) 배우는 건 어떤 모델이든 불가. TT 가 E 를 무시한 1차 원인 후보 = 형상 수 (16) ≪ E 차원 (13) × 모션 의존성. 8-34 v9 (48 형상) 실패와 겹치지만 v9 는 생성 궤적 기준 측정이라 직접 비교 불가. 코드 `code/tt_dynamics/regression_gate.py` (+ `measure_e_signal_lib.py` 공용), report `runs/pipeline_v1/regression_gate/report.html`. 다음 = 사용자 결정.
