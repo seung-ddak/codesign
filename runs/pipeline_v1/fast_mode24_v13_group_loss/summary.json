@@ -1,0 +1,118 @@
+{
+  "status": "training_complete",
+  "steps": 60000,
+  "episodes": 2432,
+  "train_episodes": 2192,
+  "validation_episodes": 240,
+  "training_minutes": 9.351004258791606,
+  "first_val_raw_loss": 0.1141616091132164,
+  "final_val_raw_loss": 0.014538908610120416,
+  "min_val_raw_loss": 0.014534638077020646,
+  "min_val_raw_loss_step": 58800,
+  "group_order": [
+    "action",
+    "joint_position",
+    "joint_velocity",
+    "body",
+    "contact",
+    "E"
+  ],
+  "target_shares": [
+    0.2,
+    0.2,
+    0.2,
+    0.2,
+    0.1,
+    0.1
+  ],
+  "max_actual_share_deviation": 0.0,
+  "final_val_group_raw_mse": {
+    "action": 0.0030862255953252316,
+    "joint_position": 0.0036957485135644674,
+    "joint_velocity": 0.007756754290312529,
+    "body": 0.00582074373960495,
+    "contact": 0.09694167226552963,
+    "E": 0.007728469558060169
+  },
+  "dynamics_diagnostic": {
+    "t1": {
+      "n": 8,
+      "joint_rmse_deg": 2.7499489784240723,
+      "pos_err_cm": 2.3239736557006836
+    },
+    "t10": {
+      "n": 8,
+      "joint_rmse_deg": 3.482112407684326,
+      "pos_err_cm": 2.3354265689849854
+    },
+    "t50": {
+      "n": 5,
+      "joint_rmse_deg": 2.4488091468811035,
+      "pos_err_cm": 11.847402572631836
+    },
+    "t100": {
+      "n": 2,
+      "joint_rmse_deg": 2.3330225944519043,
+      "pos_err_cm": 16.70745849609375
+    },
+    "all": {
+      "joint_rmse_deg": 2.922435998916626,
+      "pos_err_cm": 11.253790855407715
+    },
+    "baseline_hold_s0_all": {
+      "joint_rmse_deg": 11.795599937438965,
+      "pos_err_cm": 23.376283645629883
+    }
+  },
+  "v12_default_diagnostic_comparison": {
+    "same_cases": true,
+    "metrics": {
+      "t1": {
+        "n": 8,
+        "joint_rmse_deg": 2.6056220531463623,
+        "pos_err_cm": 2.0479373931884766
+      },
+      "t10": {
+        "n": 8,
+        "joint_rmse_deg": 2.957360029220581,
+        "pos_err_cm": 2.950140953063965
+      },
+      "t50": {
+        "n": 5,
+        "joint_rmse_deg": 2.0417959690093994,
+        "pos_err_cm": 7.5924201011657715
+      },
+      "t100": {
+        "n": 2,
+        "joint_rmse_deg": 2.7852439880371094,
+        "pos_err_cm": 13.525189399719238
+      },
+      "all": {
+        "joint_rmse_deg": 2.5032663345336914,
+        "pos_err_cm": 7.352981090545654
+      },
+      "baseline_hold_s0_all": {
+        "joint_rmse_deg": 11.795599937438965,
+        "pos_err_cm": 23.376283645629883
+      }
+    }
+  },
+  "min_ram_available_gib": 16.557682037353516,
+  "max_overall_gpu_used_mib": 2126.0,
+  "min_root_free_gib": 4.806312561035156,
+  "min_home_free_gib": 393.0873603820801,
+  "checks": {
+    "300_progress_records_finite": true,
+    "actual_shares_verified": true,
+    "input_and_implementation_hashes_verified": true,
+    "checkpoint_parameters_finite": true,
+    "default_predictions_finite": true
+  },
+  "limitations": [
+    "Balanced loss is essentially constant; raw loss monitors learning.",
+    "Loss contribution shares do not fix parameter-gradient shares.",
+    "Default dynamics diagnostic uses 8 validation episodes; not the full morphology-swap or wrong-action benchmark.",
+    "New physical task generation and 10-second MJX validation have not been run.",
+    "No performance-success claim from training completion alone."
+  ]
+}

@@ -30,6 +30,7 @@ p.add_argument("--hidden", type=int, default=256)
 p.add_argument("--epochs", type=int, default=2000)
 p.add_argument("--wd", type=float, default=1e-3)
 p.add_argument("--seeds", type=int, default=3)
+p.add_argument("--rest-features", type=Path, help="안착 자세 추가 입력 비교; 실제 s0 보존, 별도 사전 기준 사용")
 args = p.parse_args(); args.out.mkdir(parents=True, exist_ok=True)
 torch.manual_seed(0); np.random.seed(0)
 dev = "cuda" if torch.cuda.is_available() else "cpu"
@@ -142,6 +143,10 @@ else:
     second = ("group", [np.isin(GI, gperm[i::4]) for i in range(4)])  # e_swap: group (= A 열) 무작위 4-fold
 folds = {"design": [np.isin(DI, np.arange(D)[i::4]) for i in range(4)], second[0]: second[1]}
 feats = {"M_E": np.concatenate([X_E, X_S, X_A], 1), "M_noE": np.concatenate([X_S, X_A], 1), "ridge_E": np.concatenate([X_E, X_S, X_A], 1)}
+if args.rest_features is not None:
+    from rest_ablation import run
+    run(args, designs, X_E, X_S, X_A, Y, GI, DI, folds, fit_predict, metrics, group_mean_pred)
+    raise SystemExit(0)
 res = {"samples": int(N), "designs": designs, "format": fmt, "groups_used": int(alive_g.sum()), "groups_total": int(G), "horizon_s_median": float(np.median(Tg[alive_g]) * 0.02), "movement_mag": dict(zip(NAMES, mag.tolist())), "folds": {}}
 preds_all = {}
 for fname, fl in folds.items():

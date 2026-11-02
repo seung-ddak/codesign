@@ -16,6 +16,7 @@ usage (codesign/ 에서):
 """
 
 from ablation_sampling import balanced_sample, source_pools
+from tt_loss import GROUP_NAMES, diffusion_objective, validate_weights
 
 import argparse
 import glob
@@ -60,7 +61,21 @@ parser.add_argument("--diag", action="store_true", help="이어 붙이지 않은
 parser.add_argument("--film", action="store_true", help="E 를 모든 transformer 층에 곱·합으로 주입")
 parser.add_argument("--e-dropout", type=float, default=0.0, help="E 가 주어지는 학습 행에서 E 를 가릴 확률")
 parser.add_argument("--sampler", choices=("ddpm", "ddim"), default="ddpm", help="평가 샘플링. ddim = 결정적 (eta 0)")
+parser.add_argument("--loss-group-weights", type=float, nargs=6,
+                    metavar=("ACTION", "Q", "QDOT", "BODY", "CONTACT", "E"),
+                    help="group-mean loss coefficients summing to 1; requested: .2 .2 .2 .2 .1 .1; omitted = historical loss")
+parser.add_argument("--loss-balance", choices=("coefficients", "actual"), default="coefficients",
+                    help="actual: balance realized group loss contributions; use raw_loss/val_raw_loss to monitor learning")
 args = parser.parse_args()
+if args.loss_balance == "actual" and args.loss_group_weights is None:
+    parser.error("--loss-balance actual requires --loss-group-weights")
+try:
+    validate_weights(args.loss_group_weights)
+except ValueError as exc:
+    parser.error(str(exc))
+args.loss_group_order = list(GROUP_NAMES)
+args.loss_objective = ("group_actual_shares_v1" if args.loss_balance == "actual" else
+                       "group_mean_v1" if args.loss_group_weights is not None else "legacy_v1")
 if args.swap_fraction is not None and (not math.isfinite(args.swap_fraction) or not 0 <= args.swap_fraction <= 1):
     parser.error("--swap-fraction must be finite and between 0 and 1")
 if args.mode_weights is not None and (len(args.mode_weights) != len(args.modes) or
@@ -242,7 +257,10 @@ if not args.eval_only:
     sampled_modes = torch.zeros(6, device=dev, dtype=torch.long)
     sampled_sources = torch.zeros(2, device=dev, dtype=torch.long)
 
-    def loss_on(idx, gen=None, forced_mode=None, record=False):
+    recorded_group_terms = torch.zeros(6, device=dev)
+    recorded_raw_terms = torch.zeros(6, device=dev)
+
+    def loss_on(idx, gen=None, forced_mode=None, record=False, return_components=False):
         x, m = window(idx, gen)
         x0, e0 = (x - mu_t) / sd_t * m[..., None], En[idx]
         n = len(idx)
@@ -270,7 +288,12 @@ if not args.eval_only:
             e_weight = torch.where(hide, 0.0, e_weight)
         px, pe = net(torch.where(kx > 0, x0, xt), e_in, kx, ke, k.float(), ~m)
         wx = (1 - kx) * m[..., None]
-        return ((px - nx) ** 2 * wx).sum() / wx.sum() + (((pe - ne) ** 2) * e_weight).mean()
+        total, terms, raw = diffusion_objective(px, nx, wx, pe, ne, e_weight, args.loss_group_weights,
+                                               balance_actual=args.loss_balance == "actual", return_raw=True)
+        if record:
+            recorded_group_terms.copy_(terms.detach())
+            recorded_raw_terms.copy_(raw.detach())
+        return (total, terms, raw) if return_components else total
 
     for step in range(1, args.steps + 1):
         idx = (balanced_sample(pools, args.batch, args.swap_fraction) if args.swap_fraction is not None
@@ -288,14 +311,33 @@ if not args.eval_only:
             with torch.no_grad():
                 val_gen = torch.Generator(device=dev).manual_seed(1)
                 total_v = 0.0
+                val_group_terms = torch.zeros(6, device=dev)
+                val_raw_terms = torch.zeros(6, device=dev)
                 for j in range(0, len(valt), args.batch):
                     vb = valt[j:j + args.batch]
-                    total_v += float(loss_on(vb, val_gen)) * len(vb)
+                    vb_loss, vb_terms, vb_raw = loss_on(vb, val_gen, return_components=True)
+                    total_v += float(vb_loss) * len(vb)
+                    val_group_terms.add_(vb_terms * len(vb))
+                    val_raw_terms.add_(vb_raw * len(vb))
                 vl = total_v / len(valt)
             rec = dict(step=step, loss=loss.item(), val_loss=vl,
                        val_episodes_evaluated=len(valt), val_batches=(len(valt) + args.batch - 1) // args.batch,
                        lr=sched.get_last_lr()[0], min=(time.time() - t0) / 60,
                        sampled_modes=sampled_modes.cpu().tolist(), sampled_sources=sampled_sources.cpu().tolist())
+            train_terms = recorded_group_terms.cpu().tolist()
+            validation_terms = (val_group_terms / len(valt)).cpu().tolist()
+            raw_train = recorded_raw_terms.cpu().tolist()
+            raw_validation = (val_raw_terms / len(valt)).cpu().tolist()
+            monitor_weights = args.loss_group_weights if args.loss_group_weights is not None else [1/6]*6
+            rec.update(raw_group_mse=dict(zip(GROUP_NAMES, raw_train)),
+                       val_raw_group_mse=dict(zip(GROUP_NAMES, raw_validation)),
+                       raw_loss=sum(v*w for v,w in zip(raw_train, monitor_weights)),
+                       val_raw_loss=sum(v*w for v,w in zip(raw_validation, monitor_weights)),
+                       loss_objective=args.loss_objective,
+                       loss_group_terms=dict(zip(GROUP_NAMES, train_terms)),
+                       loss_group_fractions=dict(zip(GROUP_NAMES, [v / max(sum(train_terms), 1e-12) for v in train_terms])),
+                       val_loss_group_terms=dict(zip(GROUP_NAMES, validation_terms)),
+                       val_loss_group_fractions=dict(zip(GROUP_NAMES, [v / max(sum(validation_terms), 1e-12) for v in validation_terms])))
             log.write(json.dumps(rec) + "\n")
             log.flush()
             print(rec, flush=True)
@@ -323,7 +365,7 @@ net.eval()
 # Validate joint-only checkpoints with task generation and MJX instead.
 if 1 not in ck["args"]["modes"]:
     print("Joint-only checkpoint: Modes 2/4; skipping Mode-1 dynamics diagnostics. "
-          "Check val_loss in progress.jsonl, then run FAST joint generation + MJX.", flush=True)
+          f"Check {'val_raw_loss' if args.loss_balance == 'actual' else 'val_loss'} in progress.jsonl, then run FAST joint generation + MJX.", flush=True)
     raise SystemExit(0)
 if args.diag:
     # 검증 episode 마다 시작점 8 개 (window 전체 유효), 실제 s0 에서 window 하나만 예측

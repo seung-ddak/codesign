@@ -2,6 +2,7 @@
 import ast
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 
 import pytest
 import torch
@@ -17,7 +18,7 @@ from rollout_data import S_DIM
 def test_native_sampling_matches_historical_diagnostic(pin):
     source = ROOT / "runs/pipeline_v1/fast_mode24_v9_e_coverage/measure_given_a.py"
     function = next(n for n in ast.parse(source.read_text()).body if isinstance(n, ast.FunctionDef) and n.name == "gen")
-    namespace = dict(torch=torch, condition_masks=condition_masks, S_DIM=S_DIM, dev="cpu")
+    namespace = dict(torch=torch, condition_masks=condition_masks, S_DIM=S_DIM, dev="cpu", args=SimpleNamespace(pin_mode=2))
     exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), "exec"), namespace)
     torch.manual_seed(7)
     s0, e = torch.randn(3, 42), torch.randn(3, 13)
