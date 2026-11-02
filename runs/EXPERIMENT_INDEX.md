@@ -72,8 +72,8 @@
 
 [v12 PD kp200 + Mode 1 (remind 8-38): A→S 3배 강화·고정 E 전진 첫 양수, 공동 생성·낙상 미달](pipeline_v1/fast_mode24_v12_pd_kp200_mode1/report.html)
 
-[PD home 1초 상태 추가 회귀 (remind 8-43): 사전 기준 미달, 실제 초기 상태 보존·E+g 속도 오차 8.7% 악화](pipeline_v1/regression_rest_features/report.html)
+[PD home 1초 상태 추가 회귀 (remind 8-44): 사전 기준 미달, 실제 초기 상태 보존·E+g 속도 오차 8.7% 악화](pipeline_v1/regression_rest_features/report.html)
 
-[실제 출발 상태×행동 출처 2×2 MJX (remind 8-44): 공통 생존 그룹0개로 학습 비교 불가; e000 사후 검증에서 kp30→200 이식 불안정 확인](pipeline_v1/factorial_init_action/report.html)
+[실제 출발 상태×행동 출처 2×2 MJX (remind 8-45): 공통 생존 그룹0개로 학습 비교 불가; e000 사후 검증에서 kp30→200 이식 불안정 확인](pipeline_v1/factorial_init_action/report.html)
 
 [v13 실제 손실 기여율20/20/20/20/10/10: 60000step 학습 완료, 기본8episode 예측은 v12보다 악화](pipeline_v1/fast_mode24_v13_group_loss/report.html)
