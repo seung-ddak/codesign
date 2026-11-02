@@ -2,7 +2,8 @@
 
 remind 8-39 (데이터에 E 신호 있음) 후속. TT 가 E→S 를 못 배우는 게 데이터 문제인지 모델/학습 목표 문제인지 분리.
   fold "design": 16 형상을 4 개씩 빼고 학습 → 안 본 형상 예측 (E→S 일반화).
-  fold "start" : 모션당 시작 프레임 8 개 중 2 개를 전 형상에서 빼고 학습 → 안 본 A 예측 (A→S, group 암기 배제).
+  fold "start" : 모션당 시작 프레임 8 개 중 2 개를 전 형상에서 빼고 학습 → 안 본 A 예측 (A→S, group 암기 배제). e_swap 형식은 group 무작위 4-fold.
+  e_swap 형식 (v9 48 형상 등): --data 여러 dir, group = (source_design, source_episode), --min-alive 0.75.
   모델: M_E (E 입력), M_noE (E 제외, 같은 구조), B0 = 학습 형상 group 평균 (E 없는 상한선), ridge_E (선형).
 통과 기준 (사전): design fold 에서 M_E vx RMSE < 0.5 × |vx| 평균 AND M_E 가 B0 대비 RMSE ≥ 20 % 감소 AND E 효과 부호 일치 ≥ 70 % (|true−B0| > 0.03 m/s cell).
 
@@ -20,7 +21,8 @@ from rollout_data import features  # noqa: E402
 from measure_e_signal_lib import outcomes, NAMES  # noqa: E402
 
 p = argparse.ArgumentParser()
-p.add_argument("--data", type=Path, default=Path("runs/pipeline_v1/pd_rollouts_kp200"))
+p.add_argument("--data", type=Path, nargs="+", default=[Path("runs/pipeline_v1/pd_rollouts_kp200")], help="형상 폴더들의 상위 dir (여러 개 가능). npz 에 group_id 있으면 PD 형식, 없으면 e_swap 형식 (source_design, source_episode 로 group)")
+p.add_argument("--min-alive", type=float, default=1.0, help="group 유지 조건: 생존 형상 비율 ≥ 이 값 (PD 1.0, e_swap 은 낙상 많아 0.75 권장)")
 p.add_argument("--out", type=Path, default=Path("runs/pipeline_v1/regression_gate"))
 p.add_argument("--horizon", type=int, default=50, help="step (0.02 s) 상한; group 별 공통 valid 길이와 min")
 p.add_argument("--a-steps", type=int, default=16, help="A 열 다운샘플 수")
@@ -33,11 +35,24 @@ torch.manual_seed(0); np.random.seed(0)
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 t0 = time.time()
 
-designs = sorted(d.name for d in args.data.iterdir() if (d / "primitive_seed0.npz").exists())
-Z = {d: np.load(args.data / d / "primitive_seed0.npz", allow_pickle=True) for d in designs}
-D = len(designs); G = len(Z[designs[0]]["group_id"]); motions = [str(m) for m in Z[designs[0]]["motions"]]
-clip0, sf0 = Z[designs[0]]["clip"][:, 0], Z[designs[0]]["start_frame"]
-Tg = np.minimum(np.stack([Z[d]["valid"].sum(1) for d in designs], 1).min(1), args.horizon)  # [G]
+paths = sorted((d for root in args.data for d in root.iterdir() if (d / "primitive_seed0.npz").exists()), key=lambda d: d.name)
+designs = [d.name for d in paths]; assert len(set(designs)) == len(designs), "형상 이름 중복"
+Z = {d.name: dict(np.load(d / "primitive_seed0.npz", allow_pickle=True)) for d in paths}
+D = len(designs); motions = [str(m) for m in Z[designs[0]]["motions"]]
+fmt = "pd" if "group_id" in Z[designs[0]] else "eswap"
+if fmt == "eswap":  # group = 같은 A 열 (source_design, source_episode); 형상마다 행 순서를 첫 형상 기준으로 정렬
+    key = lambda z: list(zip(z["source_design"].tolist(), z["source_episode"].tolist()))
+    ref = key(Z[designs[0]]); pos = {k: i for i, k in enumerate(ref)}
+    for d in designs:
+        k = key(Z[d]); assert set(k) == set(ref), f"{d}: A 열 집합이 다름"
+        order = np.argsort([pos[x] for x in k])
+        Z[d] = {n: (v[order] if isinstance(v, np.ndarray) and v.ndim >= 1 and len(v) == len(k) else v) for n, v in Z[d].items()}
+        Z[d]["group_id"] = np.arange(len(ref))
+G = len(Z[designs[0]]["group_id"]); assert all(np.array_equal(Z[d]["group_id"], Z[designs[0]]["group_id"]) for d in designs)
+clip0 = Z[designs[0]]["clip"][:, 0]; sf0 = Z[designs[0]].get("start_frame")
+# group 공통 지평 = 낙상 안 한 형상들의 valid 길이 최소 (PD 는 clip 끝, e_swap 은 100 step 고정), 상한 horizon
+vl = np.stack([np.where(Z[d]["fell"], 10 ** 6, Z[d]["valid"].sum(1)) for d in designs], 1)
+Tg = np.minimum(vl.min(1), args.horizon).astype(int)
 E = np.stack([Z[d]["E"] for d in designs]).astype(np.float32)
 
 # ---- 표본: cell (g, d) → x = [E 13 | s0 42 | A 다운샘플 a_steps×12], y = 5 outcome
@@ -51,10 +66,10 @@ for di, d in enumerate(designs):
     X_E.append(np.repeat(E[di][None], G, 0)); X_S.append(s0); Y.append(y); OK.append(ok); GI.append(np.arange(G)); DI.append(np.full(G, di))
 X_E, X_S, X_A = np.concatenate(X_E), np.concatenate(X_S), np.stack(X_A).astype(np.float32)
 Y, OK, GI, DI = np.concatenate(Y).astype(np.float32), np.concatenate(OK), np.concatenate(GI), np.concatenate(DI)
-# group 안에 낙상 형상이 있으면 B0 비교가 흔들리므로 e_signal 과 같이 16 형상 전부 생존한 group 만
-alive_g = np.array([OK[GI == g].all() for g in range(G)]); use = alive_g[GI]
+# 낙상 cell 제외; 생존 형상 비율 < min_alive 인 group 은 통째로 제외 (B0 가 흔들림)
+alive_g = np.array([OK[GI == g].mean() >= args.min_alive for g in range(G)]); use = alive_g[GI] & OK
 X_E, X_S, X_A, Y, GI, DI = (a[use] for a in (X_E, X_S, X_A, Y, GI, DI))
-N = len(Y); print(f"samples {N} = groups {alive_g.sum()} × designs {D}, dev {dev}", flush=True)
+N = len(Y); print(f"samples {N} = groups {alive_g.sum()}/{G} × designs {D} (format {fmt}, 낙상 cell 제외), dev {dev}", flush=True)
 
 
 class MLP(nn.Module):
@@ -69,8 +84,10 @@ class MLP(nn.Module):
 def fit_predict(Xtr, Ytr, Xte, seed):
     """표준화 + MLP, AdamW, 전 배치 학습. 반환 = Xte 예측 (원 단위)."""
     torch.manual_seed(seed)
-    mx, sx = Xtr.mean(0), Xtr.std(0) + 1e-6; my, sy = Ytr.mean(0), Ytr.std(0) + 1e-6
-    xt, yt = torch.tensor((Xtr - mx) / sx, device=dev), torch.tensor((Ytr - my) / sy, device=dev)
+    sx = Xtr.std(0); sx = np.maximum(sx, 1e-2 * max(float(sx.max()), 1e-6))  # 하한: fold 안 분산 ≈0 인 입력 (e_swap s0 등) 이 held-out 에서 폭주하는 것 방지
+    mx, my, sy = Xtr.mean(0), Ytr.mean(0), Ytr.std(0) + 1e-6
+    norm = lambda X: np.clip((X - mx) / sx, -10, 10).astype(np.float32)
+    xt, yt = torch.tensor(norm(Xtr), device=dev), torch.tensor((Ytr - my) / sy, device=dev)
     net = MLP(xt.shape[1], args.hidden, yt.shape[1]).to(dev)
     opt = torch.optim.AdamW(net.parameters(), 1e-3, weight_decay=args.wd)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.epochs)
@@ -78,7 +95,7 @@ def fit_predict(Xtr, Ytr, Xte, seed):
         loss = ((net(xt) - yt) ** 2).mean()
         opt.zero_grad(); loss.backward(); opt.step(); sched.step()
     with torch.no_grad():
-        return net(torch.tensor((Xte - mx) / sx, device=dev)).cpu().numpy() * sy + my
+        return net(torch.tensor(norm(Xte), device=dev)).cpu().numpy() * sy + my
 
 
 def ridge_predict(Xtr, Ytr, Xte, lam=1.0, std=True):
@@ -115,13 +132,17 @@ def metrics(pred, true, b0, mag):
 
 mag = np.abs(Y).mean(0)  # 움직임 크기 (outcome 별 |y| 평균)
 X_Es = ((X_E - E.mean(0)) / (E.std(0) + 1e-9)).astype(np.float32)  # E 전역 표준화 (ridge 잔차 모델용)
-start_rank = np.zeros(G, int)
-for c in np.unique(clip0):
-    m = clip0 == c; start_rank[m] = sf0[m].argsort().argsort()
-folds = {"design": [np.isin(DI, np.arange(D)[i::4]) for i in range(4)],
-         "start": [np.isin(start_rank[GI], [i, i + 4]) for i in range(4)]}  # 모션 안 시작 프레임 순위 0..7 (간격은 모션마다 다름)
+if sf0 is not None:
+    start_rank = np.zeros(G, int)
+    for c in np.unique(clip0):
+        m = clip0 == c; start_rank[m] = sf0[m].argsort().argsort()
+    second = ("start", [np.isin(start_rank[GI], [i, i + 4]) for i in range(4)])  # 모션 안 시작 프레임 순위 0..7
+else:
+    gperm = np.random.default_rng(0).permutation(G)
+    second = ("group", [np.isin(GI, gperm[i::4]) for i in range(4)])  # e_swap: group (= A 열) 무작위 4-fold
+folds = {"design": [np.isin(DI, np.arange(D)[i::4]) for i in range(4)], second[0]: second[1]}
 feats = {"M_E": np.concatenate([X_E, X_S, X_A], 1), "M_noE": np.concatenate([X_S, X_A], 1), "ridge_E": np.concatenate([X_E, X_S, X_A], 1)}
-res = {"samples": int(N), "designs": designs, "horizon_s_median": float(np.median(Tg[alive_g]) * 0.02), "movement_mag": dict(zip(NAMES, mag.tolist())), "folds": {}}
+res = {"samples": int(N), "designs": designs, "format": fmt, "groups_used": int(alive_g.sum()), "groups_total": int(G), "horizon_s_median": float(np.median(Tg[alive_g]) * 0.02), "movement_mag": dict(zip(NAMES, mag.tolist())), "folds": {}}
 preds_all = {}
 for fname, fl in folds.items():
     P = {m: np.zeros_like(Y) for m in list(feats) + (["M_E_resid", "ridge_Eonly_resid", "ridge_pergroup_resid"] if fname == "design" else [])}; B0 = np.zeros_like(Y)
@@ -141,7 +162,7 @@ for fname, fl in folds.items():
                 mtr, mte = tr & (GI == g), te & (GI == g)
                 P["ridge_pergroup_resid"][mte] = B0[mte] + ridge_predict(X_Es[mtr], Y[mtr] - B0tr[GI[tr] == g], X_Es[mte], std=False)
         print(f"  fold {fname} te={te.sum()} done {time.time()-t0:.0f}s", flush=True)
-    b0 = B0 if fname == "design" else None  # start fold 는 group 이 학습에 없어 B0 정의 안 됨
+    b0 = B0 if fname == "design" else None  # start/group fold 는 group 이 학습에 없어 B0 정의 안 됨
     res["folds"][fname] = {m: metrics(P[m], Y, b0, mag) for m in P}
     if b0 is not None: res["folds"][fname]["B0"] = metrics(B0, Y, None, mag)
     preds_all[fname] = (P, B0)
@@ -180,6 +201,7 @@ ax[2].set_xticks(range(D)); ax[2].set_xticklabels(designs, rotation=90, fontsize
 fig.tight_layout(); b = io.BytesIO(); fig.savefig(b, format="png", dpi=110); plt.close(fig); img = base64.b64encode(b.getvalue()).decode()
 
 # ---- report
+SECOND = second[0]
 def tbl(fname):
     ms = ["B0", "M_noE", "ridge_E", "M_E", "ridge_Eonly_resid", "ridge_pergroup_resid", "M_E_resid"] if fname == "design" else ["M_noE", "ridge_E", "M_E"]
     rows = "".join(f"<tr><td>{m}</td>" + "".join(
@@ -191,26 +213,26 @@ def tbl(fname):
 html = f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>Regression dynamics gate</title>
 <style>body{{font-family:sans-serif;max-width:1200px;margin:auto;padding:16px;line-height:1.45}}table{{border-collapse:collapse;font-size:12px;margin:6px 0}}td,th{{border:1px solid #999;padding:3px 7px;text-align:right;vertical-align:top}}th{{background:#eee}}td:first-child{{text-align:left}}.v{{background:#fff3cd;padding:8px;border:1px solid #e0c060}}img{{max-width:100%}}</style></head><body>
 <h1>2 번 통과 시험: 순수 회귀 dynamics 가 E→몸통 속도를 배우는가</h1>
-<p>2026-11-02. remind 8-39 후속. diffusion·TT 없이 작은 MLP 로 (E, s0, A 열) → 1 s 평균 몸통 속도 예측. 표본 {N} = 생존 group {int(alive_g.sum())} × 형상 {D}. 소요 {res['elapsed_s']/60:.1f} 분.</p>
+<p>2026-11-02. remind 8-39 후속. diffusion·TT 없이 작은 MLP 로 (E, s0, A 열) → 1 s 평균 몸통 속도 예측. 표본 {N} (group {int(alive_g.sum())} × 형상 {D}, 낙상 cell 제외). 소요 {res['elapsed_s']/60:.1f} 분.</p>
 <div class="v"><b>판정 (사전 기준):</b> {verdict}<br>{posthoc}<br>기준 (design fold, vx): (1) RMSE &lt; 0.5×|vx| → {dm['rmse_over_mag']:.2f} {'통과' if c1 else '미달'}; (2) B0 대비 RMSE 감소 ≥ 20 % → {dm['gain_vs_b0']*100:+.0f} % {'통과' if c2 else '미달'}; (3) E 효과 부호 일치 ≥ 70 % → {dm['sign_agree']*100:.0f} % {'통과' if c3 else '미달'}.</div>
 <h2>조건</h2><table><tr><th>항목</th><th>값</th></tr>
-<tr><td>데이터</td><td>{args.data} (v11/v12 와 동일, PD kp200), 16 형상 전부 생존한 group 만 (e_signal 과 동일)</td></tr>
+<tr><td>데이터</td><td>{' + '.join(str(d) for d in args.data)} (형식 {fmt}, 형상 {D}: {', '.join(designs)}). 낙상 cell 제외, 생존 비율 ≥ {args.min_alive} 인 group {int(alive_g.sum())}/{G} 사용</td></tr>
 <tr><td>입력</td><td>E 13 + s0 42 (rollout_data.features 첫 step) + A = target_q 를 {args.a_steps} step 균등 다운샘플 (×12). M_noE 는 E 제외</td></tr>
 <tr><td>출력</td><td>vx, vy (시작 heading 프레임), yaw_rate, z 평균, tilt 평균. 지평 = group 공통 valid 길이 ∧ {args.horizon*0.02:.0f} s (중앙값 {res['horizon_s_median']:.2f} s)</td></tr>
-<tr><td>모델</td><td>MLP {args.hidden}×2 GELU, AdamW lr 1e-3 wd {args.wd}, 전 배치 {args.epochs} step cosine, seed {args.seeds} 평균. 입력·출력 표준화. ridge_E = 같은 입력 선형 (λ 1)</td></tr>
-<tr><td>fold design</td><td>형상 4 개씩 held-out (4 fold, 전 형상 1 회씩). B0 = 같은 group 의 학습 형상 12 개 평균 (E 를 모르는 최선)</td></tr>
-<tr><td>fold start</td><td>모션당 시작 프레임 8 개 중 2 개를 전 형상에서 held-out (4 fold). 안 본 A 열 → A→S 를 group 암기 없이 측정. B0 정의 불가</td></tr>
+<tr><td>모델</td><td>MLP {args.hidden}×2 GELU, AdamW lr 1e-3 wd {args.wd}, 전 배치 {args.epochs} step cosine, seed {args.seeds} 평균. 입력 표준화 (std 하한 = 최대 std 의 1 %, ±10 clip)·출력 표준화. ridge_E = 같은 입력 선형 (λ 1)</td></tr>
+<tr><td>fold design</td><td>형상 {D//4} 개씩 held-out (4 fold, 전 형상 1 회씩, 학습 형상 {D - D//4}). B0 = 같은 group 의 학습 형상 평균 (E 를 모르는 최선)</td></tr>
+<tr><td>fold {SECOND}</td><td>{'모션당 시작 프레임 8 개 중 2 개를 전 형상에서 held-out (4 fold)' if SECOND == 'start' else 'group (= A 열) 을 무작위 4-fold 로 held-out'}. 안 본 A 열 → A→S 를 group 암기 없이 측정. B0 정의 불가</td></tr>
 <tr><td>사후 추가 모델</td><td>M_E_resid = B0 + MLP(E, s0, A → y − B0); ridge_Eonly_resid = B0 + ridge(E 13 → y − B0, λ 1, 전 group 공유); ridge_pergroup_resid = group 마다 별도 ridge(E 13 → y − B0) (e_signal LODO 와 같은 구조, 학습 형상 12 개). 사전 기준 모델이 B0 (group 평균) 조차 재현 못 해 E 효과와 group 식별 실패가 섞여서 추가. 사전 판정에는 미반영</td></tr>
 <tr><td>E 효과 부호 일치</td><td>|true − B0| &gt; 0.03 m/s (yaw 0.03 rad/s, z·tilt 0.01) 인 cell 에서 sign(pred − B0) = sign(true − B0) 비율</td></tr></table>
 <h2>결과 — design fold (안 본 형상)</h2><p>칸 = RMSE (RMSE/|움직임|). gain = B0 대비 RMSE 감소율, sign = E 효과 부호 일치, r = E 효과 상관.</p>{tbl('design')}
-<h2>결과 — start fold (안 본 시작 프레임 = 안 본 A 열)</h2>{tbl('start')}
+<h2>결과 — {SECOND} fold (안 본 {'시작 프레임' if SECOND == 'start' else 'group'} = 안 본 A 열)</h2>{tbl(SECOND)}
 <img src="data:image/png;base64,{img}">
 <h2>사실 / 추정</h2><ul>
 <li>사실: 표·그림은 held-out 예측 직접 계산. B0 가 "E 를 몰라도 이 group 은 이만큼 움직인다" 의 상한이므로 M_E 의 gain·sign 이 E→S 학습 여부의 직접 증거.</li>
 <li>사실: start fold 는 같은 모션의 다른 위상이라 A 가 완전히 새롭지는 않음 (같은 모션 안 보간). 다른 모션으로의 일반화는 측정하지 않음.</li>
 <li>사실: group 별 ridge 의 B0 대비 vx gain 은 학습 형상 수에 민감 (별도 계산, λ 1: 15 형상 LODO +31 %, 12 형상 4-fold +11 %, 8 형상 2-fold +13 %). 13 차원 E 를 12~15 점으로 맞추는 과소결정 상태.</li>
 <li>추정: 통과 시 TT 의 E 무시 (D4·v8·v12) 는 학습 목표 (절대 S 복원이 직전 S 복사로 풀림) 쪽. 미통과 시 13 차원 E 를 16 점으로 보간하는 한계.</li></ul>
-<h2>재현</h2><pre>../transformer-transformer/.venv/bin/python -I code/tt_dynamics/regression_gate.py --data {args.data} --out {args.out}</pre>
+<h2>재현</h2><pre>../transformer-transformer/.venv/bin/python -I code/tt_dynamics/regression_gate.py --data {' '.join(str(d) for d in args.data)} --min-alive {args.min_alive} --out {args.out}</pre>
 </body></html>"""
 (args.out / "report.html").write_text(html)
 print("verdict:", verdict, f"({res['elapsed_s']/60:.1f} min)")
