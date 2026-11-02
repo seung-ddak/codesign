@@ -60,7 +60,8 @@ def main():
     assert not set(np.asarray(groups)[train]) & set(np.asarray(groups)[val])
     metric_ck = torch.load(Path(conditions["metric_reference"]) / "checkpoint.pt", map_location="cpu", weights_only=False)
     metric_scale = torch.as_tensor(metric_ck["sd"], device="cuda", dtype=torch.float32)
-    models = {**conditions["baseline_models"], "v12": str(ROOT / "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/tt_joint"), "pd": str(RUN / "tt_joint")}
+    ref = ROOT / conditions.get("reference_run", "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1")
+    models = {**conditions["baseline_models"], "ref": str(ref / "tt_joint"), "pd": str(RUN / "tt_joint")}
     result = {"_conditions": dict(validation_source_groups=len(set(np.asarray(groups)[val])),
                                   validation_episodes=len(val), seeds=8, window=32, starts=[0, 30],
                                   metric_reference=conditions["metric_reference"],

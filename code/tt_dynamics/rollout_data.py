@@ -46,6 +46,38 @@ def source_group_keys(path, archive, *, length):
     return [f"source:{stem}:{i}" for i in range(length)]
 
 
+def intervention_pairs(paths, H):
+    """load() 와 같은 순서로 episode 를 세면서 개입 쌍을 전역 index 로 만든다 (remind 8-49).
+
+    E 쌍: e_swap 파일들 사이에서 같은 (source_design, source_episode) → A 동일, E(+안착 s0) 만 다름.
+    A 쌍: 같은 파일의 같은 group_id (variant orig/swap/offset) → s0·E 동일, A 만 다름.
+    반환 (pairs_E [N,2], pairs_A [M,2]) int64; 없으면 (0,2).
+    """
+    e_groups, a_groups = {}, {}
+    n = 0
+    for fi, p in enumerate(paths):
+        with np.load(p) as d:
+            valid = d["valid"]
+            is_swap = "source_design" in d and "source_episode" in d
+            is_pair = "group_id" in d and "variant" in d
+            sd = d["source_design"] if is_swap else None
+            se = d["source_episode"] if is_swap else None
+            gid = d["group_id"] if is_pair else None
+            for b in range(len(valid)):
+                if min(int(valid[b].sum()), H) < 2:
+                    continue
+                if is_swap:
+                    e_groups.setdefault((str(sd[b]), int(se[b])), []).append(n)
+                if is_pair:
+                    a_groups.setdefault((fi, int(gid[b])), []).append(n)
+                n += 1
+
+    def pairs(groups):
+        out = [(a, b) for g in groups.values() for i, a in enumerate(g) for b in g[i + 1:]]
+        return np.array(out, dtype=np.int64).reshape(-1, 2)
+    return pairs(e_groups), pairs(a_groups)
+
+
 def load(paths, H):
     """Load each compressed NPZ array only once per file, not per episode."""
     X, E, M, src, CL = [], [], [], [], []

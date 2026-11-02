@@ -43,3 +43,21 @@ def diffusion_objective(px, nx, wx, pe, ne, e_mask, weights=None, balance_actual
         total=torch.stack(pieces).sum()
     result=(total,torch.stack(pieces))
     return (*result,raw) if return_raw else result
+
+
+def pair_delta_mse(x0_hat, x0, weight, channels=slice(0, 14)):
+    """개입 쌍 변화량 손실 (remind 8-49). 앞 절반 = 쌍의 i, 뒤 절반 = j (같은 시작·같은 noise·Mode 1).
+
+    mse = mean‖(x0_hat_i − x0_hat_j) − (x0_i − x0_j)‖² over channels where both members are unknown+valid.
+    var = 실제 Δ 의 분산 (같은 가중) → R²_Δ = 1 − mse/var 모니터용. 평균 출력 (Δ_hat ≈ 0) 이면 mse ≈ var.
+    """
+    P = x0.shape[0] // 2
+    assert x0.shape[0] == 2 * P and x0_hat.shape == x0.shape
+    d_hat = x0_hat[:P, :, channels] - x0_hat[P:, :, channels]
+    d = x0[:P, :, channels] - x0[P:, :, channels]
+    w = weight[:P, :, channels] * weight[P:, :, channels]
+    n = w.sum().clamp_min(1)
+    mse = ((d_hat - d).square() * w).sum() / n
+    mean = (d * w).sum() / n
+    var = ((d - mean).square() * w).sum() / n
+    return mse, var

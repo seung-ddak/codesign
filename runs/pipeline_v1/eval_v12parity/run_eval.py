@@ -20,8 +20,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 V9 = ROOT / "runs/pipeline_v1/fast_mode24_v9_e_coverage"
 V12 = ROOT / "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1"
-STAGES = ["held", "seen", "held_mode1", "native", "smoke", "fixedE_zigzag", "joint_zigzag",
+STAGES = ["held", "seen", "held_mode1", "native", "delta_r2", "smoke", "fixedE_zigzag", "joint_zigzag",
           "fixedE_circle", "joint_circle", "report"]
+SCRIPTS = dict(native="evaluate_native.py", report="build_eval_report.py", delta_r2="measure_delta_r2.py")
 
 
 def run_dir():
@@ -46,11 +47,12 @@ def worker(run, stage):
     conditions = json.loads((run / "conditions.json").read_text())
     out = run / "evaluation"
     out.mkdir(exist_ok=True)
-    v12_models = {"v12": [str(V12 / "tt_joint"), 1], "pd": [str(run / "tt_joint"), 1]}
+    ref = ROOT / conditions.get("reference_run", V12.relative_to(ROOT))  # 비교 기준 run (기본 v12, Δ 실험은 twin)
+    ref_models = {"ref": [str(ref / "tt_joint"), 1], "pd": [str(run / "tt_joint"), 1]}
     if stage in ("held", "seen", "held_mode1"):
-        models = {**{k: [v, 1] for k, v in conditions["baseline_models"].items()}, **v12_models}
+        models = {**{k: [v, 1] for k, v in conditions["baseline_models"].items()}, **ref_models}
         if stage == "held_mode1":
-            models = v12_models
+            models = ref_models
         args = [str(V9 / "measure_given_a.py"), str(out / f"given_a_{stage}.json"), json.dumps(models)]
         if stage != "seen":
             args.append(str(V9 / "data_test"))
@@ -58,8 +60,8 @@ def worker(run, stage):
                  "--metric-reference", conditions["metric_reference"]]
         if stage == "held_mode1":
             args += ["--pin-mode", "1"]
-    elif stage in ("native", "report"):
-        args = [str(HERE / ("evaluate_native.py" if stage == "native" else "build_eval_report.py")), str(run)]
+    elif stage in SCRIPTS:
+        args = [str(HERE / SCRIPTS[stage]), str(run)]
     else:
         import jax
         jax.config.update("jax_compilation_cache_dir", str(ROOT / "jax_cache"))

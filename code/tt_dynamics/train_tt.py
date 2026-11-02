@@ -16,7 +16,7 @@ usage (codesign/ 에서):
 """
 
 from ablation_sampling import balanced_sample, source_pools
-from tt_loss import GROUP_NAMES, diffusion_objective, validate_weights
+from tt_loss import GROUP_NAMES, diffusion_objective, pair_delta_mse, validate_weights
 
 import argparse
 import glob
@@ -29,7 +29,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, load, source_group_keys  # noqa: F401
+from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, intervention_pairs, load, source_group_keys  # noqa: F401
 from tt_model import CONDITIONING_VERSION, condition_masks, make_net, rebase, schedule, unbase
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
@@ -67,6 +67,9 @@ parser.add_argument("--loss-group-weights", type=float, nargs=6,
                     help="group-mean loss coefficients summing to 1; requested: .2 .2 .2 .2 .1 .1; omitted = historical loss")
 parser.add_argument("--loss-balance", choices=("coefficients", "actual"), default="coefficients",
                     help="actual: balance realized group loss contributions; use raw_loss/val_raw_loss to monitor learning")
+parser.add_argument("--delta-weight", type=float, default=0.0,
+                    help="개입 쌍 변화량 손실 λ (remind 8-49). 0 = 기존 (쌍은 모니터만). E 쌍 = e_swap 같은 source, A 쌍 = group_id+variant")
+parser.add_argument("--pair-batch", type=int, default=16, help="step 당 쌍 수 (E, A 각각)")
 args = parser.parse_args()
 if args.loss_balance == "actual" and args.loss_group_weights is None:
     parser.error("--loss-balance actual requires --loss-group-weights")
@@ -167,6 +170,20 @@ split_meta = {
 print("split metadata:", split_meta, flush=True)
 Xt, Mt = torch.tensor(X, device=dev), torch.tensor(M, device=dev)
 Lt = Mt.sum(1)
+# 개입 쌍 (remind 8-49): 학습용은 둘 다 train, 검증용은 둘 다 val 인 쌍만.
+_pairs_E, _pairs_A = intervention_pairs(args.data, EP)
+
+
+def _split_pairs(pairs, members):
+    keep = np.isin(pairs, members).all(1) if len(pairs) else np.zeros(0, bool)
+    return torch.tensor(pairs[keep], device=dev, dtype=torch.long).reshape(-1, 2)
+
+
+pairs_tr = {"E": _split_pairs(_pairs_E, tr), "A": _split_pairs(_pairs_A, tr)}
+pairs_val = {"E": _split_pairs(_pairs_E, val), "A": _split_pairs(_pairs_A, val)}
+print("intervention pairs (train, val):", {k: (len(pairs_tr[k]), len(pairs_val[k])) for k in pairs_tr}, flush=True)
+if args.delta_weight > 0 and not any(len(v) for v in pairs_tr.values()):
+    raise ValueError("--delta-weight > 0 requires intervention pairs (e_swap source_design/source_episode or group_id+variant)")
 
 
 def deltas(x):
@@ -207,6 +224,12 @@ def window(idx, gen=None):
     L = Lt[idx]
     hi = (L - torch.clamp(L, max=H)).float()
     start = (torch.rand(len(idx), device=dev, generator=gen) * (hi + 1)).long().clamp(max=hi.long())
+    return window_at(idx, start)
+
+
+def window_at(idx, start):
+    """주어진 시작 step 의 window (쌍 손실은 두 episode 에 같은 start 를 쓴다)."""
+    L = Lt[idx]
     t = start[:, None] + ar
     m = (t < L[:, None])
     x = rebase(Xt[idx[:, None], t.clamp(max=EP - 1)])
@@ -297,10 +320,45 @@ if not args.eval_only:
             recorded_raw_terms.copy_(raw.detach())
         return (total, terms, raw) if return_components else total
 
+    def delta_loss(pairs, gen=None, n_pairs=None):
+        """개입 쌍 (i, j) 를 같은 시작·같은 k·같은 noise·Mode 1 (E, s0, A 알려짐) 로 넣어
+        x0_hat 차이 vs 실제 차이 (몸통 14 채널) 의 MSE (remind 8-49). 반환 (mse, var_Δ)."""
+        if len(pairs) == 0:
+            z = torch.zeros((), device=dev)
+            return z, z
+        if n_pairs is not None:
+            pairs = pairs[torch.randint(0, len(pairs), (n_pairs,), device=dev, generator=gen)]
+        i, j = pairs[:, 0], pairs[:, 1]
+        L = torch.minimum(Lt[i], Lt[j])
+        hi = (L - torch.clamp(L, max=H)).float()
+        start = (torch.rand(len(i), device=dev, generator=gen) * (hi + 1)).long().clamp(max=hi.long())
+        xi, mi = window_at(i, start)
+        xj, mj = window_at(j, start)
+        m2 = torch.cat([mi & mj, mi & mj])
+        x0 = (torch.cat([xi, xj]) - mu_t) / sd_t * m2[..., None]
+        e0 = En[torch.cat([i, j])]
+        kx, ke = condition_masks(torch.ones(len(x0), device=dev, dtype=torch.long), m2)
+        k = torch.randint(0, args.diff_steps, (len(i),), device=dev, generator=gen).repeat(2)
+        ab = abar[k][:, None, None]
+        nx = torch.randn(xi.shape, device=dev, generator=gen).repeat(2, 1, 1)
+        xt = ab.sqrt() * x0 + (1 - ab).sqrt() * nx
+        px, _ = net(torch.where(kx > 0, x0, xt), e0, kx, ke, k.float(), ~m2)
+        x0_hat = (xt - (1 - ab).sqrt() * px) / ab.sqrt()
+        # x0 공간 차이는 (1−ab)/ab 배 증폭 (5 step cosine: k=4 에서 1e4 배) → min-SNR-γ (γ=5) 로 상한.
+        # eps 등가 가중 = min((1−ab)/ab, 5). 스케일은 mse·var 에 같이 곱해져 R²_Δ 모니터는 불변.
+        scale = torch.minimum(torch.ones_like(ab), 5 * ab / (1 - ab)).sqrt()
+        return pair_delta_mse(x0_hat * scale, x0 * scale, (1 - kx) * m2[..., None])
+
+    last_delta = {}
     for step in range(1, args.steps + 1):
         idx = (balanced_sample(pools, args.batch, args.swap_fraction) if args.swap_fraction is not None
                else trt[torch.randint(0, len(tr), (args.batch,), device=dev)])
         loss = loss_on(idx, record=True)
+        if args.delta_weight > 0:
+            dE, vE = delta_loss(pairs_tr["E"], None, args.pair_batch)
+            dA, vA = delta_loss(pairs_tr["A"], None, args.pair_batch)
+            loss = loss + args.delta_weight * (dE + dA)
+            last_delta = dict(delta_E=float(dE), delta_A=float(dA), delta_E_var=float(vE), delta_A_var=float(vA))
         opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
@@ -322,7 +380,19 @@ if not args.eval_only:
                     val_group_terms.add_(vb_terms * len(vb))
                     val_raw_terms.add_(vb_raw * len(vb))
                 vl = total_v / len(valt)
-            rec = dict(step=step, loss=loss.item(), val_loss=vl,
+                # 개입 쌍 R²_Δ 모니터 (twin 도 기록): 고정 512 쌍, 단일 noise 단계 x0_hat 기준. 최종 판정은 measure_delta_r2.py.
+                val_delta = {}
+                for kind, vp in pairs_val.items():
+                    if len(vp):
+                        sel = vp[torch.randperm(len(vp), device=dev, generator=val_gen)[:512]]
+                        mse_sum = var_sum = 0.
+                        for c in range(0, len(sel), 128):
+                            dm, dv = delta_loss(sel[c:c + 128], val_gen)
+                            mse_sum += float(dm) * len(sel[c:c + 128])
+                            var_sum += float(dv) * len(sel[c:c + 128])
+                        val_delta[f"val_delta_{kind}_mse"] = mse_sum / len(sel)
+                        val_delta[f"val_delta_{kind}_r2"] = 1 - mse_sum / max(var_sum, 1e-12)
+            rec = dict(step=step, loss=loss.item(), val_loss=vl, **last_delta, **val_delta,
                        val_episodes_evaluated=len(valt), val_batches=(len(valt) + args.batch - 1) // args.batch,
                        lr=sched.get_last_lr()[0], min=(time.time() - t0) / 60,
                        sampled_modes=sampled_modes.cpu().tolist(), sampled_sources=sampled_sources.cpu().tolist())

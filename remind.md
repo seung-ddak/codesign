@@ -373,3 +373,14 @@
 - v14 `fast_mode24_v14_coef_contact_down`: v12 + `--loss-balance coefficients`, 기존 채널 합 (12/12/12/14/4, E≈0.4) 에서 접지 4 → 1 만 축소한 고정 계수 (0.1653/0.1653/0.1653/0.1928/0.0138/0.2975).
 - v15 `fast_mode24_v15_contact_norm03`: v12 + `train_tt.py --contact-range 0.3` (신설 플래그, 기본 1.0 = 기존; minmax 뒤 sd[38:42] /= range 한 줄). 2 step 스모크로 sd 확인. 이 수정으로 v13 conditions 의 train_tt.py 해시는 현재 파일과 불일치 (동작 변화 없음).
 - 평가는 둘 다 8-46 도구·사전 기준 동일. 체인 `runs/pipeline_v1/chain_20261102.sh`.
+
+### 8-49. 설계: 개입 변화량 손실 (Δ-loss) A/B (2026-11-02, 사용자 결정 = v14/v15 중단 → 변화량 손실부터. 설계만, 실행은 사용자 승인 후)
+- 문제: TT 는 같은 s0·A 에서 E 를 바꾸거나(D4, 8-31) 같은 s0·E 에서 A 를 바꿔도(D5, 8-17) 예측 변화가 실제의 6~10 % 임. 같은 e_swap 데이터로 MLP(1 s 결과 목표)는 E 효과를 배움(8-41) → 데이터가 아니라 학습 목표. v13 비중 조정은 무효(8-46).
+- 단변수: 기존 diffusion loss 는 그대로 두고 쌍 손실 한 항만 추가. 쌍 (i, j) 를 같은 minibatch 에 넣고 Mode 1 강제, 같은 k·같은 noise 로 x0_hat = (x_t − √(1−ab)·eps_hat)/√ab 를 구해 L_Δ = mean‖(x0_hat_j − x0_hat_i) − (x0_j − x0_i)‖² (몸통 14 채널, 정규화 공간). E 쌍 = 같은 A 에서 E·g(E) 만 다름, A 쌍 = 같은 s0·E 에서 A 만 다름. total = L_diff + λ·(L_ΔE + L_ΔA), λ = 1 (1 회). 재구성 가중치 조정으로 대체 금지 (v13 교훈).
+- 데이터 (전부 kp30 세계, 혼합 금지): E 쌍 = `e_swap/full` 512 원본 group × 16 대상 (61,440 쌍, 100 step, 같은 target_q 확인). A 쌍 = `action_pairs/` e000·e001·e002 192 group × orig/swap/offset (1,728 쌍, 32 step) → `collect_action_pairs.py` 로 16 형상 확장 (수집 시간 측정 후 결정). 학습 본체 = v7 과 같은 wide16_action + e_swap 13,056 ep. PD kp200 데이터는 넣지 않음.
+- 대조군 (twin): 같은 데이터·modes 1/2/4 (20/40/40)·seed·60k step 에서 λ = 0. v12 (kp200) 와는 직접 비교하지 않음. 평가 실행 kp 30.
+- 사전 기준 (held-out: 기존 시험 형상 8개 516쌍 + source group 분할 val): (1) Mode 1 틀린 A 추가 오차(속도) ≥ twin × 2 이고 ≥ 0.01 (2) 516쌍 E 교체 예측 변화 부호 일치 ≥ 70 % (MLP 는 83~87 %) (3) held-out 쌍에서 Δ 설명 비율 R²_Δ = 1 − MSE_Δ/Var(Δ) > 0 (twin 예상 ≈ 0) (4) 퇴보 금지: 516쌍 moving RMSE ≤ twin × 1.1, 공동 생성 생존 ≥ twin.
+- 분기: A (1·2·3 통과) → λ 조정 1 회 + 공동 생성·10 s task 재평가, 실험 4 (MJX CEM 상한) 병행 / B (3 만 통과) → Δ 는 배우나 생성에 안 실림 → Mode 1 guidance 경로 점검 / C (3 미통과) → 표현·구조 문제 → TT 는 prior 로 두고 별도 dynamics 모델 검토.
+- 구현 지점: `train_tt.py` loss_on 에 쌍 branch (플래그 `--delta-weight`, `--pair-index`), `rollout_data` 에 쌍 표 (source_group_keys + group_id/variant), 단위 테스트 1 개 (완벽 예측 시 L_Δ = 0, 기울기 존재). 평가는 `eval_v12parity` 에 R²_Δ 측정 추가, 실행 kp 30. 예산: 수집 ≤ 30 분 + 학습 2 × 48 분 + 평가 2 × 35 분 ≈ 4 h.
+- 과거 겹침: 8-17 D5 가 "반사실 쌍 데이터" 를 해결 후보로 적었고 8-32 가 쌍 데이터를 모았으나 손실 없이 데이터만 추가(v7) → 실패. 이번은 같은 데이터에 손실을 바꾸는 것. 유사 선행: OnlineWM (반사실 분기 쌍으로 diffusion 미세조정), 개입 민감도 지표 (action sensitivity ratio / counterfactual divergence), CAER (행동 관련 토큰 재가중 = v13 계열).
+- 파이프라인 경고: 학습 목표 변경 → 기존 모델 보존, 별도 폴더 `fast_mode24_v16_delta_loss/{twin,delta}` 로 A/B. guidance·추론 방식은 그대로.
