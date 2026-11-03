@@ -155,7 +155,15 @@ def main():
     gate["wrong_action_velocity_extra_error"] = dict(ref=wa_ref, run=wa_run, pass_=bool(
         wa_run >= gate_cfg["wrong_action_velocity_extra_error_min"] and (ratio is None or wa_run >= ratio * wa_ref)))
     sign_run = {t: tasks["pd"][t]["pair_sign_rate"] for t in TASKS}
-    gate["e_swap_sign"] = dict(ref={t: tasks["ref"][t]["pair_sign_rate"] for t in TASKS}, run=sign_run,
+    if gate_cfg.get("E_swap_sign_source") == "held_mode1_same_action_516":
+        assert mode1["pd"]["start30"]["pairs"] == 516
+        sign_run = {"held_516": mode1["pd"]["start30"]["paired_forward_delta_sign"]["rate"]}
+        sign_ref = {"held_516": mode1_ref["start30"]["paired_forward_delta_sign"]["rate"]}
+        sign_label = "516 동일 행동 물리 쌍, 각자의 실제 E+s0 조건"
+    else:
+        sign_ref = {t: tasks["ref"][t]["pair_sign_rate"] for t in TASKS}
+        sign_label = "고정 E 형상 평균 쌍, zigzag / circle (서로 다른 생성 A)"
+    gate["e_swap_sign"] = dict(source=gate_cfg.get("E_swap_sign_source", "task_shape_mean_pairs"), ref=sign_ref, run=sign_run,
                                pass_=all(r is not None and r >= gate_cfg["E_swap_forward_change_sign_agreement_min"] for r in sign_run.values()))
     surv_ref = {t: tasks["ref"][t]["joint_survived"] for t in TASKS}
     surv_run = {t: tasks["pd"][t]["joint_survived"] for t in TASKS}
@@ -223,9 +231,11 @@ def main():
     ok = lambda b: "통과" if b else "미달"
     g1 = gate["wrong_action_velocity_extra_error"]
     g1_thr = f"≥ {gate_cfg['wrong_action_velocity_extra_error_min']}" + (f" 이고 ≥ ref × {ratio}" if ratio else "")
+    sign_ref_display = " / ".join(fmt(v, 2) for v in sign_ref.values())
+    sign_run_display = " / ".join(fmt(v, 2) for v in sign_run.values())
     gate_rows = (
         f"<tr><td>1. 틀린 A 추가 오차 (속도, Mode 1 조건)</td><td>{g1_thr}</td><td>{fmt(g1['ref'], 4)}</td><td>{fmt(g1['run'], 4)}</td><td>{ok(g1['pass_'])}</td></tr>"
-        f"<tr><td>2. E 교체 시 예측 전진 변화 부호 일치 (형상 평균 쌍, zigzag / circle)</td><td>≥ {gate_cfg['E_swap_forward_change_sign_agreement_min']}</td><td>{fmt(gate['e_swap_sign']['ref']['zigzag'], 2)} / {fmt(gate['e_swap_sign']['ref']['circle'], 2)}</td><td>{fmt(sign_run['zigzag'], 2)} / {fmt(sign_run['circle'], 2)}</td><td>{ok(gate['e_swap_sign']['pass_'])}</td></tr>"
+        f"<tr><td>2. E 교체 시 예측 전진 변화 부호 일치 ({sign_label})</td><td>≥ {gate_cfg['E_swap_forward_change_sign_agreement_min']}</td><td>{sign_ref_display}</td><td>{sign_run_display}</td><td>{ok(gate['e_swap_sign']['pass_'])}</td></tr>"
         f"<tr><td>3. 공동 생성 생존 (zigzag / circle, /16)</td><td>≥ {thr['zigzag']} / {thr['circle']}</td><td>{surv_ref['zigzag']} / {surv_ref['circle']}</td><td>{surv_run['zigzag']} / {surv_run['circle']}</td><td>{ok(gate['joint_survival']['pass_'])}</td></tr>")
     if "delta_r2" in gate:
         d = gate["delta_r2"]

@@ -6,6 +6,7 @@ import numpy as np, torch
 sys.path.insert(0, "code/tt_dynamics")
 import e_sensitivity as es
 from rollout_data import S_DIM
+from intervention_metrics import forward_change_sign
 from tt_model import EGuidedNet, condition_masks, make_net, rebase, schedule
 
 V8 = Path("runs/pipeline_v1/fast_mode24_v8_film")
@@ -93,7 +94,11 @@ for name, (path, w) in RUNS.items():
         s_i, s_j = ni[:, 0, :S_DIM], nj[:, 0, :S_DIM]
         free_jj = run(s_j, ej, None); pin_jj = run(s_j, ej, aj); pin_ji = run(s_j, ei, aj); other_a = run(s_j, ej, ai.roll(len(ai) // 2, 0))
         ti, tj = xi[:, 1:], xj[:, 1:]
-        r = dict(pairs=len(rows))
+        # Planned 8-49 sign test uses the same-A physical pairs, not task-generated different A.
+        pin_ii = run(s_i, ei, ai)
+        forward_sign = forward_change_sign((pin_jj[:, -1, 0] - pin_ii[:, -1, 0]).cpu().numpy(),
+                                           (tj[:, -1, 0] - ti[:, -1, 0]).cpu().numpy())
+        r = dict(pairs=len(rows), paired_forward_delta_sign=forward_sign)
         for g, (lo, hi) in GROUPS.items():
             s = lambda v: v[..., lo:hi]
             sc = (torch.as_tensor(metric_ck["sd"], device=dev, dtype=sd.dtype) if metric_ck is not None else sd)[lo:hi]

@@ -33,7 +33,8 @@ def joint_diffusion_full_reward(
     n, episode_states, horizon, state_dim, action_dim, e_dim,
     mu, sd, beta, abar, emu=0.5, esd=0.5,
     guidance_scale=1.0, clip=1.0, seed=0, no_guide_s=False, s_gradient_scale=1.0,
-    e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12), s0_fn=None
+    e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12), s0_fn=None,
+    denoising_policy=None
 ):
     """Return (trajectory[B,episode_states,S+A], E[B,e_dim], audit).
 
@@ -48,6 +49,8 @@ def joint_diffusion_full_reward(
     """
     if n < 1 or horizon < 2 or episode_states < 2 or guidance_scale < 0:
         raise ValueError("invalid sampler sizes or reward guidance")
+    if denoising_policy is not None and guidance_scale != 0:
+        raise ValueError('RL denoising requires guidance_scale=0; do not mix reward gradients')
     if not (0 <= e_low < e_high <= 1) or clip <= 0:
         raise ValueError("invalid output ranges")
     if len(beta) != len(abar) or not len(beta):
@@ -72,6 +75,7 @@ def joint_diffusion_full_reward(
     grad_s_norms = []
     grad_a_norms = []
     guide_history = []
+    correction_norms = []
     inactive = list(inactive_e)
 
     def physical_e(en):
@@ -144,6 +148,19 @@ def joint_diffusion_full_reward(
             xts = [x.detach().requires_grad_(guidance_scale > 0) for x in xs]
             et = e.detach().requires_grad_(guidance_scale > 0)
             traj, epsx, epse, x_parts, masks = decode(xts, et, k)
+            ce, cx = torch.zeros_like(et), [torch.zeros_like(x) for x in xts]
+            if denoising_policy is not None:
+                ce, cx = denoising_policy(xts, et, k)
+                if ce.shape != et.shape or len(cx) != len(xts) or any(c.shape != x.shape for c, x in zip(cx, xts)):
+                    raise ValueError('RL correction shapes do not match diffusion latents')
+                if not all(torch.isfinite(c).all() for c in [ce] + list(cx)):
+                    raise ValueError('RL corrections must be finite')
+                ce = ce.detach().clone()
+                ce[:, inactive] = 0
+                cx = [c.detach() for c in cx]
+                correction_norms.append(dict(e=float(ce.norm()),
+                                             s=float(torch.cat([c[..., :state_dim].flatten() for c in cx]).norm()),
+                                             a=float(torch.cat([c[..., state_dim:].flatten() for c in cx]).norm())))
             if guidance_scale > 0:
                 full_mask = torch.ones(n, episode_states, dtype=torch.bool, device=dev)
                 score, _ = reward(traj, full_mask)
@@ -176,14 +193,14 @@ def joint_diffusion_full_reward(
             sqrt_nm = (1 - ab).sqrt()
             # Classifier/reward guidance directly changes E's reverse diffusion
             # epsilon, not an already-decoded E after generation.
-            guided_e_eps = epse - guidance_scale * sqrt_nm * g_e
+            guided_e_eps = epse - guidance_scale * sqrt_nm * g_e + ce
             e0 = ((et - sqrt_nm * guided_e_eps) / ab.sqrt()).clamp(-clip, clip)
             e0 = normalized_e(e0)
             e_est = (et - ab.sqrt() * e0) / sqrt_nm
             new_e = prev.sqrt() * e0 + (1 - prev).sqrt() * e_est
             new_x = []
-            for xt, eps, g, (xhat, x_known, kx), mask in zip(xts, epsx, gx, x_parts, masks):
-                guided_eps = eps - guidance_scale * sqrt_nm * g
+            for xt, eps, g, correction, (xhat, x_known, kx), mask in zip(xts, epsx, gx, cx, x_parts, masks):
+                guided_eps = eps - guidance_scale * sqrt_nm * g + correction
                 x0 = ((xt - sqrt_nm * guided_eps) / ab.sqrt()).clamp(-clip, clip)
                 x0 = torch.where(kx > 0, x_known, x0)
                 adjusted_eps = (xt - ab.sqrt() * x0) / sqrt_nm
@@ -213,7 +230,9 @@ def joint_diffusion_full_reward(
             cur = ep[:, w - 1].clone()
         final_traj = torch.cat(frames, dim=1)
     return final_traj, ef, {
-        "algorithm": "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X",
+        "algorithm": ("PPO residual-noise joint DDIM on shared noisy E + S/A" if denoising_policy is not None
+                      else "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X"),
+        "rl_correction_norm_per_step": correction_norms,
         "guidance_scale": float(guidance_scale),
         "s_gradient_scale": float(effective_s_scale),
         "s0_source": "generated (Mode 4)" if s0_fn is None else "s0_fn(E) rest stance (Mode 2 only)",

@@ -1,0 +1,24 @@
+{
+  "registered_utc": "2026-11-02T18:20:36.345340+00:00",
+  "base_remote_commit": "99555a8306ee1a10c0ec47c47a44b9f013e8e83b",
+  "implementation_repairs_before_held_out_evaluation": [
+    "Separate auxiliary training RNG so twin/delta base minibatches, conditioning modes and diffusion noise stay matched.",
+    "Use written 8-49 516 same-A held-out paired forward-change sign, own E+s0 for each member; keep old task-shape sign as secondary. Threshold remains .7.",
+    "Assign shared DDIM initial noise per pair across chunks even when pair count is not divisible by128."
+  ],
+  "fixed_design": "kp30 only, 48 files, 22272 episodes, same base model/data/modes1,2,4 at20/40/40, seed0 and60000updates; delta adds lambda1 E/A body14 normalized pair losses,16 pairs each.",
+  "limits": [
+    "E pairs change initial settled state as well as morphology; not pure E with same physical initial state.",
+    "Delta adds extra Mode1 paired supervision and compute; this A/B does not separate the delta form from an equally large additional reconstruction-control arm.",
+    "Twin reference report vs v12 spans different data/controller worlds and is descriptive only; primary causal comparison is delta vs twin.",
+    "Single-k training monitor can use partially noised true futures; final DDIM paired R2 is the registered metric."
+  ],
+  "evaluation_sha256": {
+    "runs/pipeline_v1/eval_v12parity/run_eval.py": "80c57e2643dad86adc061b05d44febbd9946bb09d3ee17088f4279bdffcad12c",
+    "runs/pipeline_v1/eval_v12parity/measure_delta_r2.py": "a6d1f45943549378b8a124cd45f55ee8cf4b69ef1a0c798d700b9721e807612e",
+    "runs/pipeline_v1/eval_v12parity/build_eval_report.py": "b966d34780317b7ac5d85bad8feeab8185424752a8edf962c5dff015d03c381f",
+    "runs/pipeline_v1/fast_mode24_v9_e_coverage/measure_given_a.py": "a6255429a4f3e01ca3cf2beae24b3912c3e83a9f23a608e1166c62f2d8570222",
+    "code/tt_dynamics/intervention_metrics.py": "80aacbb23fe138160fc43729eb37b9902853be19e1680bdfd283e0598a55ad76",
+    "runs/pipeline_v1/v16_local_execution/run_chain.py": "63b76c90a54ea21341729f9d105c3e82493916069847211e2b3ea8c321d983c8"
+  }
+}

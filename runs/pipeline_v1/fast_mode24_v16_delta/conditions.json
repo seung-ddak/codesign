@@ -128,7 +128,8 @@
     "E_swap_forward_change_sign_agreement_min": 0.7,
     "joint_survival_at_least_reference": true,
     "delta_r2_min": 0.0,
-    "legacy_moving_rmse_max_ratio_vs_reference": 1.1
+    "legacy_moving_rmse_max_ratio_vs_reference": 1.1,
+    "E_swap_sign_source": "held_mode1_same_action_516"
   },
   "confounds": [
     "kp30 세계 (PPO expert + e_swap + action pairs); v10~v15 의 PD kp200 결과와 직접 비교하지 않는다.",
@@ -187,9 +188,18 @@
     "runs/pipeline_v1/action_pairs_wide16/e016_seed0.npz": "52598da7b689e9181c4e187c815d42ee511d9705dc222b9b2958bb1d9c81b275"
   },
   "implementation_sha256": {
-    "code/tt_dynamics/train_tt.py": "353943a6e5f65e0d65c90765401f17f24ef93e8e36c91cdeb96034b2295b94fb",
+    "code/tt_dynamics/train_tt.py": "8c7fce591e8ed84ff5d7b5f6ab1a6099fdb159807bde8b50948322378c1ea6fc",
     "code/tt_dynamics/tt_loss.py": "06929ea632dbfc28cb0edab79d1f79057b7b16d6528f1b0aa9abfa1b9b413c51",
     "code/tt_dynamics/rollout_data.py": "9fa47929b03604ec61bda38c311573700d73b911921747e42c45b19cb153bfe3",
     "code/tt_dynamics/tt_model.py": "e1afd724afc1d005411635f97c0fee1463b3099a49fc52400cbf32e34d65be94"
+  },
+  "local_protocol_clarification": "Before any held-out evaluation: connect 8-49 written 516 same-A sign criterion to physical paired predictions, keeping threshold .7; task-shape sign remains secondary. Shared paired DDIM noise explicitly assigned across chunk boundaries. Base training RNG separated from auxiliary pairs.",
+  "evaluation_implementation_sha256": {
+    "runs/pipeline_v1/eval_v12parity/run_eval.py": "80c57e2643dad86adc061b05d44febbd9946bb09d3ee17088f4279bdffcad12c",
+    "runs/pipeline_v1/eval_v12parity/measure_delta_r2.py": "a6d1f45943549378b8a124cd45f55ee8cf4b69ef1a0c798d700b9721e807612e",
+    "runs/pipeline_v1/eval_v12parity/build_eval_report.py": "b966d34780317b7ac5d85bad8feeab8185424752a8edf962c5dff015d03c381f",
+    "runs/pipeline_v1/fast_mode24_v9_e_coverage/measure_given_a.py": "a6255429a4f3e01ca3cf2beae24b3912c3e83a9f23a608e1166c62f2d8570222",
+    "code/tt_dynamics/intervention_metrics.py": "80aacbb23fe138160fc43729eb37b9902853be19e1680bdfd283e0598a55ad76",
+    "runs/pipeline_v1/v16_local_execution/run_chain.py": "63b76c90a54ea21341729f9d105c3e82493916069847211e2b3ea8c321d983c8"
   }
 }

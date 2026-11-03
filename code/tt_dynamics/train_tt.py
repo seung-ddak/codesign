@@ -349,14 +349,16 @@ if not args.eval_only:
         scale = torch.minimum(torch.ones_like(ab), 5 * ab / (1 - ab)).sqrt()
         return pair_delta_mse(x0_hat * scale, x0 * scale, (1 - kx) * m2[..., None])
 
+    # Keep base minibatches/windows/noise matched between twin and delta runs.
+    pair_train_gen = torch.Generator(device=dev).manual_seed(args.seed + 128947)
     last_delta = {}
     for step in range(1, args.steps + 1):
         idx = (balanced_sample(pools, args.batch, args.swap_fraction) if args.swap_fraction is not None
                else trt[torch.randint(0, len(tr), (args.batch,), device=dev)])
         loss = loss_on(idx, record=True)
         if args.delta_weight > 0:
-            dE, vE = delta_loss(pairs_tr["E"], None, args.pair_batch)
-            dA, vA = delta_loss(pairs_tr["A"], None, args.pair_batch)
+            dE, vE = delta_loss(pairs_tr["E"], pair_train_gen, args.pair_batch)
+            dA, vA = delta_loss(pairs_tr["A"], pair_train_gen, args.pair_batch)
             loss = loss + args.delta_weight * (dE + dA)
             last_delta = dict(delta_E=float(dE), delta_A=float(dA), delta_E_var=float(vE), delta_A_var=float(vA))
         opt.zero_grad()

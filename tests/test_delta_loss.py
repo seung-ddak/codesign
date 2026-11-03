@@ -41,3 +41,13 @@ def test_intervention_pairs_cross_file_E_and_within_file_A(tmp_path):
     # 전역 index: tgt0 → 0,1 (row2 제외), tgt1 → 2,3, pairs → 4..9
     assert pe.tolist() == [[0, 2], [1, 3]]
     assert pa.tolist() == [[4, 5], [4, 6], [5, 6], [7, 8], [7, 9], [8, 9]]
+
+
+def test_scalar_action_pair_source_design_is_not_e_swap(tmp_path):
+    from rollout_data import is_e_swap
+    p=tmp_path/'actions.npz'
+    np.savez(p,valid=np.ones((3,32),bool),source_design=np.array('e000'),source_episode=np.array([2,2,2]),
+             group_id=np.array([4,4,4]),variant=np.array(['orig','swap','offset']))
+    with np.load(p) as z:assert not is_e_swap(z)
+    e,a=intervention_pairs([p],32)
+    assert e.shape==(0,2) and a.tolist()==[[0,1],[0,2],[1,2]]

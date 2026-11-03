@@ -15,6 +15,7 @@ usage (codesign/ 에서):
 """
 
 import argparse
+import hashlib
 import imageio
 import json
 import pickle
@@ -84,6 +85,8 @@ parser.add_argument("--kp", type=float, help="실행 MJX position actuator kp (P
 parser.add_argument("--e-cfg", type=float, default=1.0, help="알려진 E 의 영향 배율 (1 = 끔)")
 parser.add_argument("--joint-full-guidance", action="store_true",
                     help="per-denoising-step reward gradient guides noisy E and complete 10s S/A (not SPSA)")
+parser.add_argument('--rl-guidance-policy', type=Path,
+                    help='PPO epsilon-residual checkpoint replacing reward gradients; requires --scales 0')
 parser.add_argument("--e-rest-s0", action="store_true",
                     help="with --joint-full-guidance: S0 = home stance of the current E (feet on floor), not generated")
 parser.add_argument("--fixed-e", nargs="+", default=None, metavar="DESIGN",
@@ -103,6 +106,11 @@ parser.add_argument("--shared-e-eval-baseline", action="store_true",
 parser.add_argument("--shared-e-perturb", type=float, default=0.04, help="morphology finite-difference probe (E in [0,1])")
 parser.add_argument("--shared-e-step-size", type=float, default=0.08, help="maximum normalized morphology update")
 args = parser.parse_args()
+if args.rl_guidance_policy and (not args.joint_full_guidance or not args.e_rest_s0
+                               or args.fixed_e or args.replan or args.expert_warmup_s0
+                               or args.e_cfg != 1 or args.scales != [0.]
+                               or args.no_guide_s or args.s_gradient_scale != 1 or not args.no_s0_align):
+    parser.error('RL guidance requires joint-full-guidance, e-rest-s0, no-s0-align, scales 0, and no fixed-E/replan/warmup/E-CFG')
 EP = round(args.seconds / 0.02)
 if EP < 2:
     parser.error("--seconds must contain at least two 50 Hz states")
@@ -118,6 +126,9 @@ if args.task == "obstacle" and (args.out / "summary.json").exists():
 args.out.mkdir(parents=True, exist_ok=True)
 if args.half_width is None:
     args.half_width = 0.15 if args.task in ("zigzag", "straight") else 0.3
+if args.rl_guidance_policy and ((args.task == 'zigzag' and (args.amp != .3 or args.period != 2. or args.half_width != .15))
+                               or (args.task == 'circle' and (args.radius != 1. or args.half_width != .3))):
+    parser.error('RL guidance requires the task geometry used during training')
 if args.task == "obstacle" and (not args.e_rest_s0 or args.fixed_e or args.replan or args.expert_warmup_s0):
     parser.error("obstacle requires joint --e-rest-s0, without fixed E, warmup or replanning")
 reward = (TrackReward(radius=args.radius, half_width=args.half_width) if args.task == "circle"
@@ -173,6 +184,14 @@ mu, sd = torch.tensor(ck["mu"], device=dev), torch.tensor(ck["sd"], device=dev)
 emu, esd = (0.5, 0.5) if ta["norm"] == "minmax" else (0.5, 0.25)
 beta, abar = schedule(ta["diff_steps"], dev)
 CLIP = ta["clip"]
+rl_controller = None
+if args.rl_guidance_policy:
+    from rl_diffusion_guidance import DenoisingPolicy
+    rl_controller = DenoisingPolicy.load(args.rl_guidance_policy, episode_states=EP,
+                                        horizon=H, diffusion_steps=len(beta), device=dev)
+    if (rl_controller.metadata['task'] != args.task or
+            rl_controller.metadata['tt_sha256'] != hashlib.sha256((args.ckpt/'checkpoint.pt').read_bytes()).hexdigest()):
+        parser.error('RL policy task or frozen TT checkpoint differs from training')
 
 # ---- S0: legacy primitive start for fixed-S0 mode only ----
 # Rest-S0 samples its own morphology-dependent start; it must not require an
@@ -354,9 +373,15 @@ cfg = pickle.load(open(sorted(expert.glob("wandb/offline-run-*/files/config.pkl"
 ecfg = OmegaConf.to_container(cfg.eval_env, resolve=True)
 ecfg.pop("_target_")
 KP = args.kp if args.kp is not None else cfg.get("kp")  # 수집 kp 와 동일해야 한다 (remind 8-36, train-eval parity)
+if rl_controller is not None and (KP not in (None, 30) or cfg.get('torque_limit') != 33.5
+                                 or cfg.get('tau_scale') is not None
+                                 or ecfg.get('ctrl_dt') != .02 or ecfg.get('sim_dt') != .005):
+    parser.error('RL guidance policy requires its training physics: kp30, torque33.5, ctrl_dt.02, sim_dt.005')
 if dev == "cpu":
     ecfg["impl"] = "jax"
 choice = cfg.get("choice")
+if rl_controller is not None and str(choice) != '00000011':
+    parser.error('RL guidance policy requires training topology 00000011')
 ecfg["reference_dir"] = str(CODESIGN / "runs/pipeline_v1/retargeting/e000" / choice)  # 보상 계산용 reference (실행에는 무관)
 ecfg["clips"] = [args.s0_motion]
 jit_step = None
@@ -683,7 +708,8 @@ def render(model, qraw, pred_i, path, size=(640, 368)):
     r.close()
 
 
-summary = dict(s_gradient_scale=0.0 if args.no_guide_s else args.s_gradient_scale, seed=args.seed,
+summary = dict(rl_guidance_policy=str(args.rl_guidance_policy) if args.rl_guidance_policy else None,
+               s_gradient_scale=0.0 if args.no_guide_s or rl_controller is not None else args.s_gradient_scale, seed=args.seed,
                reward=reward.describe(), task=args.task, ckpt=str(args.ckpt), s0_motion=None if GEN_S0 else args.s0_motion,
                candidates=args.candidates, seconds=args.seconds, replan=args.replan, no_s0_align=args.no_s0_align,
                geometry_s0=args.geometry_s0, max_geometry_lift_m=args.max_geometry_lift_m,
@@ -692,7 +718,8 @@ summary = dict(s_gradient_scale=0.0 if args.no_guide_s else args.s_gradient_scal
                initial_condition=(f"E-derived expert walk {args.expert_warmup_s0:g}s (S0 = g(E))" if args.expert_warmup_s0 > 0 else
                                   "E-derived home stance (S0 = g(E))" if args.e_rest_s0 else
                                   "xy-yaw-anchor-v4" if args.rest_s0 else "free" if args.free_s0 else "observed"),
-               shared_e_method=("projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else
+               shared_e_method=("PPO residual-noise joint DDIM; no reward gradient" if rl_controller is not None else
+                                "projected SPSA on full TT-predicted horizon reward" if args.shared_e_guidance else
                                 "per-step full-horizon gradient on shared noisy E and S/A" if args.joint_full_guidance
                                 else "first-window E only"),
                shared_e_settings=(dict(iters=args.shared_e_iters, perturb=args.shared_e_perturb,
@@ -715,6 +742,7 @@ for si, scale in enumerate(args.scales):
             mu=mu, sd=sd, beta=beta, abar=abar, emu=emu, esd=esd,
             guidance_scale=scale, clip=CLIP, seed=args.seed,
             no_guide_s=args.no_guide_s, s_gradient_scale=args.s_gradient_scale,
+            denoising_policy=rl_controller,
             s0_fn=(warm_s0_of if args.expert_warmup_s0 > 0 else rest_s0_of) if args.e_rest_s0 else None)
     elif args.shared_e_guidance:
         # Scale 0 is the unoptimized baseline. All other scales start from

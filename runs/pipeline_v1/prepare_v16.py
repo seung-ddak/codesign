@@ -22,7 +22,7 @@ IMPL = ["code/tt_dynamics/train_tt.py", "code/tt_dynamics/tt_loss.py", "code/tt_
 COMMON = ["--horizon", "32", "--steps", "60000", "--batch", "32", "--eval-episodes", "8", "--diff-steps", "5", "--norm", "minmax",
           "--clip", "1.0", "--sampler", "ddim", "--lr", "0.0002", "--d-model", "256", "--layers", "6", "--val-frac", "0.1",
           "--seed", "0", "--modes", "1", "2", "4", "--film", "--mode-weights", "0.2", "0.4", "0.4"]
-GATE = dict(wrong_action_velocity_extra_error_min=0.01, wrong_action_ratio_vs_reference_min=2.0,
+GATE = dict(E_swap_sign_source="held_mode1_same_action_516", wrong_action_velocity_extra_error_min=0.01, wrong_action_ratio_vs_reference_min=2.0,
             E_swap_forward_change_sign_agreement_min=0.7, joint_survival_at_least_reference=True,
             delta_r2_min=0.0, legacy_moving_rmse_max_ratio_vs_reference=1.1)
 

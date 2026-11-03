@@ -24,7 +24,7 @@ REPORT_GROUPS = dict(body=(0, 14), pos=GROUPS["pos"], height=GROUPS["height"], y
 
 
 @torch.no_grad()
-def predict_mode1(net, x0n, mask, e, mu, beta, abar, clip):
+def predict_mode1(net, x0n, mask, e, mu, beta, abar, clip, initial_noises=None):
     """Mode 1: s0·A 알려짐 → S 예측 (정규화 공간 x0). evaluate_native.predict 와 같은 DDIM, 조건만 Mode 1."""
     n, dev = len(e), x0n.device
     kx, ke = condition_masks(torch.ones(n, device=dev, dtype=torch.long), mask)
@@ -34,7 +34,7 @@ def predict_mode1(net, x0n, mask, e, mu, beta, abar, clip):
     total = 0
     for seed in range(SEEDS):
         g = torch.Generator(device=dev).manual_seed(seed)
-        x = torch.randn(known.shape, device=dev, generator=g)
+        x = (torch.randn(known.shape, device=dev, generator=g) if initial_noises is None else initial_noises[seed].clone())
         for k in reversed(range(len(beta))):
             ab, prev = abar[k], abar[k - 1] if k else torch.ones((), device=dev)
             eps = net(torch.where(kx > 0, known, x), e, kx, ke, torch.full((n,), float(k), device=dev), ~mask)[0]
@@ -81,7 +81,13 @@ def main():
         truth = rebase(torch.as_tensor(x[idx, :H], device="cuda"))
         m = torch.ones(len(idx), H, dtype=torch.bool, device="cuda")
         norm = (truth - mu) / sd
-        preds = torch.cat([predict_mode1(net, norm[c:c + 128], m[c:c + 128], en[idx[c:c + 128]], mu, beta, abar, cfg["clip"])
+        # Explicit noise bank pairs i/j even when pair count is not a multiple of chunk size.
+        initial_noises = torch.stack([
+            torch.randn((len(pairs), H, norm.shape[-1]), device="cuda",
+                        generator=torch.Generator(device="cuda").manual_seed(seed)).repeat(2, 1, 1)
+            for seed in range(SEEDS)])
+        preds = torch.cat([predict_mode1(net, norm[c:c + 128], m[c:c + 128], en[idx[c:c + 128]], mu, beta, abar, cfg["clip"],
+                                        initial_noises[:, c:c + 128])
                            for c in range(0, len(idx), 128)]) * sd + mu
         P = len(pairs)
         d_hat = (preds[:P] - preds[P:])[:, 1:]

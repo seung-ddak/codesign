@@ -1,0 +1,53 @@
+"""Build a local comparison report from completed task RL pilots."""
+import html
+import json
+from pathlib import Path
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+
+ROOT = Path(__file__).resolve().parent
+rows = []
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+for ax, task, folder in zip(axes, ('zigzag', 'circle'), ('zigzag_seed0_retry', 'circle_seed0')):
+    run = ROOT / folder
+    result = json.loads((run / 'summary.json').read_text())
+    for split, label in (('train', '학습 형상'), ('heldout', '학습 제외 형상'), ('all', '전체')):
+        for method in ('guidance', 'untrained', 'rl'):
+            a = result[split][method]
+            rows.append(f"<tr><td>{task}</td><td>{label}</td><td>{method}</td>"
+                        f"<td>{a['reward_median']:.4f}</td><td>{a['progress_median']:.4f}</td>"
+                        f"<td>{a['survived']}/{a['candidates']}</td></tr>")
+    for method, filename, color in [('guidance', 'guidance_cpu.npz', '#e6a23c'), ('rl', 'rl_cpu.npz', '#57b8ff')]:
+        data = np.load(run / filename)
+        for i in range(16):
+            xy = data[f'tokens_{i}'][:, :2]
+            ax.plot(xy[:, 0], xy[:, 1], color=color, alpha=.65, label=method if i == 0 else None)
+    ax.set_title(task)
+    ax.set_xlabel('x (m)'); ax.set_ylabel('y (m)')
+    ax.set_aspect('equal', adjustable='datalim'); ax.legend(); ax.grid(alpha=.2)
+fig.tight_layout(); fig.savefig(ROOT / 'paths.png', dpi=150); plt.close(fig)
+page = '''<!doctype html><html lang="ko"><meta charset="utf-8"><title>행동 RL 치환 실험</title>
+<style>body{font:16px/1.7 system-ui;max-width:1100px;margin:40px auto;padding:0 24px;color:#202530}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd3dd;padding:7px;text-align:right}th:first-child,td:first-child{text-align:left}img{max-width:100%}a{color:#1565c0}</style>
+<h1>행동 A를 PPO로 치환한 실험</h1>
+<p><a href="../task_rl_v2/report.html">새 보상으로 다시 학습한 v2 비교 보고서 열기</a></p>
+<p><strong>결론: RL 교체와 실제 학습·평가는 완료했지만 task 수행 개선은 아직 입증하지 못했다.</strong> 두 task 모두 생존은 16/16이지만 진행은 거의 없다. 학습 전 제자리 정책도 모두 생존하며, 원형에서는 학습 후 보상이 학습 전보다 낮다. 현재 checkpoint를 task 해결책으로 채택하지 않는다.</p>
+<p>v16 twin의 생성 형상 E를 고정하고, 실제 MuJoCo 보상으로 행동을 학습했다. S는 시뮬레이터에서 얻는다. E·S·A diffusion 공동 생성에 RL을 통합한 최종 구현은 아니다.</p>
+<p>각 task당 12형상·76,800 전이·seed0 학습, 나머지 4형상은 학습에서 제외했다. 기존 guidance 행동도 같은 CPU에서 재실행했다. untrained는 학습 전 home 자세 정책이다. 진행 단위는 zigzag m, circle 바퀴다.</p>
+<table><thead><tr><th>Task</th><th>평가군</th><th>방법</th><th>보상 중앙값</th><th>진행 중앙값</th><th>생존</th></tr></thead><tbody>'''+''.join(rows)+'''</tbody></table>
+<h2>실제 실행 영상</h2>
+<p>왼쪽 guidance, 오른쪽 RL. 두 영상 모두 사전에 고정한 첫 학습 제외 형상(후보 12)을 사용한다. 저장된 qpos를 렌더링했으며 재학습·재시뮬레이션하지 않았다. 낙상 이후는 마지막 프레임을 유지한다. 실제 속도로 재생한다.</p>
+<h3>지그재그</h3><video controls preload="metadata" style="width:100%" src="videos/zigzag_heldout12_comparison.mp4"></video>
+<h3>원형</h3><video controls preload="metadata" style="width:100%" src="videos/circle_heldout12_comparison.mp4"></video>
+<h2>실제 실행 경로</h2><img src="paths.png" alt="Guidance and RL physical paths for each task">
+<h2>해석할 때 주의할 점</h2><p>보상 증가가 진행 성공을 뜻하지 않는다. 생존하면서 제자리에 서 있어도 기존 실패 행동보다 보상이 높을 수 있다. 학습 전 정책과 비교해 RL이 실제 전진·회전을 배웠는지 확인해야 한다.</p>
+<p>학습에는 조기 낙상 시 -20을 추가했고, 위 평가에는 원래 task_reward만 사용했다. CPU와 기존 MJX 결과에는 차이가 있다. 단일 seed·짧은 pilot이며 E를 보상에 맞게 학습하는 단계는 포함하지 않았다.</p>
+<p><a href="README.md">실험 조건·재현 명령</a> · <a href="zigzag_seed0_retry/RESULTS.md">지그재그 결과</a> · <a href="circle_seed0/RESULTS.md">원형 결과</a></p></html>'''
+for name in ('zigzag_heldout12_comparison.mp4', 'circle_heldout12_comparison.mp4'):
+    video_path = html.escape(str(ROOT / 'videos' / name), quote=True)
+    page = page.replace(f'src="videos/{name}"></video>',
+                        f'src="{video_path}"></video><p><a href="{video_path}">{video_path}</a></p>')
+(ROOT / 'report.html').write_text(page)
+print(ROOT / 'report.html')

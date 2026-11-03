@@ -81,3 +81,15 @@
 [v13 을 8-43 사전 기준으로 평가 (remind 8-46): 틀린 A 오차 0.0038·E 부호 0.72/0.62 미달, 생존 10/12 통과 → 손실 비중 가설 미지지](pipeline_v1/fast_mode24_v13_group_loss/report.html)
 
 [2×2 MJX kp30 재실행 (remind 8-47): 낙상 급감으로 이득 불일치 확정, 공통 생존 5/76 로 주 판정 재차 불가](pipeline_v1/factorial_init_action_kp30/report.html)
+
+[v13 실제 task 전체 검증: 4초/10초 지그재그·원형, 기존 기준 미달·10초 공동 진행 중앙값 음수](pipeline_v1/fast_mode24_v13_group_loss/evaluation_tasks/report.html)
+
+[v16 변화량 손실 A/B 완료: 변화량 점수 소폭 개선, 사전 5개 기준 중 2개 통과·채택 기준 미달](pipeline_v1/v16_local_execution/report.html)
+
+[PPO 행동 교체 v1: 고정 생성 형상에서 실제 task 보상으로 관절 정책 학습](pipeline_v1/task_rl_v1/report.html)
+
+[PPO 행동 교체 v2: 이동·정지·경로 이탈 보상 재설계, 100/1000 update 비교](pipeline_v1/task_rl_v2/report.html)
+
+[Diffusion 내부 PPO guidance: E·S·A epsilon 공동 보정, 2update 실행 검증·트랙 표시 RL 영상](pipeline_v1/rl_denoising_v1/report.html)
+
+[진행 중: 5초·디노이징5단계·후보8·100iter, 지그재그/원형 별도 정책](pipeline_v1/rl_denoising_5s_100iter/README.md)

@@ -1,0 +1,69 @@
+{
+  "criteria": {
+    "wrong_action_velocity_extra_error_min": 0.01,
+    "wrong_action_ratio_vs_reference_min": 2.0,
+    "E_swap_forward_change_sign_agreement_min": 0.7,
+    "joint_survival_at_least_reference": true,
+    "delta_r2_min": 0.0,
+    "legacy_moving_rmse_max_ratio_vs_reference": 1.1,
+    "E_swap_sign_source": "held_mode1_same_action_516"
+  },
+  "reference": "fast_mode24_v12_pd_kp200_mode1",
+  "wrong_action_velocity_extra_error": {
+    "ref": 0.004092708230018616,
+    "run": 0.007163479924201965,
+    "pass_": false
+  },
+  "e_swap_sign": {
+    "source": "held_mode1_same_action_516",
+    "ref": {
+      "held_516": 0.6724806201550387
+    },
+    "run": {
+      "held_516": 0.7344961240310077
+    },
+    "pass_": true
+  },
+  "joint_survival": {
+    "ref": {
+      "zigzag": 7,
+      "circle": 10
+    },
+    "run": {
+      "zigzag": 3,
+      "circle": 9
+    },
+    "threshold": {
+      "zigzag": 7,
+      "circle": 10
+    },
+    "pass_": false
+  },
+  "delta_r2": {
+    "ref": {
+      "E": null,
+      "A": null
+    },
+    "run": {
+      "E": 0.054013872408407715,
+      "A": 0.2847699798322675
+    },
+    "pass_": true
+  },
+  "no_regression_rmse": {
+    "ratio": {
+      "height": 1.0362121329086822,
+      "tilt": 1.0435250003979117,
+      "linvel": 0.9673614314906482
+    },
+    "pass_": true
+  },
+  "checks": [
+    "wrong_action_velocity_extra_error",
+    "e_swap_sign",
+    "joint_survival",
+    "delta_r2",
+    "no_regression_rmse"
+  ],
+  "all_pass": false
+}

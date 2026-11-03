@@ -1,0 +1,174 @@
+{
+  "models": {
+    "v12": "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1",
+    "v13": "runs/pipeline_v1/fast_mode24_v13_group_loss"
+  },
+  "designs": [
+    "e000",
+    "e001",
+    "e002",
+    "e004",
+    "e005",
+    "e006",
+    "e007",
+    "e008",
+    "e009",
+    "e010",
+    "e011",
+    "e012",
+    "e013",
+    "e014",
+    "e015",
+    "e016"
+  ],
+  "seed": 0,
+  "kp": 200,
+  "stages": {
+    "v13_smoke_2s": {
+      "model": "v13",
+      "kind": "joint",
+      "task": "zigzag",
+      "seconds": 2,
+      "scale": 0,
+      "candidates": 16,
+      "render": false
+    },
+    "v13_fixedE_zigzag_4s": {
+      "model": "v13",
+      "kind": "fixedE",
+      "task": "zigzag",
+      "seconds": 4,
+      "scale": 10,
+      "candidates": 4,
+      "render": false
+    },
+    "v13_joint_zigzag_4s": {
+      "model": "v13",
+      "kind": "joint",
+      "task": "zigzag",
+      "seconds": 4,
+      "scale": 10,
+      "candidates": 16,
+      "render": true
+    },
+    "v13_fixedE_circle_4s": {
+      "model": "v13",
+      "kind": "fixedE",
+      "task": "circle",
+      "seconds": 4,
+      "scale": 10,
+      "candidates": 4,
+      "render": false
+    },
+    "v13_joint_circle_4s": {
+      "model": "v13",
+      "kind": "joint",
+      "task": "circle",
+      "seconds": 4,
+      "scale": 10,
+      "candidates": 16,
+      "render": true
+    },
+    "v13_fixedE_zigzag_10s": {
+      "model": "v13",
+      "kind": "fixedE",
+      "task": "zigzag",
+      "seconds": 10,
+      "scale": 10,
+      "candidates": 4,
+      "render": false
+    },
+    "v13_joint_zigzag_10s": {
+      "model": "v13",
+      "kind": "joint",
+      "task": "zigzag",
+      "seconds": 10,
+      "scale": 10,
+      "candidates": 16,
+      "render": true
+    },
+    "v13_fixedE_circle_10s": {
+      "model": "v13",
+      "kind": "fixedE",
+      "task": "circle",
+      "seconds": 10,
+      "scale": 10,
+      "candidates": 4,
+      "render": false
+    },
+    "v13_joint_circle_10s": {
+      "model": "v13",
+      "kind": "joint",
+      "task": "circle",
+      "seconds": 10,
+      "scale": 10,
+      "candidates": 16,
+      "render": true
+    },
+    "v12_joint_zigzag_10s": {
+      "model": "v12",
+      "kind": "joint",
+      "task": "zigzag",
+      "seconds": 10,
+      "scale": 10,
+      "candidates": 16,
+      "render": false
+    },
+    "v12_joint_circle_10s": {
+      "model": "v12",
+      "kind": "joint",
+      "task": "circle",
+      "seconds": 10,
+      "scale": 10,
+      "candidates": 16,
+      "render": false
+    }
+  },
+  "new_mjx_candidate_count": 368,
+  "initialization": "E-derived home1s state, --anchor-s0 --joint-full-guidance --e-rest-s0 --no-s0-align; no replanning or geometry projection",
+  "reward": "unchanged TrackReward/ZigzagReward defaults and scale10; smoke scale0",
+  "historical_gate": "predicted morphology effect permutation p<.05, all16-design predicted/actual mean reward Spearman>.6, unguided 2s median path error<.15m",
+  "rank_missing_data": "retain historical NaN->undefined failure when any design lacks finite reward; separate survivor-only rank reported as secondary if useful",
+  "long_horizon": "10s evaluated regardless of 4s gate; report full-horizon survival, reward, signed progress and lane adherence; no new task-success threshold invented",
+  "baseline_4s_reused": {
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/smoke_zigzag_joint_c16/summary.json": "6f083768699bef93c570886343acdf32012f75faf14b29be899960cb1daeb1db",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/smoke_zigzag_joint_c16/scale_0.npz": "dc8c7fe60bb252cb35bc6cc30d3b5d7be5e4c96d43d56126e13ecabb32f7d9a5",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_zigzag_4s/summary.json": "59f7aaa67c4577217b0444f1bca18f8b817b0c8ad09c6614e67967187f605af2",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_zigzag_4s/scale_10.npz": "ca19531380b04053809b8d393c25a27d4e5fcf26b4f6f23aedca0756069b40cc",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_zigzag_4s/summary.json": "6e88d7a77641f77c089d56e9e74aa71c8c4d4af9f592845ddbf7f35dca00f12b",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_zigzag_4s/scale_10.npz": "f540c0b25f9a938f9501c391734520dddbb8bc4063fbf8270abefdcf3255db6e",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_circle_4s/summary.json": "0bade9002beb539883e69d71efdb4d3415a3a15cc9e9176e77c91916c5e8ec34",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_circle_4s/scale_10.npz": "14910c3332dacaf9cc0d1a0d4480408386e548b8ad9a52bb2f002b4599afb8a6",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_circle_4s/summary.json": "df470b6d053fa67e5aa98fb0505b50c8959fb8727c616411574abb224e582394",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_circle_4s/scale_10.npz": "0fe3ed669e31ecf4f61ff8c33b783afd677fa7a0cda7958241abb37fa5ea058b"
+  },
+  "baseline_10s": "new v12 joint16 per task with identical generation/execution settings; no extra fixed-E v12 10s grid",
+  "resources": "serial CPU2, Torch GPU25%, JAX pool40%, preallocationfalse; RAM>=4GiB/GPUfree>=1GiB/rootfree>=1GiB/homefree>=8GiB; temp/cache on /home",
+  "sha256": {
+    "code/tt_dynamics/generate_task.py": "d29b64566aed6218cd1397798b4d55ffb9f15720796404b922555c1bfb0bb160",
+    "code/tt_dynamics/joint_diffusion_guidance.py": "42d620f2f8bdf5fa247703c78670774c0c92f9478cb7908b4cf6793b6f3a98c9",
+    "code/tt_dynamics/shared_e_guidance.py": "741a2a180766ea72bf5095f2cc604eda56798678d4824175817490883ecff894",
+    "code/tt_dynamics/task_reward.py": "8fe366c65284d2136b45a68f5b8c5d68e23be79c2b24b4a4e4c3cba385569fcc",
+    "code/tt_dynamics/tt_model.py": "e1afd724afc1d005411635f97c0fee1463b3099a49fc52400cbf32e34d65be94",
+    "code/tt_dynamics/initial_geometry_gate.py": "29067a43691df3c3198dc4ba0b64a372932fa93896829d4c159d66a486b62381",
+    "code/tt_dynamics/s0_geometry.py": "07d110e29ca53f005e8c6e6074cc123e2cd18c7251bdd254cd22a7c585c5d7ec",
+    "code/tt_dynamics/rollout_data.py": "168468fcaad0bff658cbaedcb4295955c87aba1ea6f40792ea8993b065175cb7",
+    "code/motion_tracking/pd_replay.py": "d740db54d475c27063c05d369472f0288fb70f6dd95e7aaa4550f7a660ddf5b7",
+    "code/motion_tracking/track_env.py": "bc19f88eca5b63fd7acfe2b3ef4b797bbc43aacc53873b9d72d0e5d2c98c7e79",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/tt_joint/checkpoint.pt": "909b0585ad189c85e932601ecf0aa4174f1d611fc2aac6eeb27ffba948eaf9ff",
+    "runs/pipeline_v1/fast_mode24_v13_group_loss/tt_joint/checkpoint.pt": "79ecc686d335a069b2507163eac90c1ce83472b618559f225e752ff998fd7ef1",
+    "runs/pipeline_v1/retargeting/designs.json": "7f5861dc442d59593662560c5a131f507a10d75c2c16fcceb69395176d6104ba",
+    "runs/pipeline_v1/fast_mode24_v13_group_loss/evaluation_tasks/run_tasks.py": "c7fc44a8f05f4c734d48485637b098d61ba0fc9af71d45af03fb0e5f83e5eb9d",
+    "runs/pipeline_v1/fast_mode24_v13_group_loss/evaluation_tasks/summarize_tasks.py": "99f01509f0e6212fa11ff8272e53dd7459bc7127ab8130d275658af77a5fa2fa",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/smoke_zigzag_joint_c16/summary.json": "6f083768699bef93c570886343acdf32012f75faf14b29be899960cb1daeb1db",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/smoke_zigzag_joint_c16/scale_0.npz": "dc8c7fe60bb252cb35bc6cc30d3b5d7be5e4c96d43d56126e13ecabb32f7d9a5",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_zigzag_4s/summary.json": "59f7aaa67c4577217b0444f1bca18f8b817b0c8ad09c6614e67967187f605af2",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_zigzag_4s/scale_10.npz": "ca19531380b04053809b8d393c25a27d4e5fcf26b4f6f23aedca0756069b40cc",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_zigzag_4s/summary.json": "6e88d7a77641f77c089d56e9e74aa71c8c4d4af9f592845ddbf7f35dca00f12b",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_zigzag_4s/scale_10.npz": "f540c0b25f9a938f9501c391734520dddbb8bc4063fbf8270abefdcf3255db6e",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_circle_4s/summary.json": "0bade9002beb539883e69d71efdb4d3415a3a15cc9e9176e77c91916c5e8ec34",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/fixedE_circle_4s/scale_10.npz": "14910c3332dacaf9cc0d1a0d4480408386e548b8ad9a52bb2f002b4599afb8a6",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_circle_4s/summary.json": "df470b6d053fa67e5aa98fb0505b50c8959fb8727c616411574abb224e582394",
+    "runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/evaluation/check_w1/joint_circle_4s/scale_10.npz": "0fe3ed669e31ecf4f61ff8c33b783afd677fa7a0cda7958241abb37fa5ea058b"
+  }
+}
