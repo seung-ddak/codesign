@@ -552,6 +552,16 @@ def stitch(name, A, B, hold):
           f"dq max={fix['fix_dq_max_deg']:.1f}deg, inv bad={inv['inv_bad_frac'] * 100:.1f}% ghost p95={inv['inv_res_force_p95_pct']:.1f}%W -> {out}")
 
 
+def retarget_summary_name(only):
+    if not only:return 'summary.csv'
+    name="summary_"+'_'.join(only)+'.csv'
+    if len(name.encode('utf-8'))>240:
+        import hashlib
+        token=hashlib.sha256('\0'.join(only).encode()).hexdigest()[:16]
+        return f'summary_{len(only)}clips_{token}.csv'
+    return name
+
+
 def retarget_tt(src, dst, only=None, height_trace_only=False, torque_limit=None, choices=None, uniforms=None):
     """A1 reference(fix_*) → TT 형상 (TT_CHOICES). 치수가 달라 IK 로 리타겟한다 (Peng 2020 keypoint IK 방식).
 
@@ -647,7 +657,7 @@ def retarget_tt(src, dst, only=None, height_trace_only=False, torque_limit=None,
         return height_traces
     if not rows:
         raise ValueError(f"no reference clips found in {src}")
-    summary = os.path.join(dst, "summary.csv" if not only else f"summary_{'_'.join(only)}.csv")
+    summary = os.path.join(dst, retarget_summary_name(only))
     with open(summary, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=rows[0].keys(), lineterminator="\n")
         w.writeheader()

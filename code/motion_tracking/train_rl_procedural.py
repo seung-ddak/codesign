@@ -55,7 +55,7 @@ def build_envs(cfg, choice):
     model_fn = functools.partial(build_model, kp=cfg.kp, tau_scale=cfg.get("tau_scale"),
                                  torque_limit=cfg.get("torque_limit"))
     if not cfg.get("multi_design"):
-        single = functools.partial(model_fn, choice=None if choice == "A1" else choice)
+        single = functools.partial(model_fn, choice=None if choice == "A1" else choice, uniforms=cfg.get("uniforms"))
         return (hydra.utils.instantiate(cfg.env, mj_model_fn=single),
                 hydra.utils.instantiate(cfg.eval_env, mj_model_fn=single))
 

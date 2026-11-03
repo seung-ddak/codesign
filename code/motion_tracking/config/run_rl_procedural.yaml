@@ -9,6 +9,7 @@ restore_ckpt: null  # 이전 run checkpoint 경로 (files/checkpoints/<step>). �
 tau_scale: null  # 구형 실험용 배율; torque_limit 지정 시 최종 토크 한계는 torque_limit 우선
 torque_limit: 33.5  # A1과 같은 12개 관절 토크 한계 (N·m); 이전 run 재평가 시 저장된 config 사용
 choice: "00000011"  # A1과 앞·뒤 무릎 굽힘 방향이 모두 같은 TT topology
+uniforms: null  # Single-design runs may supply their morphology explicitly.
 multi_design: true
 train_designs: [e000, e001, e002]
 eval_designs: [e003]

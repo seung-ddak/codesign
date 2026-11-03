@@ -47,3 +47,17 @@ code/motion_tracking/collect_calm_sequences.py \
 CPU 전체 테스트152개 통과. 짧게 움직인 뒤 정지하는 경우·작은 흔들림·높이 변화가 지나치게 작은 경우를 탈락시키고,20초 제자리 회전과 실제 높이 변화는 통과시키는 테스트를 포함한다. GPU 소규모 실행에서10초·20초 전이/상태 길이와 실제 시간 변화 검사·탈락 기록을 확인했다. 시험 출력은 /tmp에 두었다.
 
 최종 GPU 소규모 검증: K=1~12 각각2개씩, 총24개를30시도에서 확보했다(실패6, 근접 중복0).10초·20초 파일의 상태/전이 수와 시도별 시간 변화 기준을 재검증했다.
+
+## 최종 보고서
+
+10,000개 수집을 완료했다. 총19,719시도 중 수행검사 실패5,345회·근접중복 제외4,374회다. 모든 저장파일의 상태/행동 길이·유한값·시간축·좌표계·구간활동 조건을 재검증한 결과는 `dataset/validation.json`에 있다. 최종 보고서는 `dataset/report.html`, 대표5개 영상의 원본과 선정 조건은 `dataset/video_examples.json`에 저장한다. 재생 가능한WebM·MP4를HTML에 내장한다.
+
+보고서 재생성:
+
+```bash
+MUJOCO_GL=egl MPLCONFIGDIR=/tmp/calm-final-report-mpl \
+../transformer-transformer/.venv/bin/python code/motion_tracking/report_calm_motions.py \
+--out 'runs/calm_motion_10,000/dataset'
+```
+
+`report_ready.json`은 10,000개 파일 검증과 대표영상5개가 완료된 뒤에만 생성한다. dynamics 큐는 이 완료 표시를 기다린다.
