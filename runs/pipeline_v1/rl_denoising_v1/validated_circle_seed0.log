@@ -1,0 +1,22 @@
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/tt_model.py:69: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(layer, layers)
+Actor MLP: Sequential(
+  (0): Linear(in_features=770, out_features=64, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=64, out_features=64, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=64, out_features=391, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=770, out_features=64, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=64, out_features=64, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=64, out_features=1, bias=True)
+)
+unguided [{'candidate': 0, 'terminal_reward': np.float64(-2.9116521216230495), 'original_reward': 0.40259119868278503, 'progress': 0.0752212907297997, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.11778896345034995}, {'candidate': 1, 'terminal_reward': np.float64(-21.051543017143043), 'original_reward': -2.3976221084594727, 'progress': -0.0567570316462796, 'survived': False, 'invalid_initial': False, 'steps': 80, 'prediction_position_rmse': 0.08275616373749707}]
+reward_gradient [{'candidate': 0, 'terminal_reward': np.float64(-5.376999491453225), 'original_reward': -1.3391064405441284, 'progress': -0.012723725802860766, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.23542699325072547}, {'candidate': 1, 'terminal_reward': np.float64(-8.893499157454455), 'original_reward': -0.45196208357810974, 'progress': -0.02993039172080978, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.13583985528686748}]
+rl_before [{'candidate': 0, 'terminal_reward': np.float64(-2.9116521216230495), 'original_reward': 0.40259119868278503, 'progress': 0.0752212907297997, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.11778896345034995}, {'candidate': 1, 'terminal_reward': np.float64(-21.051543017143043), 'original_reward': -2.3976221084594727, 'progress': -0.0567570316462796, 'survived': False, 'invalid_initial': False, 'steps': 80, 'prediction_position_rmse': 0.08275616373749707}]
+update 1 physical reward -28.850175857543945
+update 2 physical reward -12.167479515075684
+rl_after [{'candidate': 0, 'terminal_reward': np.float64(-1.2592777915335083), 'original_reward': 0.36272308230400085, 'progress': 0.06643389662355903, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.0994608506630555}, {'candidate': 1, 'terminal_reward': np.float64(-21.29643996066793), 'original_reward': -1.9073787927627563, 'progress': -0.06234371373008767, 'survived': False, 'invalid_initial': False, 'steps': 89, 'prediction_position_rmse': 0.07649145067589469}]

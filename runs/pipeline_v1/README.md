@@ -21,3 +21,7 @@
 - `walkBackwardSlow__r00` 공유 PPO: 초기 약 108만 스텝은 e000~e003 모두 추종 기준 실패. 이어 약 421만 스텝 학습 후 e000/e001/e002는 전 구간 추종 기준 통과(관절 1.16~1.44°, 발 0.72~1.03 cm, 접지 일치 100%). 미학습 e003은 생존했지만 관절 13.09°·발 5.34 cm로 실패. 결과 CSV·비교 영상은 `experts/walkBackwardSlow__r00/wandb/offline-run-20261015_153518-64y8170r/motion_eval/`에 있다. 이 정책은 `walkBackwardSlow` 전용이며 여러 형상에서 공유한다.
 - 이전 `walkBackwardSlow` 평가 수치는 기록되어 있으나 현재 로컬 expert checkpoint는 확인되지 않는다. 진행 중이던 `walkForwardSlow`와 `trotBackwardFast` 학습은 사용자 요청에 따라 중단했다. 이후 선정 모션의 새 expert 순차 학습을 시작했다.
 - rollout 폴더: `rollouts/` = TT 학습 정본 (e000~e002, primitive·seq seed0 + 수집 log). `rollouts_archive/` = 보존용 비교·시험 데이터 — `smoke/` (19 expert 8 ep), `primitive_smoke/`, `velmatch/`·`livematch/` (remind 8-4 진입 프레임 매칭 비교).
+
+## 종료된 시험의 보관
+
+2026-11-03: 위의 `check_track_env.py` 실행 기록은 과거 검증 결과다. 해당 일회성 코드, v7 실행기·평가기·전용 테스트, 일부 expert/rollout smoke 출력은 [추가 정리 기록](../../archive/code_cleanup_20261103/README.md)에서 원래 경로로 복원할 수 있다. 현재 공용 평가 도구와 회귀 테스트는 유지한다.

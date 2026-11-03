@@ -1,6 +1,6 @@
 # 실험 결과 목록
 
-실험별 `tryN` 구조를 사용합니다. 중복 옛 경로 링크와 불필요한 초기 시도를 제거했습니다.
+실험별 `tryN` 구조를 사용합니다. [현재 작업 안내](README.md) · [종료·중단 실험 보관 및 복원](../archive/experiment_cleanup_20261103/README.md)
 
 [CALM 리타겟팅 비교](calm_pilot_retarget/README.md)
 
@@ -23,12 +23,9 @@
 | pipeline_v1/fast_mode24_v4_e_rest_s0/try1 | [보고서](pipeline_v1/fast_mode24_v4_e_rest_s0/try1/report_try1.html) |
 | pipeline_v1/fast_mode24_v4_geometry_gate/try1 | [보고서](pipeline_v1/fast_mode24_v4_geometry_gate/try1/report_try1.html) |
 | pipeline_v1/fast_mode24_v4_s0_gate/try1 | [보고서](pipeline_v1/fast_mode24_v4_s0_gate/try1/report_try1.html) |
-| pipeline_v1/fast_mode24_v4_warmup_s0/try1 | [보고서](pipeline_v1/fast_mode24_v4_warmup_s0/try1/report_try1.html) |
-| pipeline_v1/fast_mode24_v4_warmup_s0/try2 | [보고서](pipeline_v1/fast_mode24_v4_warmup_s0/try2/report_try2.html) |
 | pipeline_v1/obstacle5_v6/try1 | [보고서](pipeline_v1/obstacle5_v6/try1/report_try1.html) |
 | pipeline_v1/obstacle_v6_10s/try1 | [보고서](pipeline_v1/obstacle_v6_10s/try1/report_try1.html) |
 | pipeline_v1/obstacle_v6/try1 | [보고서](pipeline_v1/obstacle_v6/try1/report_try1.html) |
-| pipeline_v1/v7_followup_ablation/try1 | [보고서](pipeline_v1/v7_followup_ablation/try1/report_try1.html) |
 | pipeline_v1/task/track/try1 | [보고서](pipeline_v1/task/track/try1/report_try1.html) |
 | pipeline_v1/task/track/try2 | [보고서](pipeline_v1/task/track/try2/report_try2.html) |
 | pipeline_v1/task/track/try3 | [보고서](pipeline_v1/task/track/try3/report_try3.html) |
@@ -92,4 +89,6 @@
 
 [Diffusion 내부 PPO guidance: E·S·A epsilon 공동 보정, 2update 실행 검증·트랙 표시 RL 영상](pipeline_v1/rl_denoising_v1/report.html)
 
-[진행 중: 5초·디노이징5단계·후보8·100iter, 지그재그/원형 별도 정책](pipeline_v1/rl_denoising_5s_100iter/README.md)
+[보관: 5초·후보8·100iter 목표 실행은 61iter 부근에서 중단됨 — 결과 및 복원 안내](../archive/experiment_cleanup_20261103/README.md)
+
+압축 보관한 초기 S₀ warmup·v7 추가 실험·중단된 RL 실행은 위 보관 안내에서 원래 경로로 복원할 수 있습니다.
