@@ -1,0 +1,36 @@
+{
+  "task": "zigzag",
+  "tt_sha256": "ec82e2cbc905fbd02fb668261de13ed7099b54d276866c14d53d3236822c794b",
+  "seed": 0,
+  "updates": 2,
+  "batch": 8,
+  "episode_states": 501,
+  "ctrl_dt": 0.02,
+  "horizon": 32,
+  "diffusion_steps": 1,
+  "tt_schedule_steps": 5,
+  "fixed_tt_prediction": true,
+  "shared_window_actor": true,
+  "ppo_epochs_per_update": 4,
+  "record_rollouts": true,
+  "record_version": 1,
+  "mujoco_version": "3.10.0",
+  "numpy_version": "2.4.6",
+  "torch_version": "2.14.0+cu126",
+  "source_hashes": {
+    "train_diffusion_rl.py": "a023c01628688d78a921401e38392cfb75e57a0d4b7c639eb6b96f1e109d92b2",
+    "train_task_rl.py": "b0e1ce3555c6ee5b4f4031b68434379ba4af58fd64dd6002ca5a79713f2dd88f",
+    "rl_diffusion_guidance.py": "aa7b15fd9cdf4fcccf39d75ea31203bfebba29bbcc570f732ff7ba23ce7f8238",
+    "joint_diffusion_guidance.py": "5d67991120d674959dd32d1addfac74da9c34fb019f2d487a4c3fc60d8707aa8"
+  },
+  "terminal_reward": "dense physical return - 5 * predicted/physical position MSE; invalid start=-20",
+  "s0": "physical rest(E)",
+  "backend": "MuJoCo CPU",
+  "action": "bounded epsilon residual per E coordinate and per S/A channel/window",
+  "train_noise_seeds": [
+    0,
+    0
+  ],
+  "eval_noise_seed": 1000000,
+  "limitation": "PPO denoising implementation check; short training does not establish task success"
+}

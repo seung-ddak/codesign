@@ -1,0 +1,158 @@
+{
+  "protocol": {
+    "stage": 1,
+    "settings": {
+      "kp": 30.0,
+      "tau_scale": null,
+      "torque_limit": 33.5,
+      "ctrl_dt": 0.02,
+      "sim_dt": 0.005,
+      "action_scale": 0.25,
+      "clip_actions": [
+        -10.0,
+        10.0
+      ],
+      "topology": "00000011",
+      "execute_sha256": "14f3da1f5c36e9f8b3a46cb7b1e9810ca61f96b9c74a4a2ba8a0a42a9c7e0d24"
+    },
+    "limits": {
+      "initial_qpos_max": 1e-06,
+      "control_max": 1e-06,
+      "first_step_body_m": 0.001,
+      "first_step_joint_deg": 0.5,
+      "prefix_2s_body_m": 0.02,
+      "prefix_2s_joint_deg": 2.0,
+      "prefix_2s_orientation_deg": 2.0,
+      "fall_time_difference_s": 0.04
+    },
+    "cases": [
+      "zigzag_1000iter_candidate0"
+    ],
+    "note": "CPU training and current report evaluation share replay_generated. MJX is a separate deployment path.",
+    "mujoco_version": "3.10.0",
+    "jax_version": "0.10.2",
+    "jax_x64": true,
+    "jax_backend": "gpu"
+  },
+  "results": [
+    {
+      "case": "zigzag_1000iter_candidate0",
+      "cpu_training_report_identical": true,
+      "model_differences": [],
+      "cpu": {
+        "candidate": 0,
+        "terminal_reward": -9.106987161158166,
+        "original_reward": -0.254524290561676,
+        "progress": -0.007539089769124985,
+        "survived": true,
+        "invalid_initial": false,
+        "steps": 199,
+        "prediction_position_rmse": 0.2028491197570396,
+        "execution_seconds": 3.98,
+        "max_seconds": 3.98,
+        "termination_reason": "time_limit",
+        "initial_invalid_reasons": [],
+        "physical_return": -8.901248334227137,
+        "consistency_penalty": 0.20573882693102893,
+        "invalid_penalty": 0.0,
+        "reward_components": {
+          "speed": 0.7327239205068795,
+          "progress": -0.015078173950314522,
+          "lane": -8.591268372376238,
+          "tilt": -0.02139783263206484,
+          "heading": -0.0831319907913231,
+          "low": 0.0,
+          "stall": -0.9200000000000006,
+          "action_rate": -0.0028758479597768907,
+          "torque": -0.00022003702429776947,
+          "fall": 0.0
+        }
+      },
+      "mjx": {
+        "execution_valid": true,
+        "steps": 199,
+        "fell_step": -1,
+        "initial": {
+          "raw_four_foot_contact": true,
+          "raw_contact": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "raw_foot_contact_count": 4,
+          "raw_foot_z_m": [
+            0.00014878861866171947,
+            0.00015560065622361244,
+            6.279774338130775e-05,
+            8.220551966564918e-05
+          ],
+          "raw_feet_penetration_ok": true,
+          "raw_nonfoot_penetration_m": 0.0,
+          "raw_self_penetration_m": 0.0,
+          "raw_joint_limit_violation": false,
+          "raw_quaternion_norm": 0.9999999999999999,
+          "raw_upright_cosine": 0.9998294769120234,
+          "initial_support_ok": true,
+          "initial_linear_speed_m_s": 0.018217025279262514,
+          "mjx_four_foot_floor_contact": true,
+          "mjx_foot_floor_contact": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "mjx_foot_contact_count": 4,
+          "physically_valid": true,
+          "initial_support_mode": "grounded",
+          "preprojection": {
+            "body_height_m": 0.1977454572916031,
+            "foot_clearance_m": [
+              0.00014878861866171947,
+              0.00015560065622361244,
+              6.279774338130775e-05,
+              8.220551966564918e-05
+            ],
+            "max_foot_penetration_m": 0.0,
+            "nonfoot_penetration_m": 0.0,
+            "self_penetration_m": 0.0,
+            "cpu_foot_contacts": 4
+          },
+          "geometry_projection": {
+            "needed": false,
+            "allowed": true,
+            "requested_lift_m": 0.0,
+            "applied_lift_m": 0.0,
+            "reason": "disabled",
+            "max_lift_m": 0.04
+          },
+          "geometry_adjusted": false,
+          "executed_body_height_m": 0.1977454572916031,
+          "applied_body_z_shift_m": 0.0,
+          "execution_skipped": false,
+          "skip_reason": null
+        }
+      },
+      "metrics": {
+        "common_states": 200,
+        "common_controls": 199,
+        "initial_qpos_max_error": 1.1102230246251565e-16,
+        "control_max_error": 0.0,
+        "first_step_body_error_m": 3.576224061345498e-18,
+        "first_step_joint_rmse_deg": 1.3593635299290253e-14,
+        "first_step_orientation_error_deg": 0.0,
+        "prefix_2s_body_max_error_m": 0.015604745336617936,
+        "prefix_2s_joint_max_rmse_deg": 0.7164095649574906,
+        "prefix_2s_orientation_max_error_deg": 3.293588241455454,
+        "body_max_error_m": 0.10590880894868347,
+        "joint_max_rmse_deg": 7.520849918364945,
+        "initial_qvel_max_error": 0.0
+      },
+      "status": "different",
+      "differences": [
+        "prefix_2s_orientation_max_error_deg"
+      ],
+      "scope": "trajectory comparison"
+    }
+  ]
+}

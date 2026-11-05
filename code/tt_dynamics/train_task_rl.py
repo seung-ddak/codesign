@@ -26,6 +26,9 @@ from s0_geometry import s0_to_q
 from task_reward import TrackReward, ZigzagReward
 
 
+DENSE_REWARD_KEYS = ("speed", "progress", "lane", "tilt", "heading", "low",
+                     "stall", "action_rate", "torque", "fall")
+
 def dense_task_reward(previous, current, action_delta, torque, task, step, initial_height):
     """Physical per-step task reward; rates are integrated at the 50 Hz control dt."""
     dt, speed = .02, .5
@@ -106,6 +109,9 @@ class TaskEnv:
         self.tokens = [np.r_[self.state(), self.last]]
         self.qraw = [self.data.qpos.copy()]
         self.training_return = 0.
+        self.vraw = [self.data.qvel.copy()]
+        self.applied_controls, self.torque_history = [], []
+        self.reward_history, self.reward_component_history = [], []
         return self.obs()
 
     def obs(self):
@@ -140,7 +146,7 @@ class TaskEnv:
         fell = self.tokens[-1][7] > -.5
         done = fell or self.t >= self.horizon - 1
         if self.reward_version == 'dense':
-            reward, _ = dense_task_reward(previous, self.tokens[-1][:42], action_delta,
+            reward, rates = dense_task_reward(previous, self.tokens[-1][:42], action_delta,
                                           self.data.actuator_force, self.task, self.t, self.start[2])
         else:
             score, _ = self.score()
@@ -150,6 +156,14 @@ class TaskEnv:
         if fell:
             reward -= 20.
         self.training_return += reward
+        self.vraw.append(self.data.qvel.copy())
+        self.applied_controls.append(ctrl.copy())
+        self.torque_history.append(self.data.actuator_force.copy())
+        self.reward_history.append(float(reward))
+        if self.reward_version == 'dense':
+            parts = {name: value*.02 for name,value in rates.items()}
+            parts['fall'] = -20. if fell else 0.
+            self.reward_component_history.append([parts[name] for name in DENSE_REWARD_KEYS])
         return self.obs(), reward, done, bool(fell)
 
 
