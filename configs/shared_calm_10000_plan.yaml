@@ -1,0 +1,117 @@
+# Experiment specification, not a directly runnable Hydra training config.
+# The current build_bank requires the same clips and lengths per resident design.
+status: superseded_by_shared_calm_v100_48h
+source:
+  dataset: runs/calm_motion_10,000/dataset
+  expected_unique_motions: 10000
+  use_all_for_policy_training: true
+  control_hz: 30
+  short_seconds: 10
+  long_seconds: 20
+morphology:
+  topology: '00000011'
+  baseline: e000
+  train_count: 200
+  eval_count: 20
+  relative_length_range: [-0.20, 0.20]
+  active_token_indices: [2, 3, 4, 9, 10]
+  # Counts total 200; zero-baseline and removed-arm tokens remain fixed.
+  train_composition:
+    baseline: 1
+    single_token: 40  # Five tokens x +/-5%,10%,15%,20%.
+    two_token_extremes: 40  # Ten token pairs x four +/-20% combinations.
+    all_token_corners: 32  # All 2^5 combinations of +/-20%.
+    interior_multi_token: 87  # 29 each with three, four, five changed tokens.
+  eval: disjoint_continuous_interior_combinations
+policy:
+  shared: true
+  morphology_observation: 13
+  normalize_morphology: fixed_2E_minus_1
+  actor_hidden: [256, 256, 128]
+  critic_hidden: [256, 256, 128]
+  activation: elu
+physics:
+  sim_hz: 240
+  substeps_per_control: 8
+  max_episode_steps: 600
+  action_scale: 0.25
+  torque_limit_Nm: 33.5
+  future_reference_offsets: [0, 1, 2, 4, 5]
+ppo:
+  total_transition_budget: 200000000  # Initial budget, not a convergence guarantee.
+  review_every_transitions: 25000000
+  num_envs: 64
+  batch_size: 64
+  unroll_length: 24
+  num_minibatches: 4
+  num_updates_per_batch: 4
+  learning_rate: 0.0003
+  discounting: 0.99
+  gae_lambda: 0.95
+  clipping_epsilon: 0.2
+  entropy_cost: 0.01
+  max_grad_norm: 1.0
+  log_training_metrics: true
+  training_metrics_steps: 98304
+  checkpoint_every_transitions: 983040
+  initialization: reference_state_initialization
+  sampling: balance_K_and_single_vs_combined_morphology_groups
+reward:
+  # Preserve the tracking reward and penalties already tested, with w_vel=1.
+  w_pose: 5.0
+  w_vel: 1.0
+  w_ee: 2.0
+  w_root_pose: 1.5
+  w_root_vel: 1.0
+  penalty_action_rate: -0.002
+  penalty_torque: -0.00005
+  penalty_joint_vel: -0.002
+  penalty_joint_acc: -0.0000005
+  penalty_joint_pos_limit: -1.0
+  penalty_termination: -100.0
+memory:
+  preallocate: false
+  pool_fraction: 0.35
+  resident_train_designs: 4
+  resident_eval_designs: 1
+  reference_motion_batch: 128
+  replay_fraction_of_prior_motions: 0.25
+  replay_replaces_batch_slots: true
+  retain_checkpoint_across_batches: true
+  require_optimizer_state_restore: true
+  rollout_batch_size: 8
+  # Warm-starting weights alone is not exact training continuation.
+  implementation_required:
+    - motion_batch_scheduler_with_full_coverage_and_replay
+    - durable_full_training_state_checkpoints
+    - same_motion_heldout_morphology_evaluation_labeling
+collection:
+  distinct_train_morphologies_per_source_motion: 4
+  target_unique_source_morphology_pairs: 40000
+  rollouts_per_pair: 3
+  target_episodes: 120000
+  starts:
+    - first_frame_clean_deterministic
+    - first_frame_joint_position_jitter_0p01_rad_velocity_jitter_0p05_rad_s
+    - random_reference_frame_in_first_half
+  # Change initial state, not just a seed with a deterministic policy/reset.
+  preserve_failed_valid_transitions: true
+  fall_fraction_accept_max: 0.5
+  continue_after_rejected_design: true
+  source_coverage_required: 1.0
+  require_all_sources_to_have_recorded_valid_transitions: true
+  report_actual_unique_pairs_and_start_states: true
+evaluation:
+  heldout_morphologies: 20
+  heldout_random_seeds: true
+  unseen_source_motion_claim: false
+  report:
+    - source_and_source_morphology_pair_coverage
+    - per_K_and_primitive_coverage
+    - single_and_combined_token_coverage
+    - valid_transition_and_fall_distributions
+    - root_speed_yaw_rate_and_height_distributions
+    - joint_position_velocity_action_and_contact_distributions
+    - near_duplicate_and_stationary_segment_fraction
+    - tracking_joint_and_root_RMSE
+  tt_split: group_by_original_source_motion_and_report_heldout_morphology_results

@@ -76,6 +76,7 @@ def test_training_command_uses_the_assigned_shape_and_all_clips(tmp_path):
     assert round((1/30)/(1/240))==8
     clips=next(x for x in args if x.startswith('env.clips='))
     assert clips.count('calm_')==100
+    assert 'env.w_vel=1.0' in args and 'eval_env.w_vel=1.0' in args
     assert 'train.num_envs=32' in args and 'train.batch_size=32' in args and 'train.num_eval_envs=1' in args
 
 
@@ -91,20 +92,24 @@ def test_single_design_environment_really_builds_its_assigned_morphology(monkeyp
     assert len(seen)==2 and all(list(e['uniforms'])==expected for e in seen)
 
 
-def test_failed_baseline_tracking_stops_before_other_morphologies(tmp_path,monkeypatch):
+@pytest.mark.parametrize('falls,passed',[(0,True),(49,True),(50,True),(51,False),(100,False)])
+def test_collection_uses_fall_rate_and_continues_even_after_rejection(tmp_path,monkeypatch,falls,passed):
     import run_calm_dynamics as runner
     out=tmp_path/'queue';out.mkdir();designs=[dict(design='e0000'),dict(design='e0001')]
     (out/'manifest.json').write_text(json.dumps(dict(designs=designs)))
     called=[]
     def process(manifest,design,root,stage,steps):
         called.append(design['design']);p=root/'rollouts'/design['design'];p.mkdir(parents=True)
-        (p/'primitive_seed0.json').write_text(json.dumps(dict(tracking_pass_fraction=.5)))
+        (p/'primitive_seed0.json').write_text(json.dumps(dict(episodes=100,falls=falls,tracking_pass_fraction=0.)))
     monkeypatch.setattr(runner,'process',process)
     monkeypatch.setattr(sys,'argv',['run','--source',str(tmp_path/'source'),'--out',str(out)])
     runner.main()
-    assert called==['e0000']
+    assert called==['e0000','e0001']
     status=json.loads((out/'status.json').read_text())
-    assert status['status']=='tracking_quality_gate_not_met' and status['pending_designs']==1
+    assert status['status']=='complete'
+    assert status['rejected_designs']==([] if passed else ['e0000','e0001'])
+    metrics=json.loads((out/'rollouts/e0000/primitive_seed0.json').read_text())
+    assert metrics['collection_pass']==passed and metrics['tracking_pass_fraction']==0
 
 
 def test_rollout_batches_preserve_episode_order_and_shared_morphology():

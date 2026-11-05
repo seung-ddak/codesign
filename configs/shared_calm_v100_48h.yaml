@@ -1,0 +1,27 @@
+version: 1
+seed: 20261105
+hours: 48
+phase_hours: {prepare: 8, train: 20, collect: 18, verify: 2}
+train_designs: 200
+eval_designs: 20
+source_motions: 10000
+morphologies_per_motion: 2
+rollouts_per_pair: 2
+resident_designs: 8
+num_envs: 128
+batch_size: 128
+rollout_batch: 32
+train_transitions: 80000000
+unroll_length: 24
+num_minibatches: 4
+num_updates_per_batch: 4
+learning_rate: 0.0003
+entropy_cost: 0.01
+checkpoint_steps: 196608
+control_hz: 30
+physics_hz: 240
+pool_fraction: 0.60
+reserve_disk_gb: 20
+train_sweeps: 2
+prepare_workers: 2
+metrics_steps: 98304

@@ -21,6 +21,7 @@ from t2.mjx_env.wrapper import Wrapper
 REFERENCE_ATTRS = (
     "ref_qpos", "ref_qvel", "ref_foot", "ref_contact", "init_q", "action_offset",
     "_lowers", "_uppers", "_soft_lowers", "_soft_uppers", "base_mass",
+    "clip_start", "clip_end", "clip_p",
 )
 
 
@@ -80,7 +81,7 @@ def check_reference(path, E, lowers=None, uppers=None):
             raise ValueError(f"Reference violates joint limits: {path}")
 
 
-def build_bank(names, env_cfg, root, choice, designs, model_fn, unlock_steps):
+def build_bank(names, env_cfg, root, choice, designs, model_fn, unlock_steps, clips_by_design=None):
     """Instantiate one validated env per morphology and stack them into a bank."""
     if len(unlock_steps) != len(names) or min(unlock_steps) < 0 or 0 not in unlock_steps:
         raise ValueError("Each design needs a nonnegative unlock step; at least one starts at zero")
@@ -90,18 +91,19 @@ def build_bank(names, env_cfg, root, choice, designs, model_fn, unlock_steps):
             raise ValueError(f"Unknown design: {name}")
         design_cfg = OmegaConf.create(OmegaConf.to_container(env_cfg, resolve=True))
         design_cfg.reference_dir = str(root / name / choice)
+        if clips_by_design is not None:design_cfg.clips = clips_by_design[name]
         for clip in design_cfg.clips:
             check_reference(Path(design_cfg.reference_dir) / f"{clip}.npz", designs[name])
         env = hydra.utils.instantiate(design_cfg, mj_model_fn=functools.partial(model_fn, uniforms=designs[name]))
         for path in env.reference_files:
             check_reference(path, designs[name], np.asarray(env._lowers), np.asarray(env._uppers))
         envs.append(env)
-    bank = make_bank(envs, [designs[name] for name in names])
+    bank = make_bank(envs, [designs[name] for name in names], distinct_clips=clips_by_design is not None)
     bank["unlock_steps"] = list(unlock_steps)
     return envs[0], bank
 
 
-def make_bank(envs, uniforms):
+def make_bank(envs, uniforms, distinct_clips=False):
     """Stack design-dependent MJX fields and matching reference arrays."""
     if len(envs) != len(uniforms) or len(envs) < 1:
         raise ValueError("Need matched models and morphology vectors")
@@ -110,7 +112,7 @@ def make_bank(envs, uniforms):
     for env in envs[1:]:
         if (env.mj_model.nq, env.mj_model.nv, env.mj_model.ngeom) != (
             envs[0].mj_model.nq, envs[0].mj_model.nv, envs[0].mj_model.ngeom
-        ) or not np.array_equal(env.clip_start, envs[0].clip_start) or not np.array_equal(env.clip_end, envs[0].clip_end):
+        ) or (not distinct_clips and (not np.array_equal(env.clip_start, envs[0].clip_start) or not np.array_equal(env.clip_end, envs[0].clip_end))):
             raise ValueError("Morphologies must share model topology and reference lengths")
     # MJX treats these fields as compile-time metadata. Zero sameframe is the general kinematic path.
     models = [m.replace(stat=base.stat, geom_sameframe=np.zeros_like(m.geom_sameframe),
@@ -120,6 +122,15 @@ def make_bank(envs, uniforms):
     changed = [f.name for f in dataclasses.fields(type(base))
                if isinstance(getattr(base, f.name), jax.Array)
                and any(not np.array_equal(getattr(base, f.name), getattr(m, f.name)) for m in models[1:])]
+    if distinct_clips:
+        if len({len(e.clip_start) for e in envs})!=1:raise ValueError('Resident designs need equal clip counts')
+        # Fixed capacity prevents ragged banks; clip_end keeps padding out of RSI.
+        capacity=len(envs[0].clip_start)*601
+        for env in envs:
+            for name in ['ref_qpos','ref_qvel','ref_foot','ref_contact']:
+                value=np.asarray(getattr(env,name))
+                if len(value)>capacity:raise ValueError('Reference exceeds 20-second 30Hz capacity')
+                setattr(env,name,jnp.asarray(np.pad(value,[(0,capacity-len(value))]+[(0,0)]*(value.ndim-1),mode='edge')))
     bank = {
         "base": models[0],
         "model_fields": {name: jnp.stack([getattr(m, name) for m in models]) for name in changed},

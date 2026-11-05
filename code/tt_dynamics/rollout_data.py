@@ -33,14 +33,19 @@ def features(qpos, qvel, contact):
 def source_group_keys(path, archive, *, length):
     """Split physically linked episodes together across morphology files.
 
-    Explicit intervention `group_id` wins. Otherwise `source_episode`
+    Explicit original-source or intervention `group_id` wins. Otherwise `source_episode`
     (or row index) is qualified by NPZ stem, NOT morphology directory.
     This prevents e000/e001/... replicas of the same seeded source
     episode from landing in train and val separately.
     """
     stem = Path(path).stem
     if "group_id" in archive:
-        return [f"group:{int(x)}" for x in archive["group_id"][:length]]
+        keys=[]
+        for value in archive["group_id"][:length]:
+            if isinstance(value,(bytes,np.bytes_)):value=value.decode("utf-8")
+            elif not isinstance(value,(str,np.str_)):value=int(value)
+            keys.append(f"group:{value}")
+        return keys
     if "source_episode" in archive:
         return [f"source:{stem}:{int(x)}" for x in archive["source_episode"][:length]]
     return [f"source:{stem}:{i}" for i in range(length)]

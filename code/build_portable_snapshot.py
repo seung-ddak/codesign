@@ -1,12 +1,14 @@
 """Rebuild the <=90 MiB workspace snapshot before a cross-PC handoff."""
 from pathlib import Path
 import subprocess,os,tarfile,tempfile,hashlib,json,time
+snapshot_exclude=tuple(filter(None,os.environ.get('CODESIGN_SNAPSHOT_EXCLUDE','').split(':')))
 repo=Path(__file__).resolve().parents[1];root=repo.parent;out=repo/'portability';out.mkdir(exist_ok=True);selected=set();excluded=[]
 def gitpaths(*args):
  return [repo/n for n in subprocess.check_output(['git','-C',str(repo),'ls-files',*args,'-z']).decode().split('\0') if n]
 for p in gitpaths('--others','--ignored','--exclude-standard'):
  n=p.relative_to(repo).as_posix()
- if any(x in n.split('/') for x in ['.git','.venv','__pycache__','.pytest_cache','jax_cache','logs','tmp']) or n.startswith(('outputs/','.runtime/','portability/')) or n.endswith(('.pyc','.zip','.mjb','.wandb','.tmp','.sock')) or n.endswith(('/collection.lock','/queue.lock')) or '/files/media/' in n:continue
+ if n.startswith(snapshot_exclude):continue
+ if any(x in n.split('/') for x in ['.git','.venv','__pycache__','.pytest_cache','jax_cache','logs','tmp']) or n.startswith(('outputs/','.runtime/','portability/')) or n.endswith(('.pyc','.zip','.mjb','.wandb','.tmp','.sock')) or n.endswith(('/collection.lock','/queue.lock','/runner.lock')) or '/files/media/' in n:continue
  if p.is_file() and not p.is_symlink():selected.add(p)
 for parent in [root/'transformer-transformer',root/'external/a1-calm-main']:
  for directory,dirs,files in os.walk(parent):
@@ -19,6 +21,7 @@ for parent in [root/'transformer-transformer',root/'external/a1-calm-main']:
 # Large new files belong in the split snapshot, never as a single Git blob.
 oversized=[]
 for p in gitpaths('--others','--exclude-standard'):
+ if p.relative_to(repo).as_posix().startswith(snapshot_exclude):continue
  if p.is_file() and not p.is_symlink() and p.stat().st_size >= 90*1024**2 and not p.is_relative_to(out):
   selected.add(p);oversized.append(p.relative_to(repo).as_posix())
 if oversized:
@@ -46,5 +49,5 @@ with archive.open('rb') as src:
  while block:=src.read(90*1024**2):
   p=out/f'workspace.tar.gz.part{i:03d}';p.write_bytes(block);parts.append({'name':p.name,'bytes':len(block),'sha256':hashlib.sha256(block).hexdigest()});i+=1
 archive.unlink()
-manifest={'format':1,'source_workspace':str(root),'parts':parts,'files':files,'symlinks':links,'dependency_git':{'transformer-transformer':subprocess.check_output(['git','-C',str(root/'transformer-transformer'),'rev-parse','HEAD']).decode().strip()},'excluded':['Python virtualenv, Git internals, compiler caches, regenerated MJBs, temporary logs, duplicate ZIPs','Downloaded upstream transformer-transformer/checkpoints and umi_on_legs_plus_plus_* datasets (not used by current CALM shared PPO / codesign dynamics runs)'],'excluded_external_symlinks':excluded}
+manifest={'format':1,'source_workspace':str(root),'parts':parts,'files':files,'symlinks':links,'dependency_git':{'transformer-transformer':subprocess.check_output(['git','-C',str(root/'transformer-transformer'),'rev-parse','HEAD']).decode().strip()},'excluded':['Python virtualenv, Git internals, compiler caches, regenerated MJBs, temporary logs, duplicate ZIPs','Downloaded upstream transformer-transformer/checkpoints and umi_on_legs_plus_plus_* datasets (not used by current CALM shared PPO / codesign dynamics runs)'],'excluded_external_symlinks':excluded,'excluded_prefixes':list(snapshot_exclude)}
 (out/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2));print('Packed',len(parts),'parts;',sum(x['bytes'] for x in parts),'bytes',flush=True)

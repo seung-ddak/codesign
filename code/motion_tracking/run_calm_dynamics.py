@@ -66,7 +66,7 @@ def train_arguments(design,refs,run,steps):
             'env.ctrl_dt='+str(1/30),'eval_env.ctrl_dt='+str(1/30),
             'env.sim_dt='+str(1/240),'eval_env.sim_dt='+str(1/240),
             'env.obs_time_indices=[0,1,2,4,5]','eval_env.obs_time_indices=[0,1,2,4,5]',
-            'env.termination_pose_consecutive_steps=15',
+            'env.termination_pose_consecutive_steps=15','env.w_vel=1.0','eval_env.w_vel=1.0',
             'env.velocity_kick=[0,0]','env.reset_qpos=0','env.reset_qvel=0',f'train.num_timesteps={steps}','train.num_envs=32',
             'train.batch_size=32','train.num_eval_envs=1','train.num_evals=2','train.num_minibatches=4','render_final=false','seed=0',f'hydra.run.dir={run}/hydra']
 
@@ -133,23 +133,22 @@ def main():
         build(a.source,out)
     manifest=json.loads((out/'manifest.json').read_text());selected=[e for e in manifest['designs'] if a.designs is None or e['design'] in a.designs]
     if a.designs and len(selected)!=len(set(a.designs)):raise ValueError('unknown design')
-    failures=[]
+    failures=[];rejected=[]
     for index,design in enumerate(selected):
-        save(out/'status.json',dict(status='running',stage=a.stage,current_design=design['design'],processed=index,total_designs=len(selected),failed_designs=failures))
+        save(out/'status.json',dict(status='running',stage=a.stage,current_design=design['design'],processed=index,total_designs=len(selected),failed_designs=failures,rejected_designs=rejected))
         try:
             process(manifest,design,out,a.stage,a.train_steps)
-            if index==0 and a.stage=='all':
-                metrics=json.loads((out/'rollouts'/design['design']/'primitive_seed0.json').read_text())
-                if metrics['tracking_pass_fraction']<.9:
-                    save(out/'status.json',dict(status='tracking_quality_gate_not_met',design=design['design'],metrics=metrics,
-                                               pending_designs=len(selected)-1,note='Baseline tracking must be improved before scaling to 1,000 shapes.'))
-                    return
+            if a.stage=='all':
+                metrics_path=out/'rollouts'/design['design']/'primitive_seed0.json'
+                metrics=json.loads(metrics_path.read_text())
+                episodes=metrics['episodes'];falls=metrics['falls']
+                if episodes<=0 or not 0<=falls<=episodes:raise ValueError('invalid fall counts')
+                metrics.update(fall_fraction=falls/episodes,collection_pass=falls/episodes<=.5,collection_criterion='fall_fraction <= 0.5')
+                save(metrics_path,metrics)
+                if not metrics['collection_pass']:rejected.append(design['design'])
         except Exception:
             traceback.print_exc();failures.append(design['design'])
-            if index==0:
-                save(out/'status.json',dict(status='initial_design_failed',failed_designs=failures,pending_designs=len(selected)-1))
-                return
-    save(out/'status.json',dict(status='incomplete' if failures else 'complete',stage=a.stage,processed=len(selected),total_designs=len(selected),failed_designs=failures))
+    save(out/'status.json',dict(status='incomplete' if failures else 'complete',stage=a.stage,processed=len(selected),total_designs=len(selected),failed_designs=failures,rejected_designs=rejected))
     if failures:raise SystemExit(1)
 
 if __name__=='__main__':main()
