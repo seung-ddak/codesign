@@ -6,7 +6,7 @@ def gitpaths(*args):
  return [repo/n for n in subprocess.check_output(['git','-C',str(repo),'ls-files',*args,'-z']).decode().split('\0') if n]
 for p in gitpaths('--others','--ignored','--exclude-standard'):
  n=p.relative_to(repo).as_posix()
- if any(x in n.split('/') for x in ['.git','.venv','__pycache__','.pytest_cache','jax_cache','logs','tmp']) or n.startswith(('outputs/','.runtime/','portability/')) or n.endswith(('.pyc','.zip','.mjb','.wandb','.tmp','.sock')) or n.endswith('/collection.lock') or '/files/media/' in n:continue
+ if any(x in n.split('/') for x in ['.git','.venv','__pycache__','.pytest_cache','jax_cache','logs','tmp']) or n.startswith(('outputs/','.runtime/','portability/')) or n.endswith(('.pyc','.zip','.mjb','.wandb','.tmp','.sock')) or n.endswith(('/collection.lock','/queue.lock')) or '/files/media/' in n:continue
  if p.is_file() and not p.is_symlink():selected.add(p)
 for parent in [root/'transformer-transformer',root/'external/a1-calm-main']:
  for directory,dirs,files in os.walk(parent):

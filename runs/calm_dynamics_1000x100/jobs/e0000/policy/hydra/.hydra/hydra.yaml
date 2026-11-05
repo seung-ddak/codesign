@@ -1,0 +1,170 @@
+hydra:
+  run:
+    dir: /home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/jobs/e0000/policy/hydra
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
+  launcher:
+    _target_: hydra._internal.core_plugins.basic_launcher.BasicLauncher
+  sweeper:
+    _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
+    max_batch_size: null
+    params: null
+  help:
+    app_name: ${hydra.job.name}
+    header: '${hydra.help.app_name} is powered by Hydra.
+
+      '
+    footer: 'Powered by Hydra (https://hydra.cc)
+
+      Use --hydra-help to view Hydra specific help
+
+      '
+    template: '${hydra.help.header}
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (group=option)
+
+
+      $APP_CONFIG_GROUPS
+
+
+      == Config ==
+
+      Override anything in the config (foo.bar=value)
+
+
+      $CONFIG
+
+
+      ${hydra.help.footer}
+
+      '
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][HYDRA] %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    loggers:
+      logging_example:
+        level: DEBUG
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '%(message)s'
+        datefmt: '[%X]'
+    handlers:
+      console:
+        class: rich.logging.RichHandler
+    root:
+      handlers:
+      - console
+    disable_existing_loggers: false
+  env: {}
+  mode: RUN
+  searchpath: []
+  callbacks: {}
+  output_subdir: .hydra
+  overrides:
+    hydra:
+    - hydra.run.dir=/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/jobs/e0000/policy/hydra
+    - hydra.mode=RUN
+    task:
+    - multi_design=false
+    - choice=00000011
+    - uniforms=[0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5]
+    - env.reference_dir=/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/references/e0000
+    - eval_env.reference_dir=/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/references/e0000
+    - env.clips=[calm_06442,calm_05265,calm_08464,calm_00679,calm_00406,calm_01877,calm_08116,calm_06522,calm_06223,calm_09617,calm_05186,calm_06117,calm_05381,calm_06782,calm_08168,calm_05425,calm_08474,calm_03806,calm_08691,calm_07395,calm_00245,calm_00964,calm_08725,calm_04652,calm_02784,calm_00314,calm_03877,calm_01491,calm_06806,calm_00156,calm_01483,calm_07762,calm_08713,calm_04221,calm_02801,calm_07474,calm_04282,calm_03433,calm_09418,calm_05442,calm_06605,calm_02289,calm_09576,calm_06456,calm_06633,calm_06470,calm_07709,calm_02724,calm_03221,calm_09371,calm_04051,calm_04581,calm_03711,calm_04697,calm_02522,calm_07819,calm_03939,calm_05361,calm_04145,calm_06498,calm_06383,calm_03976,calm_05077,calm_06494,calm_03858,calm_03965,calm_08730,calm_00108,calm_02687,calm_05953,calm_07519,calm_00260,calm_04580,calm_08923,calm_03969,calm_09982,calm_04756,calm_00481,calm_00307,calm_05338,calm_07824,calm_06593,calm_04384,calm_08082,calm_02620,calm_08904,calm_03555,calm_08878,calm_05910,calm_00790,calm_04162,calm_05522,calm_02319,calm_06105,calm_02537,calm_01124,calm_09428,calm_05819,calm_02796,calm_01265]
+    - eval_env.clips=[calm_06442,calm_05265,calm_08464,calm_00679,calm_00406,calm_01877,calm_08116,calm_06522,calm_06223,calm_09617,calm_05186,calm_06117,calm_05381,calm_06782,calm_08168,calm_05425,calm_08474,calm_03806,calm_08691,calm_07395,calm_00245,calm_00964,calm_08725,calm_04652,calm_02784,calm_00314,calm_03877,calm_01491,calm_06806,calm_00156,calm_01483,calm_07762,calm_08713,calm_04221,calm_02801,calm_07474,calm_04282,calm_03433,calm_09418,calm_05442,calm_06605,calm_02289,calm_09576,calm_06456,calm_06633,calm_06470,calm_07709,calm_02724,calm_03221,calm_09371,calm_04051,calm_04581,calm_03711,calm_04697,calm_02522,calm_07819,calm_03939,calm_05361,calm_04145,calm_06498,calm_06383,calm_03976,calm_05077,calm_06494,calm_03858,calm_03965,calm_08730,calm_00108,calm_02687,calm_05953,calm_07519,calm_00260,calm_04580,calm_08923,calm_03969,calm_09982,calm_04756,calm_00481,calm_00307,calm_05338,calm_07824,calm_06593,calm_04384,calm_08082,calm_02620,calm_08904,calm_03555,calm_08878,calm_05910,calm_00790,calm_04162,calm_05522,calm_02319,calm_06105,calm_02537,calm_01124,calm_09428,calm_05819,calm_02796,calm_01265]
+    - env.max_episode_length=1000
+    - eval_env.max_episode_length=1000
+    - env.velocity_kick=[0,0]
+    - env.reset_qpos=0
+    - env.reset_qvel=0
+    - train.num_timesteps=5242880
+    - train.num_envs=32
+    - train.batch_size=32
+    - train.num_eval_envs=1
+    - train.num_evals=2
+    - train.num_minibatches=4
+    - render_final=false
+    - seed=0
+  job:
+    name: train_rl_procedural
+    chdir: null
+    override_dirname: choice=00000011,env.clips=[calm_06442,calm_05265,calm_08464,calm_00679,calm_00406,calm_01877,calm_08116,calm_06522,calm_06223,calm_09617,calm_05186,calm_06117,calm_05381,calm_06782,calm_08168,calm_05425,calm_08474,calm_03806,calm_08691,calm_07395,calm_00245,calm_00964,calm_08725,calm_04652,calm_02784,calm_00314,calm_03877,calm_01491,calm_06806,calm_00156,calm_01483,calm_07762,calm_08713,calm_04221,calm_02801,calm_07474,calm_04282,calm_03433,calm_09418,calm_05442,calm_06605,calm_02289,calm_09576,calm_06456,calm_06633,calm_06470,calm_07709,calm_02724,calm_03221,calm_09371,calm_04051,calm_04581,calm_03711,calm_04697,calm_02522,calm_07819,calm_03939,calm_05361,calm_04145,calm_06498,calm_06383,calm_03976,calm_05077,calm_06494,calm_03858,calm_03965,calm_08730,calm_00108,calm_02687,calm_05953,calm_07519,calm_00260,calm_04580,calm_08923,calm_03969,calm_09982,calm_04756,calm_00481,calm_00307,calm_05338,calm_07824,calm_06593,calm_04384,calm_08082,calm_02620,calm_08904,calm_03555,calm_08878,calm_05910,calm_00790,calm_04162,calm_05522,calm_02319,calm_06105,calm_02537,calm_01124,calm_09428,calm_05819,calm_02796,calm_01265],env.max_episode_length=1000,env.reference_dir=/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/references/e0000,env.reset_qpos=0,env.reset_qvel=0,env.velocity_kick=[0,0],eval_env.clips=[calm_06442,calm_05265,calm_08464,calm_00679,calm_00406,calm_01877,calm_08116,calm_06522,calm_06223,calm_09617,calm_05186,calm_06117,calm_05381,calm_06782,calm_08168,calm_05425,calm_08474,calm_03806,calm_08691,calm_07395,calm_00245,calm_00964,calm_08725,calm_04652,calm_02784,calm_00314,calm_03877,calm_01491,calm_06806,calm_00156,calm_01483,calm_07762,calm_08713,calm_04221,calm_02801,calm_07474,calm_04282,calm_03433,calm_09418,calm_05442,calm_06605,calm_02289,calm_09576,calm_06456,calm_06633,calm_06470,calm_07709,calm_02724,calm_03221,calm_09371,calm_04051,calm_04581,calm_03711,calm_04697,calm_02522,calm_07819,calm_03939,calm_05361,calm_04145,calm_06498,calm_06383,calm_03976,calm_05077,calm_06494,calm_03858,calm_03965,calm_08730,calm_00108,calm_02687,calm_05953,calm_07519,calm_00260,calm_04580,calm_08923,calm_03969,calm_09982,calm_04756,calm_00481,calm_00307,calm_05338,calm_07824,calm_06593,calm_04384,calm_08082,calm_02620,calm_08904,calm_03555,calm_08878,calm_05910,calm_00790,calm_04162,calm_05522,calm_02319,calm_06105,calm_02537,calm_01124,calm_09428,calm_05819,calm_02796,calm_01265],eval_env.max_episode_length=1000,eval_env.reference_dir=/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/references/e0000,multi_design=false,render_final=false,seed=0,train.batch_size=32,train.num_envs=32,train.num_eval_envs=1,train.num_evals=2,train.num_minibatches=4,train.num_timesteps=5242880,uniforms=[0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5]
+    id: ???
+    num: ???
+    config_name: run_rl_procedural
+    env_set: {}
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: []
+  runtime:
+    version: 1.3.4
+    version_base: '1.2'
+    cwd: /home/cgr-ugrad-2026/quad_ws/codesign
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: /home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/config
+      schema: file
+      provider: main
+    - path: ''
+      schema: structured
+      provider: schema
+    output_dir: /home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/jobs/e0000/policy/hydra
+    choices:
+      env@eval_env: a1_track_eval
+      env: a1_track
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: custom
+      hydra/hydra_logging: default
+      hydra/hydra_help: default
+      hydra/help: default
+      hydra/sweeper: basic
+      hydra/launcher: basic
+      hydra/output: default
+  verbose: false

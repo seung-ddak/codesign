@@ -1,0 +1,433 @@
+env:
+  _target_: track_env.TrackMjxEnv
+  reference_dir: /home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/references/e0000
+  clips:
+  - calm_06442
+  - calm_05265
+  - calm_08464
+  - calm_00679
+  - calm_00406
+  - calm_01877
+  - calm_08116
+  - calm_06522
+  - calm_06223
+  - calm_09617
+  - calm_05186
+  - calm_06117
+  - calm_05381
+  - calm_06782
+  - calm_08168
+  - calm_05425
+  - calm_08474
+  - calm_03806
+  - calm_08691
+  - calm_07395
+  - calm_00245
+  - calm_00964
+  - calm_08725
+  - calm_04652
+  - calm_02784
+  - calm_00314
+  - calm_03877
+  - calm_01491
+  - calm_06806
+  - calm_00156
+  - calm_01483
+  - calm_07762
+  - calm_08713
+  - calm_04221
+  - calm_02801
+  - calm_07474
+  - calm_04282
+  - calm_03433
+  - calm_09418
+  - calm_05442
+  - calm_06605
+  - calm_02289
+  - calm_09576
+  - calm_06456
+  - calm_06633
+  - calm_06470
+  - calm_07709
+  - calm_02724
+  - calm_03221
+  - calm_09371
+  - calm_04051
+  - calm_04581
+  - calm_03711
+  - calm_04697
+  - calm_02522
+  - calm_07819
+  - calm_03939
+  - calm_05361
+  - calm_04145
+  - calm_06498
+  - calm_06383
+  - calm_03976
+  - calm_05077
+  - calm_06494
+  - calm_03858
+  - calm_03965
+  - calm_08730
+  - calm_00108
+  - calm_02687
+  - calm_05953
+  - calm_07519
+  - calm_00260
+  - calm_04580
+  - calm_08923
+  - calm_03969
+  - calm_09982
+  - calm_04756
+  - calm_00481
+  - calm_00307
+  - calm_05338
+  - calm_07824
+  - calm_06593
+  - calm_04384
+  - calm_08082
+  - calm_02620
+  - calm_08904
+  - calm_03555
+  - calm_08878
+  - calm_05910
+  - calm_00790
+  - calm_04162
+  - calm_05522
+  - calm_02319
+  - calm_06105
+  - calm_02537
+  - calm_01124
+  - calm_09428
+  - calm_05819
+  - calm_02796
+  - calm_01265
+  clip_boost: null
+  switch_prob: 0.0
+  switch_wait:
+  - 1.0
+  - 3.0
+  switch_window: 25
+  switch_min_remain: 50
+  switch_entry: match
+  switch_at: time
+  switch_ramp: true
+  switch_exclude: []
+  switch_forbid: []
+  max_episode_length: 1000
+  n_ctrl: 12
+  ctrl_dt: 0.02
+  sim_dt: 0.005
+  impratio: 1
+  solver_iterations: 5
+  solver_ls_iterations: 7
+  impl: jax
+  action_scale: 0.25
+  obs_time_indices:
+  - 0
+  - 2
+  - 4
+  - 6
+  - 8
+  clip_actions:
+  - -10.0
+  - 10.0
+  w_pose: 5.0
+  w_vel: 0.5
+  w_ee: 2.0
+  w_root_pose: 1.5
+  w_root_vel: 1.0
+  k_pose: 5.0
+  k_vel: 0.1
+  k_ee: 40.0
+  k_root_pos: 20.0
+  k_root_orn: 10.0
+  k_root_linvel: 2.0
+  k_root_angvel: 0.2
+  penalty_action_rate: -0.002
+  penalty_torque: -5.0e-05
+  penalty_joint_vel: -0.002
+  penalty_joint_acc: -5.0e-07
+  penalty_joint_pos_limit: -1.0
+  penalty_termination: -100.0
+  reward_nan_to_num: -10.0
+  reward_clip_positive: false
+  kick_wait_times:
+  - 1.0
+  - 3.0
+  kick_durations:
+  - 0.05
+  - 0.2
+  velocity_kick:
+  - 0
+  - 0
+  soft_joint_pos_limit_factor: 0.95
+  reset_qvel: 0
+  reset_qpos: 0
+  min_start_margin: 10
+  termination_fellover_threshold: 0.5
+  termination_pos_err_threshold: 0.5
+  termination_orn_err_threshold: 1.0
+  termination_pose_consecutive_steps: 25
+  obs_noise:
+    qpos: 0.001
+    qvel: 0.01
+    lin_vel: 0.02
+    ang_vel: 0.005
+    gravity: 0.005
+eval_env:
+  _target_: track_env.TrackMjxEnv
+  reference_dir: /home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/references/e0000
+  clips:
+  - calm_06442
+  - calm_05265
+  - calm_08464
+  - calm_00679
+  - calm_00406
+  - calm_01877
+  - calm_08116
+  - calm_06522
+  - calm_06223
+  - calm_09617
+  - calm_05186
+  - calm_06117
+  - calm_05381
+  - calm_06782
+  - calm_08168
+  - calm_05425
+  - calm_08474
+  - calm_03806
+  - calm_08691
+  - calm_07395
+  - calm_00245
+  - calm_00964
+  - calm_08725
+  - calm_04652
+  - calm_02784
+  - calm_00314
+  - calm_03877
+  - calm_01491
+  - calm_06806
+  - calm_00156
+  - calm_01483
+  - calm_07762
+  - calm_08713
+  - calm_04221
+  - calm_02801
+  - calm_07474
+  - calm_04282
+  - calm_03433
+  - calm_09418
+  - calm_05442
+  - calm_06605
+  - calm_02289
+  - calm_09576
+  - calm_06456
+  - calm_06633
+  - calm_06470
+  - calm_07709
+  - calm_02724
+  - calm_03221
+  - calm_09371
+  - calm_04051
+  - calm_04581
+  - calm_03711
+  - calm_04697
+  - calm_02522
+  - calm_07819
+  - calm_03939
+  - calm_05361
+  - calm_04145
+  - calm_06498
+  - calm_06383
+  - calm_03976
+  - calm_05077
+  - calm_06494
+  - calm_03858
+  - calm_03965
+  - calm_08730
+  - calm_00108
+  - calm_02687
+  - calm_05953
+  - calm_07519
+  - calm_00260
+  - calm_04580
+  - calm_08923
+  - calm_03969
+  - calm_09982
+  - calm_04756
+  - calm_00481
+  - calm_00307
+  - calm_05338
+  - calm_07824
+  - calm_06593
+  - calm_04384
+  - calm_08082
+  - calm_02620
+  - calm_08904
+  - calm_03555
+  - calm_08878
+  - calm_05910
+  - calm_00790
+  - calm_04162
+  - calm_05522
+  - calm_02319
+  - calm_06105
+  - calm_02537
+  - calm_01124
+  - calm_09428
+  - calm_05819
+  - calm_02796
+  - calm_01265
+  clip_boost: null
+  switch_prob: 0.0
+  switch_wait:
+  - 1.0
+  - 3.0
+  switch_window: 25
+  switch_min_remain: 50
+  switch_entry: match
+  switch_at: time
+  switch_ramp: true
+  switch_exclude: []
+  switch_forbid: []
+  max_episode_length: 1000
+  n_ctrl: 12
+  ctrl_dt: 0.02
+  sim_dt: 0.005
+  impratio: 1
+  solver_iterations: 5
+  solver_ls_iterations: 7
+  impl: jax
+  action_scale: 0.25
+  obs_time_indices:
+  - 0
+  - 2
+  - 4
+  - 6
+  - 8
+  clip_actions:
+  - -10.0
+  - 10.0
+  w_pose: 5.0
+  w_vel: 0.5
+  w_ee: 2.0
+  w_root_pose: 1.5
+  w_root_vel: 1.0
+  k_pose: 5.0
+  k_vel: 0.1
+  k_ee: 40.0
+  k_root_pos: 20.0
+  k_root_orn: 10.0
+  k_root_linvel: 2.0
+  k_root_angvel: 0.2
+  penalty_action_rate: -0.002
+  penalty_torque: -5.0e-05
+  penalty_joint_vel: -0.002
+  penalty_joint_acc: -5.0e-07
+  penalty_joint_pos_limit: -1.0
+  penalty_termination: -100.0
+  reward_nan_to_num: -10.0
+  reward_clip_positive: false
+  kick_wait_times:
+  - 1.0
+  - 3.0
+  kick_durations:
+  - 0.05
+  - 0.2
+  velocity_kick:
+  - 0.0
+  - 0.0
+  soft_joint_pos_limit_factor: 0.95
+  reset_qvel: 0.0
+  reset_qpos: 0.0
+  min_start_margin: 10
+  termination_fellover_threshold: 0.5
+  termination_pos_err_threshold: 100
+  termination_orn_err_threshold: 100
+  termination_pose_consecutive_steps: ${.max_episode_length}
+  obs_noise:
+    qpos: 0.001
+    qvel: 0.01
+    lin_vel: 0.02
+    ang_vel: 0.005
+    gravity: 0.005
+kp: null
+restore_ckpt: null
+tau_scale: null
+torque_limit: 33.5
+choice: '00000011'
+uniforms:
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+- 0.5
+multi_design: false
+train_designs:
+- e000
+- e001
+- e002
+eval_designs:
+- e003
+design_unlock_steps:
+- 0
+- 3000
+- 9000
+rollout_dir: null
+wandb:
+  tags: null
+seed: 0
+render_final: false
+full_reset: true
+train:
+  _convert_: all
+  _target_: t2.mjx_env.train.train
+  num_timesteps: 5242880
+  num_evals: 2
+  num_eval_envs: 1
+  reward_scaling: 1.0
+  clipping_epsilon: 0.2
+  episode_length: ${env.max_episode_length}
+  normalize_observations: true
+  action_repeat: 1
+  unroll_length: 24
+  num_minibatches: 4
+  num_updates_per_batch: 8
+  discounting: 0.99
+  learning_rate: 0.001
+  entropy_cost: 0.01
+  gae_lambda: 0.95
+  num_envs: 32
+  batch_size: 32
+  max_grad_norm: 1.0
+  deterministic_eval: true
+  log_training_metrics: false
+  training_metrics_steps: null
+  seed: ${seed}
+  network_factory:
+    _partial_: true
+    _target_: brax.training.agents.ppo.networks.make_ppo_networks
+    state_dependent_std: false
+    init_noise_std: 1.0
+    noise_std_type: scalar
+    distribution_type: normal
+    activation:
+      _target_: flax.linen.elu
+      _partial_: true
+    policy_hidden_layer_sizes:
+    - 256
+    - 128
+    - 64
+    value_hidden_layer_sizes:
+    - 256
+    - 128
+    - 64

@@ -127,7 +127,7 @@ def prepare_reference(source,destination):
         root=z['root'];ts=z['time'];q=z['q'];names=z['joint_names'].tolist()
         if root.shape!=(len(ts),13) or q.shape!=(len(ts),12) or not np.all(np.isfinite(root)) or not np.all(np.isfinite(q)):
             raise ValueError('invalid source trace')
-        td=np.arange(round(float(ts[-1])/.02)+1)*.02
+        td=np.arange(round(float(ts[-1])*30)+1)/30
         if not np.all(np.diff(ts)>0) or not np.isclose(ts[-1],10 if len(ts)==301 else 20):raise ValueError('invalid time axis')
         order=[names.index(leg+'_'+joint+'_joint') for leg in ['FR','FL','RR','RL'] for joint in ['hip','thigh','calf']]
         angles=np.stack([np.interp(td,ts,q[:,j]) for j in order],axis=1)
@@ -136,7 +136,7 @@ def prepare_reference(source,destination):
         near=np.minimum(np.round(td*30).astype(int),len(ts)-1)
         foot=np.stack([np.stack([np.interp(td,ts,z['foot_pos'][:,f,j]) for j in range(3)],axis=1) for f in range(4)],axis=1)
         save_rollout(destination,dict(fix_q=angles,fix_base_pos=pos,fix_base_quat=quat,fix_foot_pos=foot-[0,0,.02],
-                                    fix_contact=z['foot_floor_contact'][near],dt=.02,source_motion=str(source),source_sha256=digest(source)))
+                                    fix_contact=z['foot_floor_contact'][near],dt=1/30,source_motion=str(source),source_sha256=digest(source)))
 
 
 def main():

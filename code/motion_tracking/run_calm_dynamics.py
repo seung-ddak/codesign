@@ -13,7 +13,7 @@ def save(path,value):
 
 
 def command(args,log):
-    env=os.environ.copy();env.update(WANDB_MODE='offline',WANDB_SILENT='true',XLA_PYTHON_CLIENT_PREALLOCATE='false',MUJOCO_GL='egl')
+    env=os.environ.copy();env.update(WANDB_MODE='offline',WANDB_SILENT='true',XLA_PYTHON_CLIENT_PREALLOCATE='false',XLA_PYTHON_CLIENT_MEM_FRACTION='0.35',MUJOCO_GL='egl')
     with log.open('a') as f:subprocess.run([str(x) for x in args],cwd=ROOT,env=env,stdout=f,stderr=subprocess.STDOUT,check=True)
 
 
@@ -30,6 +30,8 @@ def retarget(manifest,design,out):
         if digest(path)!=motion['sha256']:raise ValueError('source motion changed')
         name='calm_%05d'%i;names.append(name);dest=source/(name+'.npz')
         if not dest.exists():prepare_reference(path,dest)
+        with np.load(dest) as z:
+            if not np.isclose(float(z['dt']),1/30):raise ValueError('source reference must be 30Hz; use a separate output directory')
     missing=[]
     for name in names:
         path=target/(name+'.npz')
@@ -49,6 +51,8 @@ def retarget(manifest,design,out):
     for name in names:
         path=target/(name+'.npz');check_reference(path,design['E'],low,high)
         with np.load(path) as z:
+            if not np.isclose(float(z['dt']),1/30):raise ValueError('retargeted reference must be 30Hz')
+        with np.load(path) as z:
             metrics.append(dict(motion=name,foot_error_m=float(z['fix_track_err']),inverse_bad_fraction=float(z['inv_bad_frac']),frames=len(z['fix_q']),sha256=digest(path)))
     save(refs/'metrics.json',metrics)
     return target
@@ -58,9 +62,13 @@ def train_arguments(design,refs,run,steps):
     clips=['calm_%05d'%i for i in design['common']+design['extra']];array='['+','.join(clips)+']'
     return [sys.executable,'-u',CODE/'train_rl_procedural.py','multi_design=false','choice=00000011',
             'uniforms='+json.dumps(design['E'],separators=(',',':')),f'env.reference_dir={refs.parent}',f'eval_env.reference_dir={refs.parent}',
-            'env.clips='+array,'eval_env.clips='+array,'env.max_episode_length=1000','eval_env.max_episode_length=1000',
-            'env.velocity_kick=[0,0]','env.reset_qpos=0','env.reset_qvel=0',f'train.num_timesteps={steps}','train.num_envs=256',
-            'train.batch_size=256','train.num_eval_envs=8','train.num_evals=2','train.num_minibatches=4','render_final=false','seed=0',f'hydra.run.dir={run}/hydra']
+            'env.clips='+array,'eval_env.clips='+array,'env.max_episode_length=600','eval_env.max_episode_length=600',
+            'env.ctrl_dt='+str(1/30),'eval_env.ctrl_dt='+str(1/30),
+            'env.sim_dt='+str(1/240),'eval_env.sim_dt='+str(1/240),
+            'env.obs_time_indices=[0,1,2,4,5]','eval_env.obs_time_indices=[0,1,2,4,5]',
+            'env.termination_pose_consecutive_steps=15',
+            'env.velocity_kick=[0,0]','env.reset_qpos=0','env.reset_qvel=0',f'train.num_timesteps={steps}','train.num_envs=32',
+            'train.batch_size=32','train.num_eval_envs=1','train.num_evals=2','train.num_minibatches=4','render_final=false','seed=0',f'hydra.run.dir={run}/hydra']
 
 
 def checkpoints(run):
