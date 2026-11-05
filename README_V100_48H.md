@@ -179,3 +179,45 @@ NPZ의 `qpos/qvel/contact`는 T+1개 상태, `action/target_q/valid`는 T개 전
 `complete`는 배정된 실행 조건과 학습량·원본 노출·파일 검사를 충족했다는 뜻이며, 정밀 추종이나 충분한 TT 품질을 보장하지 않습니다. 형상별 `collection_pass`와 실제 목표 시간 커버리지도 확인하세요.
 
 TT 로더는 유효 전이가 2개 미만인 episode를 사용하지 않습니다. 원본 커버리지도 이 기준으로 계산합니다. 1개 전이만 기록된 실패도 원본 파일에는 보존하지만 충분한 원본 확보로 세지 않습니다. 최종 audit에는 TT 사용 가능 episode 수와 1초 이상 전이가 기록된 episode 수도 남깁니다.
+
+
+## 추종 개선 검증용 실행
+
+`shared_calm_v100_pilot.yaml`의 2,048개 전이는 기능 확인용입니다. 그 결과만으로 추종 정책의 수렴을 판단하지 마세요. `configs/shared_calm_tracking_repair.yaml`은 참고 모션을 기본 목표로 사용하고 PPO가 잔여 보정을 학습하는 **별도 검증 설정**입니다. 기존 48시간 설정과 낙상·추종 보상은 바꾸지 않습니다.
+
+| 항목 | 검증 설정 |
+|---|---|
+| 학습 형상 / 검증 형상 / 원본 모션 | 2개 / 1개 / 4개 |
+| 학습량 / 병렬 환경 | 262,144개 전이 / 32개 |
+| 관절 목표 | 다음 참고 관절각 + 0.25 × 정책 보정 |
+| 초기 정책 평균 / 탐색 표준편차 | 0 / 0.2 |
+| 탐색 가중치 | 0.001 |
+| 제어 / 물리 주기 | 30Hz / 240Hz |
+| 실행 시간 상한 | 총 2시간, 수렴·소요 시간 보장 아님 |
+
+초기 정책 평균이 0이므로 학습 전에는 참고 관절각을 기본으로 따라갑니다. 이 설정으로도 낙상할 수 있으며, 성능 개선은 아직 검증하지 않았습니다. 학습량·행동 기준·탐색 설정을 함께 변경하므로 단일 원인만 검증하는 비교는 아닙니다.
+
+`codesign` 폴더에서 실행합니다. 새 결과 폴더를 사용하세요. 기존 파일럿 체크포인트는 초기 행동의 의미가 달라 재사용하지 않습니다.
+
+```bash
+PYTHON=../transformer-transformer/.venv/bin/python
+"$PYTHON" code/motion_tracking/shared_calm.py init \
+  --config configs/shared_calm_tracking_repair.yaml \
+  --out runs/shared_calm_tracking_repair_v1
+nohup "$PYTHON" -u code/motion_tracking/shared_calm.py run \
+  --out runs/shared_calm_tracking_repair_v1 \
+  > runs/shared_calm_tracking_repair_v1/console.log 2>&1 &
+echo $! > runs/shared_calm_tracking_repair_v1/runner.pid
+```
+
+`init`로 이미 준비된 폴더는 다시 초기화하지 말고 `run`부터 실행하세요. 로컬의 V100 이외 GPU에서 검증하려면 `run`에 `--allow-other-gpu`를 추가합니다. 메모리 설정과 저장·재개 절차는 기존 실행기와 동일합니다.
+
+```bash
+# 현재 학습 기록
+tail -f runs/shared_calm_tracking_repair_v1/logs/train_000.log
+# 한국어 대시보드
+"$PYTHON" code/motion_tracking/shared_calm_dashboard.py serve \
+  --out runs/shared_calm_tracking_repair_v1 --port 8765
+```
+
+수집 파일의 `action`은 참고 자세에 더한 보정이고 `target_q`는 실제로 모터에 전달한 절대 목표입니다. TT의 행동 데이터에는 실제 목표인 `target_q`를 사용합니다. 데이터 추출이 완료됐더라도 `tracking_pass_count`, 관절·몸통 오차, 낙상률과 시간 구간 커버리지를 확인한 뒤 큰 형상·모션 범위로 확장하세요.

@@ -87,9 +87,13 @@ class TrackMjxEnv(MjxEnv):
         switch_at: Literal["time", "end"] = "time",
         switch_ramp: bool = True,
         switch_vel_weight: float = 0.0,
+        action_reference: Literal["home", "reference"] = "home",
     ):
         super().__init__(ctrl_dt, sim_dt)
         self.max_episode_length = max_episode_length
+        if action_reference not in ("home", "reference"):
+            raise ValueError("action_reference must be home or reference")
+        self.action_reference = action_reference
         self.action_scale = action_scale
         self.obs_time_indices = sorted(obs_time_indices)
         self.clip_actions = clip_actions
@@ -396,13 +400,23 @@ class TrackMjxEnv(MjxEnv):
         info["up_vec"] = math.rotate(jnp.array([0.0, 0.0, 1.0]), data.xquat[self._base_idx])
         return info, terms
 
+    def action_target(self, action: jax.Array, info: dict) -> jax.Array:
+        """Absolute motor targets; optional reference tracking plus learned residual."""
+        center = self.action_offset
+        if self.action_reference == "reference":
+            hold = (info.get("sw_left", 0) > 0) & (self.switch_entry == "start")
+            frame = jnp.minimum(info["frame"]+jnp.where(hold,0,1), info["clip_end"]-1)
+            center = center.at[:self.n_ctrl].set(self.ref_qpos[frame,7:7+self.n_ctrl])
+        residual = jnp.clip(action,*self.clip_actions)*self.action_scale
+        return center.at[:self.n_ctrl].add(residual)
+
     def step(self, state: State, action: jax.Array) -> State:
         action = jnp.clip(action, self.clip_actions[0], self.clip_actions[1])
         state = self._maybe_apply_kick(state)
         data = step(
             model=self.mjx_model,
             data=state.data,
-            action=self.action_offset.at[: self.n_ctrl].add(action * self.action_scale),
+            action=self.action_target(action, state.info),
             n_substeps=self.n_substeps,
         )
         data_is_nan = jnp.any(jnp.array([jnp.isnan(x).any() for x in jax.tree_util.tree_leaves(data)]))

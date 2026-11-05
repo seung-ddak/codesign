@@ -54,11 +54,11 @@ def main():
                 alive=valid&~falling
             else:
                 q=rec['qpos'][-1];v=rec['qvel'][-1];touch=rec['contact'][-1];action=np.zeros((batch,12));alive[:]=False
-            applied=np.clip(action,*env.clip_actions);target=np.asarray(env.action_offset[:12])+applied*env.action_scale
+            applied=np.clip(action,*env.clip_actions);target=np.asarray(s.data.ctrl)[:,:12]
             for k,value in [('qpos',q),('qvel',v),('contact',touch),('action',applied),('target_q',target),('valid',valid),('clip',selected),('ref_frame',frame)]:rec[k].append(np.nan_to_num(np.asarray(value)))
         data={k:np.stack(values,axis=1) for k,values in rec.items()};batchids=np.array(ids)[selected]
         data.update(source_motion_id=batchids,group_id=np.array([hashes[int(i)] for i in batchids]),motions=np.array(names)[selected],start_frame=rel,fell=fell,termination=termination,
-                    tracking_joint_rmse_rad=np.sqrt(joint/np.maximum(counts,1)),tracking_root_rmse_m=np.sqrt(root/np.maximum(counts,1)),E=np.array(design['E']),dt=1/30,design=a.design,mode='shared_ppo_reference',start_variant=a.variant,checkpoint=checkpoint['path'],policy_step=checkpoint['step'])
+                    tracking_joint_rmse_rad=np.sqrt(joint/np.maximum(counts,1)),tracking_root_rmse_m=np.sqrt(root/np.maximum(counts,1)),E=np.array(design['E']),dt=1/30,design=a.design,mode='shared_ppo_reference',start_variant=a.variant,checkpoint=checkpoint['path'],policy_step=checkpoint['step'],action_reference=env.action_reference)
         data['tracking_pass']=(data['valid'].sum(1)==length)&~fell&(np.rad2deg(data['tracking_joint_rmse_rad'])<=5)&(data['tracking_root_rmse_m']<=.03)
         pieces.append({k:v[:count] if k in episode_keys else v for k,v in data.items()})
         print(f'{a.design} 시작조건 {a.variant}: {min(offset+batch,len(ids))}/{len(ids)} 완료',flush=True)

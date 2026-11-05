@@ -158,8 +158,10 @@ def main():
             return jax.vmap(lambda f: ((((geom[:, 0] == f) & (geom[:, 1] == floor)) | ((geom[:, 1] == f) & (geom[:, 0] == floor)))
                                        & (dist <= 1e-3)).any())(feet)
 
+        env.action_reference = "home"
         @jax.jit
         def step(s, target):
+            # Scripted PD targets are absolute and use the legacy home-relative API.
             action = (target - env.action_offset[:n]) / env.action_scale
             s = jax.vmap(env.step)(s, action)
             return s, action, jax.vmap(contact)(s.data)

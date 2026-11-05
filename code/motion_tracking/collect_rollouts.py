@@ -155,7 +155,7 @@ B = args.episodes
 rng = jax.random.PRNGKey(args.seed)
 rng, k0 = jax.random.split(rng)
 s, c = reset(jax.random.split(k0, B), jnp.arange(B) % len(motions))
-rec = {k: [] for k in ("qpos", "qvel", "contact", "action", "clip", "ref_frame", "switched", "next_clip", "valid")}
+rec = {k: [] for k in ("qpos", "qvel", "contact", "action", "target_q", "clip", "ref_frame", "switched", "next_clip", "valid")}
 rec["qpos"].append(s.data.qpos)
 rec["qvel"].append(s.data.qvel)
 rec["contact"].append(c)
@@ -166,7 +166,7 @@ for t in range(T):
     s, a, c, clip, frame, next_clip, still = step(s, jax.random.split(k, B), alive)
     if bool((alive & (s.info["state_is_nan"] != 0)).any()):
         raise FloatingPointError("Invalid physics step; rollout was not saved")
-    for key, v in (("qpos", s.data.qpos), ("qvel", s.data.qvel), ("contact", c), ("action", a), ("clip", clip),
+    for key, v in (("qpos", s.data.qpos), ("qvel", s.data.qvel), ("contact", c), ("action", a), ("target_q", s.data.ctrl[:,:n]), ("clip", clip),
                    ("ref_frame", frame), ("switched", next_clip != clip), ("next_clip", next_clip), ("valid", alive)):
         rec[key].append(v)
     fell |= alive & (s.info["done/fellover"] != 0)
@@ -174,7 +174,6 @@ for t in range(T):
     if not bool(alive.any()):
         break
 out = {k: np.asarray(jnp.stack(v, 1)) for k, v in rec.items()}
-out["target_q"] = np.asarray(env.action_offset[:n]) + np.clip(out["action"], *env.clip_actions) * env.action_scale
 out.update(fell=np.asarray(fell), E=np.asarray(uniforms), motions=np.array(motions), dt=env.dt, design=args.design, mode=args.mode,
            contact_definition="foot_floor",
            clip_start=np.asarray(env.clip_start), clip_end=np.asarray(env.clip_end), seed=args.seed,

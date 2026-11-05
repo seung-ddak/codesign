@@ -55,7 +55,7 @@ def main():
             valid=alive&(t<lengths);frame=np.asarray(s.info['frame']);rng,key=jax.random.split(rng)
             s,action=step(s,jax.random.split(key,b));q=np.asarray(s.data.qpos);v=np.asarray(s.data.qvel);action=np.asarray(action)
             if not np.isfinite(q[valid]).all() or not np.isfinite(v[valid]).all() or not np.isfinite(action[valid]).all():raise FloatingPointError('nonfinite valid transition; no rollout saved')
-            applied=np.clip(action,*env.clip_actions);target=np.asarray(env.action_offset[:n])+applied*np.asarray(env.action_scale)
+            applied=np.clip(action,*env.clip_actions);target=np.asarray(s.data.ctrl)[:,:n]
             for k,value in [('qpos',q),('qvel',v),('contact',contact(s.data)),('action',applied),('target_q',target),('valid',valid),('clip',clips),('ref_frame',frame)]:rec[k].append(np.nan_to_num(np.asarray(value)))
             joint_error+=np.where(valid,np.asarray(s.metrics['err/pose'])/n,0)
             root_error+=np.where(valid,np.asarray(s.metrics['err/root_pos']),0);counts+=valid

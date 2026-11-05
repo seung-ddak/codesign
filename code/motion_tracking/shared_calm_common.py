@@ -76,6 +76,8 @@ def load_config(path):
     if not 0<c['pool_fraction']<1:raise ValueError('Memory pool fraction must be between zero and one')
     if c['physics_hz']!=8*c['control_hz'] or c['control_hz']!=30:raise ValueError('Expected 30Hz control / 240Hz physics')
     if c['batch_size']*c['num_minibatches']%c['num_envs']:raise ValueError('Invalid PPO batch divisibility')
+    if c.get('action_reference','home') not in ('home','reference'):raise ValueError('Invalid action reference')
+    if not math.isfinite(c.get('init_noise_std',1.)) or c.get('init_noise_std',1.)<=0:raise ValueError('Positive finite exploration std required')
     if c['rollouts_per_pair']!=2:raise ValueError('Two distinct starts are implemented')
     return c
 

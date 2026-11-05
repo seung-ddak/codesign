@@ -1,0 +1,35 @@
+# Small tracking repair experiment; keep the reward and fall penalty unchanged.
+version: 1
+seed: 20261105
+hours: 2
+phase_hours:
+  prepare: 0.2
+  train: 1.4
+  collect: 0.3
+  verify: 0.1
+train_designs: 2
+eval_designs: 1
+source_motions: 4
+morphologies_per_motion: 2
+rollouts_per_pair: 2
+resident_designs: 2
+num_envs: 32
+batch_size: 32
+rollout_batch: 4
+train_transitions: 262144
+unroll_length: 16
+num_minibatches: 4
+num_updates_per_batch: 4
+learning_rate: 0.0003
+entropy_cost: 0.001
+checkpoint_steps: 65536
+control_hz: 30
+physics_hz: 240
+pool_fraction: 0.35
+reserve_disk_gb: 1
+train_sweeps: 1
+prepare_workers: 2
+metrics_steps: 4096
+action_reference: reference
+init_noise_std: 0.2
+zero_mean_init: true
