@@ -104,9 +104,7 @@ def replay(e, trajectory):
         if not np.isfinite(data.qpos).all() or not np.isfinite(data.qvel).all():
             break
         contact = floor_contacts(model, data, feet, floor)
-        out[t, :42] = features(
-            np.stack([data.qpos]), np.stack([data.qvel]), np.stack([contact]))[0] if t == 0 else 0
-        # features() is anchored to its first argument; compute the whole trajectory at end.
+        # Compute heading-frame features from all accumulated physical states below.
         valid[t] = True
         if 1-2*(data.qpos[4]**2+data.qpos[5]**2) < .5 or data.qpos[2] < .07:
             break
@@ -141,7 +139,8 @@ def replay(e, trajectory):
         out[:n, 42:] = actions[:n]
     return out, valid, dict(initial_valid=True, valid_seconds=n*DT, fell=n<STEPS,
                             final_distance_m=float(np.linalg.norm(out[max(n-1,0), :2])),
-                            forward_m=float(out[max(n-1,0), 0]))
+                            forward_m=float(out[max(n-1,0), 0]),
+                            mean_forward_speed_m_s=float(out[max(n-1,0), 0]/max(n*DT, DT)))
 
 
 def main():
@@ -202,11 +201,15 @@ def main():
                     score, terms = reward(torch.tensor(actual[None]), torch.tensor(mask[None]))
                     score = float(score[0])
                     terms = {k:float(v[0]) for k,v in terms.items()}
+                    if metadata.get('fell', False):
+                        score -= 20.0
+                        terms['early_termination_penalty'] = 20.0
                 else:
                     score, terms = None, {}
             rows.append(dict(candidate=i, morphology=E.tolist(),
                              reward=score, reward_terms=terms, **metadata,
-                             task_progress=(terms.get("r_progress") if score is not None else None)))
+                             task_progress=(terms.get("r_progress") * reward.unit_scale if score is not None else None),
+                             progress_unit=reward.unit))
         np.savez_compressed(args.out / f"scale_{scale:g}.npz",
                             pred=pp, E=ee, mujoco=np.stack(physical),
                             valid=np.stack(masks))
