@@ -43,7 +43,7 @@ def make_plan(source, out, *, seed=20261108):
 
 
 def contact_flags(model, data, feet, floor):
-    flags = np.zeros(4, dtype=np.float32)
+    flags = np.zeros(4, dtype=bool)
     for c in data.contact[:data.ncon]:
         if c.dist > 1e-3:
             continue
@@ -51,7 +51,7 @@ def contact_flags(model, data, feet, floor):
             flags |= np.asarray([c.geom2 == f for f in feet], dtype=bool)
         elif c.geom2 == floor:
             flags |= np.asarray([c.geom1 == f for f in feet], dtype=bool)
-    return flags
+    return flags.astype(np.float32)
 
 
 def reference_targets(ref, start, count):
