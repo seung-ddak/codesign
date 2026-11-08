@@ -44,6 +44,8 @@ def main():
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--candidates", type=int, default=4)
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--allow-mismatch", action="store_true",
+                   help="descriptive physical comparison only; not matched architecture/diffusion")
     a=p.parse_args()
     if a.out.exists():
         p.error("Use a new output directory to preserve prior comparisons")
@@ -56,8 +58,10 @@ def main():
     # A different number of optimizer updates/source-data-physics remains a confound.
     compatibility={k:configs["new_10k"][k]==configs["old_small"][k]
                    for k in ("horizon","diff_steps","d_model","layers","film","norm","clip","pose")}
+    if not all(compatibility.values()) and not a.allow_mismatch:
+        raise ValueError(f"Architecture / diffusion mismatch: {compatibility}; add --allow-mismatch for an explicitly confounded descriptive comparison")
     if not all(compatibility.values()):
-        raise ValueError(f"Architecture / diffusion mismatch: {compatibility}")
+        print("WARNING: UNMATCHED architecture/diffusion settings; report as descriptive only:", compatibility, flush=True)
     a.out.mkdir(parents=True)
     results=[]
     for task in ("zigzag","circle","straight"):
@@ -76,6 +80,7 @@ def main():
                   old_sha256=hashlib.sha256(old.read_bytes()).hexdigest(),
                   new_sha256=hashlib.sha256(new.read_bytes()).hexdigest(),
                   model_settings=configs,compatibility=compatibility,
+                  architecture_controlled=all(compatibility.values()),
                   warning="PD vs PPO, CPU vs MJX dataset physics, and unequal optimizer budgets may confound attribution to dataset size",
                   results=results)
     (a.out/"comparison.json").write_text(json.dumps(protocol,ensure_ascii=False,indent=2))
