@@ -34,7 +34,7 @@ def joint_diffusion_full_reward(
     mu, sd, beta, abar, emu=0.5, esd=0.5,
     guidance_scale=1.0, clip=1.0, seed=0, no_guide_s=False, s_gradient_scale=1.0,
     e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12), s0_fn=None,
-    denoising_policy=None
+    denoising_policy=None, fixed_prediction_cache=None
 ):
     """Return (trajectory[B,episode_states,S+A], E[B,e_dim], audit).
 
@@ -143,14 +143,28 @@ def joint_diffusion_full_reward(
             raise RuntimeError("joint diffusion window assembly inconsistent")
         return trajectory, epsilon_x, first_epsilon, x0_parts, masks
 
-    for k in reversed(range(len(beta))):
+    if fixed_prediction_cache is not None and guidance_scale != 0:
+        raise ValueError('fixed TT prediction requires guidance_scale=0')
+    steps = [len(beta)-1] if fixed_prediction_cache is not None else reversed(range(len(beta)))
+    for k in steps:
         with torch.enable_grad() if guidance_scale > 0 else torch.no_grad():
             xts = [x.detach().requires_grad_(guidance_scale > 0) for x in xs]
             et = e.detach().requires_grad_(guidance_scale > 0)
-            traj, epsx, epse, x_parts, masks = decode(xts, et, k)
+            if fixed_prediction_cache is None:
+                traj, epsx, epse, x_parts, masks = decode(xts, et, k)
+            else:
+                cache = fixed_prediction_cache
+                if 'decoded' not in cache:
+                    cache['inputs'] = ([x.detach().clone() for x in xts], et.detach().clone())
+                    cache['decoded'] = decode(xts, et, k)
+                    cache['tt_prediction_passes'] = 1
+                old_x, old_e = cache['inputs']
+                if len(old_x) != len(xts) or not torch.equal(old_e, et) or any(not torch.equal(a,b) for a,b in zip(old_x,xts)):
+                    raise ValueError('fixed TT prediction requires identical initial noise and candidate batch')
+                traj, epsx, epse, x_parts, masks = cache['decoded']
             ce, cx = torch.zeros_like(et), [torch.zeros_like(x) for x in xts]
             if denoising_policy is not None:
-                ce, cx = denoising_policy(xts, et, k)
+                ce, cx = denoising_policy(xts, et, 0 if fixed_prediction_cache is not None else k)
                 if ce.shape != et.shape or len(cx) != len(xts) or any(c.shape != x.shape for c, x in zip(cx, xts)):
                     raise ValueError('RL correction shapes do not match diffusion latents')
                 if not all(torch.isfinite(c).all() for c in [ce] + list(cx)):
@@ -189,7 +203,7 @@ def joint_diffusion_full_reward(
                 gx = [torch.zeros_like(xt) for xt in xts]
 
             ab = abar[k]
-            prev = abar[k - 1] if k else torch.ones_like(ab)
+            prev = abar[k - 1] if k and fixed_prediction_cache is None else torch.ones_like(ab)
             sqrt_nm = (1 - ab).sqrt()
             # Classifier/reward guidance directly changes E's reverse diffusion
             # epsilon, not an already-decoded E after generation.
@@ -237,7 +251,8 @@ def joint_diffusion_full_reward(
         "s_gradient_scale": float(effective_s_scale),
         "s0_source": "generated (Mode 4)" if s0_fn is None else "s0_fn(E) rest stance (Mode 2 only)",
         "windows": len(windows),
-        "diffusion_steps": len(beta),
+        "diffusion_steps": 1 if fixed_prediction_cache is not None else len(beta),
+        "fixed_tt_prediction": fixed_prediction_cache is not None,
         "e_gradient_norm_per_step": grad_e_norms,
         "s_gradient_norm_per_step": grad_s_norms,
         "a_gradient_norm_per_step": grad_a_norms,

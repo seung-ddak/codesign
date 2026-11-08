@@ -10,7 +10,7 @@ for p in gitpaths('--others','--ignored','--exclude-standard'):
  if n.startswith(snapshot_exclude):continue
  if any(x in n.split('/') for x in ['.git','.venv','__pycache__','.pytest_cache','jax_cache','logs','tmp']) or n.startswith(('outputs/','.runtime/','portability/')) or n.endswith(('.pyc','.zip','.mjb','.wandb','.tmp','.sock')) or n.endswith(('/collection.lock','/queue.lock','/runner.lock')) or '/files/media/' in n:continue
  if p.is_file() and not p.is_symlink():selected.add(p)
-for parent in [root/'transformer-transformer',root/'external/a1-calm-main']:
+for parent in [root/'transformer-transformer',root/'external/a1-calm-main',root/'quad/rsl_rl']:
  for directory,dirs,files in os.walk(parent):
   here=Path(directory)
   dirs[:]=[d for d in dirs if d not in {'.git','.venv','__pycache__','.pytest_cache','jax_cache','wandb','outputs','node_modules'} and not (here==root/'transformer-transformer' and (d=='checkpoints' or d.startswith('umi_on_legs_plus_plus_')))]

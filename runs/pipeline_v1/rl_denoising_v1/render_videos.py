@@ -33,22 +33,28 @@ def track_segments(reward, q0, length=2.):
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--experiment-root',type=Path,default=ROOT)
+    parser.add_argument('--tasks', nargs='+', choices=['zigzag','circle'], default=['zigzag','circle'])
+    parser.add_argument('--zigzag-run', type=Path)
+    parser.add_argument('--candidates', type=int, nargs='+', default=[0,1])
     args=parser.parse_args()
     root=args.experiment_root.resolve()
     videos=root/'videos'
     videos.mkdir(exist_ok=True)
     option=mujoco.MjvOption()
     option.geomgroup[:]=1
-    for task in ('zigzag','circle'):
+    for task in args.tasks:
         run=root/f'validated_{task}_seed0'
         if not run.exists():
             run=root/f'{task}_seed0'
+        if task=='zigzag' and args.zigzag_run is not None:
+            run=args.zigzag_run.resolve()
         protocol=json.loads((run/'protocol.json').read_text())
         summary=json.loads((run/'summary.json').read_text())['rl_after']['rows']
         reward=ZigzagReward() if task=='zigzag' else TrackReward()
         with np.load(run/'rl_after.npz') as archive:
             states=archive['pred'].shape[1]
-            for candidate,row in enumerate(summary[:2]):
+            for candidate in args.candidates:
+                row=summary[candidate]
                 model=build_task_model(archive['E'][candidate])
                 model.vis.global_.offwidth,model.vis.global_.offheight=960,544
                 qs=archive[f'qpos_{candidate}']
@@ -62,20 +68,25 @@ def main():
                 path=videos/f'{task}_candidate{candidate}_rl_track.mp4'
                 with mujoco.Renderer(model,height=544,width=960) as renderer:
                     with imageio.get_writer(path,fps=25,codec='libx264',quality=8) as writer:
+                        last_pose = None
                         for t in range(0,states,2):
-                            data.qpos[:]=qs[min(t,len(qs)-1)]
-                            mujoco.mj_forward(model,data)
-                            renderer.update_scene(data,camera=camera,scene_option=option)
-                            assert renderer.scene.ngeom+len(segments)<=renderer.scene.maxgeom
-                            for a,b,color in segments:
-                                geom=renderer.scene.geoms[renderer.scene.ngeom]
-                                mujoco.mjv_initGeom(geom,mujoco.mjtGeom.mjGEOM_CAPSULE,np.zeros(3),np.zeros(3),np.eye(3).flatten(),color)
-                                mujoco.mjv_connector(geom,mujoco.mjtGeom.mjGEOM_CAPSULE,.006,a,b)
-                                renderer.scene.ngeom+=1
-                            frame=Image.fromarray(renderer.render().copy())
+                            pose = min(t,len(qs)-1)
+                            if pose != last_pose:
+                                data.qpos[:]=qs[pose]
+                                mujoco.mj_forward(model,data)
+                                renderer.update_scene(data,camera=camera,scene_option=option)
+                                assert renderer.scene.ngeom+len(segments)<=renderer.scene.maxgeom
+                                for a,b,color in segments:
+                                    geom=renderer.scene.geoms[renderer.scene.ngeom]
+                                    mujoco.mjv_initGeom(geom,mujoco.mjtGeom.mjGEOM_CAPSULE,np.zeros(3),np.zeros(3),np.eye(3).flatten(),color)
+                                    mujoco.mjv_connector(geom,mujoco.mjtGeom.mjGEOM_CAPSULE,.006,a,b)
+                                    renderer.scene.ngeom+=1
+                                pixels = renderer.render().copy()
+                                last_pose = pose
+                            frame=Image.fromarray(pixels.copy())
                             draw=ImageDraw.Draw(frame)
                             draw.rectangle((0,0,960,56),fill=(20,25,35))
-                            draw.text((12,8),f'{task.upper()} | diffusion PPO after {protocol["updates"]} updates | candidate {candidate} | t={t*.02:.2f}s',fill='white')
+                            draw.text((12,8),f'{task.upper()} | {protocol.get("video_label", str(protocol["updates"])+" PPO updates")} | candidate {candidate} | t={t*.02:.2f}s',fill='white')
                             unit='m' if task=='zigzag' else 'laps'
                             draw.text((12,29),f"Final progress {row['progress']:.3f} {unit} | yellow: track center | white: boundaries",fill='white')
                             if t>=len(qs):

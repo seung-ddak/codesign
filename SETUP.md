@@ -2,7 +2,7 @@ V100 32GB에서 직접 실행하는 최신 수집 명령과 한국어 대시보�
 
 # 다른 PC에서 작업 이어받기
 
-현재 브랜치의 코드·실험 결과 외에 `portability/`에 학습 체크포인트, 수정된 transformer-transformer 실행 코드, A1 CALM 코드·정책·모델 자산, 필요한 로컬 데이터를 함께 보관했다. 분할 파일은 최대 **90 MiB**이며 SHA-256으로 검사한다. GitHub의 파일당 100 MB 제한은 커밋을 나누는 것으로 해결되지 않으므로 파일 자체를 나눴다.
+현재 브랜치의 코드·실험 결과 외에 `portability/`에 학습 체크포인트, 수정된 transformer-transformer 실행 코드, A1 CALM 코드·정책·모델 자산, RL 디노이징에 쓰는 수정된 RSL-RL 코드, 필요한 로컬 데이터를 함께 보관했다. 분할 파일은 최대 **90 MiB**이며 SHA-256으로 검사한다. GitHub의 파일당 100 MB 제한은 커밋을 나누는 것으로 해결되지 않으므로 파일 자체를 나눴다.
 
 ## 1. 복제·파일 복원
 
@@ -19,7 +19,7 @@ patch -p1 < ../codesign/portability/tt_local.patch
 cd ../codesign
 ```
 
-`../transformer-transformer`, `../external/a1-calm-main`, Git에서 제외되었던 체크포인트가 원래 상대 위치로 복원된다. 기존 파일 내용이 다르면 덮어쓰지 않고 중단한다. `restore`는 Python 3.12 이상을 사용한다. 원본 PC에서 복원 명령을 다시 실행할 필요는 없다.
+`../transformer-transformer`, `../external/a1-calm-main`, `../quad/rsl_rl`, Git에서 제외되었던 체크포인트가 원래 상대 위치로 복원된다. 기존 파일 내용이 다르면 덮어쓰지 않고 중단한다. `restore`는 Python 3.12 이상을 사용한다. 원본 PC에서 복원 명령을 다시 실행할 필요는 없다.
 
 ## 2. Python 환경과 경로
 

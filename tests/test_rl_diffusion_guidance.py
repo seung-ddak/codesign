@@ -85,3 +85,90 @@ def test_invalid_generated_start_is_penalized_before_execution(monkeypatch):
     rewards, rows, saved = runner.replay_generated(x, torch.full((1,13),.5), 'zigzag')
     assert rewards.tolist() == [-20.]
     assert rows[0]['invalid_initial'] and not rows[0]['survived'] and rows[0]['steps'] == 0
+
+
+def test_fixed_prediction_reuses_tt_and_corrects_all_tokens():
+    class CountedNet(Net):
+        calls = 0
+        def forward(self, *args):
+            self.calls += 1
+            return super().forward(*args)
+    net = CountedNet()
+    cache = {}
+    controller = DenoisingPolicy(episode_states=7, horizon=4, diffusion_steps=1)
+    def draw(seed=42):
+        return joint_diffusion_full_reward(net, forbidden_reward, n=2, episode_states=7, horizon=4,
+            state_dim=42, action_dim=12, e_dim=13, mu=torch.zeros(54), sd=torch.ones(54),
+            beta=torch.tensor([.1,.3]), abar=torch.tensor([.9,.63]), guidance_scale=0.,
+            clip=5., seed=seed, denoising_policy=controller, fixed_prediction_cache=cache)
+    before, eb, audit = draw()
+    calls = net.calls
+    assert calls == 2 and audit['diffusion_steps'] == 1
+    with torch.no_grad():
+        controller.policy.actor[-1].bias.fill_(.5)
+    after, ea, audit = draw()
+    assert net.calls == calls and cache['tt_prediction_passes'] == 1
+    assert not torch.equal(before[...,:42], after[...,:42])
+    assert not torch.equal(before[...,42:], after[...,42:])
+    assert not torch.equal(eb, ea)
+    assert len(audit['rl_correction_norm_per_step']) == 1
+    with pytest.raises(ValueError, match='identical initial noise'):
+        draw(seed=43)
+
+
+def test_fixed_prediction_ppo_uses_one_transition_per_candidate(monkeypatch):
+    monkeypatch.setitem(sys.modules, 'triton', None)
+    from rsl_rl.algorithms import PPO
+    controller = DenoisingPolicy(episode_states=7, horizon=4, diffusion_steps=1)
+    algo = PPO(controller.policy, num_learning_epochs=1, num_mini_batches=1)
+    algo.init_storage(2,1,[controller.obs_dim],[controller.obs_dim],[controller.action_dim])
+    controller.algorithm = algo
+    cache = {}
+    for _ in range(2):
+        joint_diffusion_full_reward(Net(), forbidden_reward, n=2, episode_states=7, horizon=4,
+            state_dim=42, action_dim=12, e_dim=13, mu=torch.zeros(54), sd=torch.ones(54),
+            beta=torch.tensor([.1,.3]), abar=torch.tensor([.9,.63]), guidance_scale=0.,
+            seed=42, denoising_policy=controller, fixed_prediction_cache=cache)
+        controller.finish(torch.tensor([1.,-1.]))
+        assert algo.storage.step == 1
+        assert torch.isfinite(torch.tensor(algo.update())).all()
+
+
+def test_shared_window_policy_reloads_at_different_episode_lengths(tmp_path):
+    controller = DenoisingPolicy(episode_states=7,horizon=4,diffusion_steps=1,shared_window_actor=True)
+    with torch.no_grad():
+        controller.policy.actor.e_head[-1].bias.fill_(.2)
+        controller.policy.actor.sa_head[-1].bias.fill_(.3)
+    path = tmp_path/'shared.pt'
+    controller.save(path, {'task':'zigzag'})
+    for states in (4,7,13):
+        loaded = DenoisingPolicy.load(path,episode_states=states,horizon=4,diffusion_steps=1)
+        xs = [torch.zeros(2,4,54) for _ in range(loaded.windows)]
+        e = torch.zeros(2,13)
+        ce, cx = loaded(xs,e,0)
+        assert ce.shape == (2,13) and len(cx) == loaded.windows
+        assert all(torch.equal(c,cx[0]) for c in cx)
+        obs = loaded.observation(xs,e,0)
+        loaded.policy.update_distribution(obs)
+        assert loaded.policy.action_std.shape == (2,loaded.action_dim)
+        assert loaded.policy.std.numel() == 67
+        assert loaded.policy.evaluate(obs).shape == (2,1)
+        assert sum(p.numel() for p in loaded.policy.parameters()) == sum(p.numel() for p in controller.policy.parameters())
+
+
+def test_shared_window_ppo_trains_global_e_and_shared_sa(monkeypatch):
+    monkeypatch.setitem(sys.modules, 'triton', None)
+    from rsl_rl.algorithms import PPO
+    c = DenoisingPolicy(episode_states=7,horizon=4,diffusion_steps=1,shared_window_actor=True)
+    algo = PPO(c.policy,num_learning_epochs=2,num_mini_batches=1)
+    algo.init_storage(2,1,[c.obs_dim],[c.obs_dim],[c.action_dim])
+    c.algorithm=algo
+    ew=c.policy.actor.e_head[-1].weight.detach().clone()
+    sw=c.policy.actor.sa_head[-1].weight.detach().clone()
+    xs=[torch.randn(2,4,54) for _ in range(c.windows)]
+    ce,cx=c(xs,torch.zeros(2,13),0)
+    assert ce.shape==(2,13) and len(cx)==2
+    c.finish(torch.tensor([1.,-1.]))
+    assert torch.isfinite(torch.tensor(algo.update())).all()
+    assert not torch.equal(ew,c.policy.actor.e_head[-1].weight)
+    assert not torch.equal(sw,c.policy.actor.sa_head[-1].weight)

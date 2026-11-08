@@ -1,0 +1,79 @@
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/tt_model.py:69: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(layer, layers)
+Actor MLP: Sequential(
+  (0): Linear(in_features=770, out_features=64, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=64, out_features=64, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=64, out_features=391, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=770, out_features=64, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=64, out_features=64, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=64, out_features=1, bias=True)
+)
+Traceback (most recent call last):
+  File "/tmp/recover_denoising_iter30.py", line 182, in <module>
+    main()
+  File "/tmp/recover_denoising_iter30.py", line 130, in main
+    (args.out/filename).write_bytes(source.read_bytes())
+                                    ^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/pathlib.py", line 1019, in read_bytes
+    with self.open(mode='rb') as f:
+         ^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/pathlib.py", line 1013, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/train_diffusion_rl.py'
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/tt_model.py:69: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(layer, layers)
+Actor MLP: Sequential(
+  (0): Linear(in_features=770, out_features=64, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=64, out_features=64, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=64, out_features=391, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=770, out_features=64, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=64, out_features=64, bias=True)
+  (3): ELU(alpha=1.0)
+  (4): Linear(in_features=64, out_features=1, bias=True)
+)
+unguided [{'candidate': 0, 'terminal_reward': np.float64(-26.9171050926713), 'original_reward': -3.6436078548431396, 'progress': 0.04719899967312813, 'survived': False, 'invalid_initial': False, 'steps': 87, 'prediction_position_rmse': 0.09181902342424143}, {'candidate': 1, 'terminal_reward': np.float64(-22.619988058116498), 'original_reward': -6.644665241241455, 'progress': -0.16479673981666565, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.27959537985719646}, {'candidate': 2, 'terminal_reward': np.float64(-21.24506978336553), 'original_reward': -0.9440280199050903, 'progress': 0.5461440086364746, 'survived': False, 'invalid_initial': False, 'steps': 92, 'prediction_position_rmse': 0.22480889098321546}, {'candidate': 3, 'terminal_reward': np.float64(-19.89751596687585), 'original_reward': -2.0977725982666016, 'progress': 0.0996633768081665, 'survived': False, 'invalid_initial': False, 'steps': 71, 'prediction_position_rmse': 0.09643792734816452}, {'candidate': 4, 'terminal_reward': np.float64(-22.711528327797296), 'original_reward': -1.5794153213500977, 'progress': -0.40899622440338135, 'survived': False, 'invalid_initial': False, 'steps': 98, 'prediction_position_rmse': 0.16698590433252938}, {'candidate': 5, 'terminal_reward': np.float64(-21.06538659140714), 'original_reward': -1.6651349067687988, 'progress': -0.6728339195251465, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.08930005316327132}, {'candidate': 6, 'terminal_reward': np.float64(-7.476645683700872), 'original_reward': -1.3984873294830322, 'progress': -0.6561678051948547, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.41657829859932904}, {'candidate': 7, 'terminal_reward': np.float64(-23.14184754317672), 'original_reward': -1.7510697841644287, 'progress': -0.09917668998241425, 'survived': False, 'invalid_initial': False, 'steps': 131, 'prediction_position_rmse': 0.28172701782407633}]
+reward_gradient [{'candidate': 0, 'terminal_reward': np.float64(-3.583865588974163), 'original_reward': -0.5095900893211365, 'progress': -0.2719388008117676, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.14789205983260853}, {'candidate': 1, 'terminal_reward': np.float64(-23.71082204432794), 'original_reward': -1.927246332168579, 'progress': -0.2923741042613983, 'survived': False, 'invalid_initial': False, 'steps': 66, 'prediction_position_rmse': 0.13151889884055615}, {'candidate': 2, 'terminal_reward': np.float64(-19.804968211510186), 'original_reward': -1.1330262422561646, 'progress': 0.3505253791809082, 'survived': False, 'invalid_initial': False, 'steps': 102, 'prediction_position_rmse': 0.34389247309457827}, {'candidate': 3, 'terminal_reward': np.float64(-23.23046392632879), 'original_reward': -1.9704488515853882, 'progress': -0.132564976811409, 'survived': False, 'invalid_initial': False, 'steps': 121, 'prediction_position_rmse': 0.358641698536575}, {'candidate': 4, 'terminal_reward': np.float64(-24.770511897569225), 'original_reward': -1.8573341369628906, 'progress': -0.3749821186065674, 'survived': False, 'invalid_initial': False, 'steps': 147, 'prediction_position_rmse': 0.35307383614865934}, {'candidate': 5, 'terminal_reward': np.float64(-22.719254959760978), 'original_reward': -3.967424154281616, 'progress': 0.13936260342597961, 'survived': False, 'invalid_initial': False, 'steps': 57, 'prediction_position_rmse': 0.3116638299866537}, {'candidate': 6, 'terminal_reward': np.float64(-24.800385915876667), 'original_reward': -1.6556274890899658, 'progress': -0.012147374451160431, 'survived': False, 'invalid_initial': False, 'steps': 103, 'prediction_position_rmse': 0.4525629139640003}, {'candidate': 7, 'terminal_reward': np.float64(-22.059344667228665), 'original_reward': -3.0998666286468506, 'progress': -0.30168724060058594, 'survived': False, 'invalid_initial': False, 'steps': 112, 'prediction_position_rmse': 0.12382151020513348}]
+rl_before [{'candidate': 0, 'terminal_reward': np.float64(-26.9171050926713), 'original_reward': -3.6436078548431396, 'progress': 0.04719899967312813, 'survived': False, 'invalid_initial': False, 'steps': 87, 'prediction_position_rmse': 0.09181902342424143}, {'candidate': 1, 'terminal_reward': np.float64(-22.619988058116498), 'original_reward': -6.644665241241455, 'progress': -0.16479673981666565, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.27959537985719646}, {'candidate': 2, 'terminal_reward': np.float64(-21.24506978336553), 'original_reward': -0.9440280199050903, 'progress': 0.5461440086364746, 'survived': False, 'invalid_initial': False, 'steps': 92, 'prediction_position_rmse': 0.22480889098321546}, {'candidate': 3, 'terminal_reward': np.float64(-19.89751596687585), 'original_reward': -2.0977725982666016, 'progress': 0.0996633768081665, 'survived': False, 'invalid_initial': False, 'steps': 71, 'prediction_position_rmse': 0.09643792734816452}, {'candidate': 4, 'terminal_reward': np.float64(-22.711528327797296), 'original_reward': -1.5794153213500977, 'progress': -0.40899622440338135, 'survived': False, 'invalid_initial': False, 'steps': 98, 'prediction_position_rmse': 0.16698590433252938}, {'candidate': 5, 'terminal_reward': np.float64(-21.06538659140714), 'original_reward': -1.6651349067687988, 'progress': -0.6728339195251465, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.08930005316327132}, {'candidate': 6, 'terminal_reward': np.float64(-7.476645683700872), 'original_reward': -1.3984873294830322, 'progress': -0.6561678051948547, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.41657829859932904}, {'candidate': 7, 'terminal_reward': np.float64(-23.14184754317672), 'original_reward': -1.7510697841644287, 'progress': -0.09917668998241425, 'survived': False, 'invalid_initial': False, 'steps': 131, 'prediction_position_rmse': 0.28172701782407633}]
+update 1 physical reward -22.91465950012207
+update 2 physical reward -19.32341194152832
+update 3 physical reward -15.670309066772461
+update 4 physical reward -16.41812515258789
+update 5 physical reward -23.892322540283203
+update 6 physical reward -16.76259994506836
+update 7 physical reward -22.375530242919922
+update 8 physical reward -22.154016494750977
+update 9 physical reward -19.432348251342773
+update 10 physical reward -21.542098999023438
+update 11 physical reward -20.240245819091797
+update 12 physical reward -24.460601806640625
+update 13 physical reward -23.494083404541016
+update 14 physical reward -24.54154396057129
+update 15 physical reward -18.023513793945312
+update 16 physical reward -22.50971794128418
+update 17 physical reward -17.330202102661133
+update 18 physical reward -15.029682159423828
+update 19 physical reward -17.809904098510742
+update 20 physical reward -19.55532455444336
+update 21 physical reward -18.716747283935547
+update 22 physical reward -20.600170135498047
+update 23 physical reward -17.39354133605957
+update 24 physical reward -20.365083694458008
+update 25 physical reward -19.112506866455078
+update 26 physical reward -25.264198303222656
+update 27 physical reward -20.918123245239258
+update 28 physical reward -21.686019897460938
+update 29 physical reward -20.705001831054688
+update 30 physical reward -9.725549697875977
+rl_after [{'candidate': 0, 'terminal_reward': np.float64(-27.021964171260695), 'original_reward': -2.198916435241699, 'progress': 0.1857878863811493, 'survived': False, 'invalid_initial': False, 'steps': 101, 'prediction_position_rmse': 0.05928278858701685}, {'candidate': 1, 'terminal_reward': np.float64(-24.77377042667724), 'original_reward': -2.534658670425415, 'progress': 0.14068692922592163, 'survived': False, 'invalid_initial': False, 'steps': 150, 'prediction_position_rmse': 0.24630914350137312}, {'candidate': 2, 'terminal_reward': np.float64(-23.13725794609724), 'original_reward': -1.8950397968292236, 'progress': 0.359130322933197, 'survived': False, 'invalid_initial': False, 'steps': 102, 'prediction_position_rmse': 0.15657646870704095}, {'candidate': 3, 'terminal_reward': np.float64(-2.0936881049166853), 'original_reward': -1.0713484287261963, 'progress': 0.6086810231208801, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.40722498039765026}, {'candidate': 4, 'terminal_reward': np.float64(-25.46628578771697), 'original_reward': -1.470055103302002, 'progress': 0.014671346172690392, 'survived': False, 'invalid_initial': False, 'steps': 99, 'prediction_position_rmse': 0.13097831346268243}, {'candidate': 5, 'terminal_reward': np.float64(-2.6458646108362283), 'original_reward': -0.36275458335876465, 'progress': 0.046527765691280365, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.08528149363036452}, {'candidate': 6, 'terminal_reward': np.float64(-3.7789774010227375), 'original_reward': -1.2345693111419678, 'progress': -0.30456849932670593, 'survived': True, 'invalid_initial': False, 'steps': 199, 'prediction_position_rmse': 0.42493960006148346}, {'candidate': 7, 'terminal_reward': np.float64(-20.637587070034066), 'original_reward': -1.732649564743042, 'progress': 0.035793840885162354, 'survived': False, 'invalid_initial': False, 'steps': 99, 'prediction_position_rmse': 0.14470605747838178}]
