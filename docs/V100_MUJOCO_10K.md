@@ -25,11 +25,21 @@ dataset improve *generated morphology* and *physical composite-task execution*?
   This alternative collector changes the original expert-data pipeline and therefore
   is a separate experiment, not evidence about PPO tracker performance.
 * TT: `code/tt_dynamics/train_tt.py`, reward-agnostic joint E,S,A diffusion,
-  horizon 32, mode 1/2/4 (0.2/0.4/0.4), 5 denoise steps for speed,
-  25k optimizer updates, 256 width, six layers, minmax normalization, 80/20
-  split by original motion `group_id` across all morphologies; TT uses
-  **absolute target joint angles** and the real physical qpos/qvel/contact.
-  Models use the existing TT 50 Hz / 500 step episode assumption.
+  **horizon 64** (1.28 s at 50 Hz), modes 0/1/2/4 (0.10/0.20/0.35/0.35),
+  5 denoise steps for the initial speed-first run, 25k optimizer updates,
+  256 width, six layers, minmax normalization, 80/20 split by original motion
+  `group_id` across all morphologies; TT uses **absolute target joint angles**
+  and actual physical qpos/qvel/contact.
+  **Warmup 500 steps + cosine LR + power EMA (0.75)**. Keep original and EMA
+  model weights in the finished checkpoint; EMA is the default for generation.
+  A resumable `training_state.pt` is written every 2k steps, with optimizer,
+  scheduler, both sets of model weights, and RNG states.
+  Dynamics are **50 Hz** / 500 steps per 10-second episode. Retarget references
+  are **30 Hz only before interpolation**, not the TT training sampling rate.
+  Mode 0 learns E/S/A given the actual initial state; the default physical-aware
+  task sampler still uses Mode 4 (E prior) followed by Mode 2 (E + E-dependent
+  settled initial state). Using Mode 0 in generation with a fixed s0 requires
+  a physically valid s0 for the newly generated morphology.
 * Guided generation: same frozen TT, same noise seeds for guidance scale 0 vs 1,
   **full 10-second** morphology E + state S + target actions A, three tasks:
   `zigzag`, `circle`, `straight` (maximize forward progress over 10 s,
@@ -127,7 +137,7 @@ nohup "$PYTHON" -u code/motion_tracking/collect_calm_mujoco.py train \
 
 The train command rejects an incomplete audit and will NOT silently use a
 4-motion pilot or the old 50 Hz rollouts. The actual training config and
-split audit appear under `runs/v100_mujoco_10k/tt/h32_fast/`.
+split audit appear under `runs/v100_mujoco_10k/tt/h64_warmup_ema_mode0124/`.
 The runner writes all output to `tt_train.log`.
 
 ### TT completion vs convergence
@@ -137,12 +147,14 @@ The runner writes all output to `tt_train.log`.
 1. `audit.json` has `complete: true`, 10,000 original sources, 200
    training morphologies, all 40,000 planned saved episodes, nonzero usable
    transitions, no invalid files.
-2. `tt/h32_fast/checkpoint.pt` exists and can be loaded; the checkpoint
+2. `tt/h64_warmup_ema_mode0124/checkpoint.pt` exists and can be loaded; the checkpoint
    configuration names data from `runs/v100_mujoco_10k/rollouts/`,
-   `modes=[1,2,4]`, `diff_steps=5`, `horizon=32`.
-3. `tt/h32_fast/progress.jsonl` last step = 25000 and `val_loss` is finite;
+   `modes=[0,1,2,4]`, `diff_steps=5`, `horizon=64`,
+   `warmup_steps=500`, `ema_power=0.75`; `ema_net` is present.
+3. `tt/h64_warmup_ema_mode0124/progress.jsonl` last step = 25000 and `val_loss` is finite;
+   `ema_validation.json` has a finite EMA validation loss;
    `tt_train.log` has no traceback.
-4. `tt/h32_fast/split_audit.json` confirms source-based disjoint
+4. `tt/h64_warmup_ema_mode0124/split_audit.json` confirms source-based disjoint
    train/validation source groups, 80/20 group split.
 
 The machine-readable completion gate is:
@@ -163,7 +175,7 @@ Those require loss curves and actual MuJoCo composite task evaluation.
 ```bash
 for task in zigzag circle straight; do
   "$PYTHON" -u code/tt_dynamics/generate_task_mujoco.py \
-    --ckpt runs/v100_mujoco_10k/tt/h32_fast \
+    --ckpt runs/v100_mujoco_10k/tt/h64_warmup_ema_mode0124 \
     --out "runs/v100_mujoco_10k/task_$task" \
     --task "$task" --candidates 4 --scales 0 1 --seed 0
 done
@@ -189,14 +201,17 @@ the old small-dataset v16 checkpoint and the new 10k checkpoint:
 ```bash
 "$PYTHON" -u code/tt_dynamics/compare_mujoco_10k.py \
   --old-ckpt runs/pipeline_v1/fast_mode24_v16_twin/tt_joint \
-  --new-ckpt runs/v100_mujoco_10k/tt/h32_fast \
+  --new-ckpt runs/v100_mujoco_10k/tt/h64_warmup_ema_mode0124 \
   --out runs/v100_mujoco_10k/baseline_comparison \
   --candidates 4 --seed 0
 ```
 
 Output: `baseline_comparison/comparison.json`, per-task/model
 `summary.json` and `scale_{0,1}.npz`.
-It refuses mismatched architecture/diffusion settings.
+It refuses mismatched architecture/diffusion settings by default. The older
+H32 and new H64 checkpoints differ in horizon and EMA; a direct match is no
+longer possible. To obtain a descriptive (NOT architecture-controlled)
+physical baseline, use `--allow-mismatch` and report the confounds.
 Report initial support validity, full-10s survival, real MuJoCo
 reward, actual progress and forward speed separately; predicted
 reward alone is not evidence of task success.
@@ -206,3 +221,25 @@ PPO/MJX physical collection, the new data uses CPU MuJoCo reference PD,
 and the prior TT was trained for 60k steps whereas the speed-first
 new TT is 25k steps. Record these confounds; they prevent attributing
 an observed difference to data volume *alone*.
+
+## Training-state preservation and preflight
+
+The previously collected `runs/v100_mujoco_10k/rollouts/` NPZ files are read-only
+training inputs. The new H64 output lives in a **new** directory, so previous
+`tt/h32_fast` outputs are preserved. If training is interrupted after a
+resumable snapshot, rerun the same `collect_calm_mujoco.py train` command;
+the runner will add `--resume`. Never manually overwrite `checkpoint.pt`.
+
+Before the 25k run, check:
+
+```bash
+"$PYTHON" -m pytest -q tests/test_v100_mujoco_10k.py
+"$PYTHON" code/motion_tracking/collect_calm_mujoco.py status --out runs/v100_mujoco_10k
+```
+
+**Compare next:** H32/H64/H128 matched split + batch/updates; separate 100-step
+hardware-generation diffusion and original-style AdaLN/DiT ablations. The H64
+five-step run alone does not validate the original 100-step hardware design
+setting. Original TT also uses goal-pose-conditioned hardware-generation,
+which is intentionally *not* copied here: unseen composite tasks use reward
+guidance instead of training-time target-motion imitation.
