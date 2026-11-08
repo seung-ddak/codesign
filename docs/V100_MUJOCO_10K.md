@@ -169,3 +169,30 @@ Review predicted-vs-actual score and physical validity; invalid S0 does
 NOTE: this branch uses 5 diffusion steps deliberately to obtain fast
 preliminary feedback. Any claim of final TT performance requires a separate,
 matched-budget, higher-step training/generation comparison.
+
+## Matched baseline/new benchmark
+
+To answer the actual research question, run **the same MuJoCo CPU physics,
+10-second tasks, noise seeds, number of candidates, guidance 0/1** on
+the old small-dataset v16 checkpoint and the new 10k checkpoint:
+
+```bash
+"$PYTHON" -u code/tt_dynamics/compare_mujoco_10k.py \
+  --old-ckpt runs/pipeline_v1/fast_mode24_v16_twin/tt_joint \
+  --new-ckpt runs/v100_mujoco_10k/tt/h32_fast \
+  --out runs/v100_mujoco_10k/baseline_comparison \
+  --candidates 4 --seed 0
+```
+
+Output: `baseline_comparison/comparison.json`, per-task/model
+`summary.json` and `scale_{0,1}.npz`.
+It refuses mismatched architecture/diffusion settings.
+Report initial support validity, full-10s survival, real MuJoCo
+reward, actual progress and forward speed separately; predicted
+reward alone is not evidence of task success.
+
+This is an exploratory baseline: the previous data used different
+PPO/MJX physical collection, the new data uses CPU MuJoCo reference PD,
+and the prior TT was trained for 60k steps whereas the speed-first
+new TT is 25k steps. Record these confounds; they prevent attributing
+an observed difference to data volume *alone*.
