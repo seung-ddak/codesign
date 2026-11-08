@@ -145,6 +145,16 @@ The runner writes all output to `tt_train.log`.
 4. `tt/h32_fast/split_audit.json` confirms source-based disjoint
    train/validation source groups, 80/20 group split.
 
+The machine-readable completion gate is:
+
+```bash
+"$PYTHON" code/tt_dynamics/check_v100_tt.py --run runs/v100_mujoco_10k --steps 25000
+```
+
+It returns exit code 0 only if the full collection audit, new-dynamics
+checkpoint contents, final optimizer step, finite validation loss, and
+source-group split audit all pass. Exit code 2 means incomplete.
+
 **Convergence and ability to generate valid actions is a different question.**
 Those require loss curves and actual MuJoCo composite task evaluation.
 
