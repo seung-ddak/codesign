@@ -152,6 +152,8 @@ def main():
     parser.add_argument("--scales", nargs="+", type=float, default=[0, 1])
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
+    parser.add_argument("--weights", choices=("ema", "raw"), default="ema",
+                        help="use EMA weights for generation when present (raw for ablations)")
     args = parser.parse_args()
     if args.candidates < 1 or any(s < 0 for s in args.scales) or args.out.exists():
         parser.error("Use positive candidates, nonnegative scales, and a NEW output directory")
@@ -164,7 +166,10 @@ def main():
     if ta.get("pose", "abs") != "abs":
         raise ValueError("CPU generator requires absolute-pose TT")
     net = make_net(ta).to(args.device)
-    net.load_state_dict(ck["net"])
+    use_ema = args.weights == "ema" and ck.get("ema_net") is not None
+    if args.weights == "ema" and not use_ema:
+        print("Checkpoint has no EMA weights; using raw model weights", flush=True)
+    net.load_state_dict(ck["ema_net"] if use_ema else ck["net"])
     net.eval().requires_grad_(False)
     mu = torch.as_tensor(ck["mu"], device=args.device)
     sd = torch.as_tensor(ck["sd"], device=args.device)
@@ -218,6 +223,7 @@ def main():
     (args.out / "summary.json").write_text(json.dumps(
         dict(task=args.task, physics_backend="MuJoCo CPU", seconds=10,
              control_hz=50, seed=args.seed, tt_checkpoint=str(checkpoint),
+             inference_weights="ema" if use_ema else "raw",
              results=outcomes), indent=2, ensure_ascii=False))
     print("Saved:", args.out / "summary.json")
 
