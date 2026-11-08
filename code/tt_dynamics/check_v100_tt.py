@@ -15,7 +15,7 @@ def main():
     a = p.parse_args()
     run = a.run
     audit = json.loads((run/"audit.json").read_text()) if (run/"audit.json").exists() else {}
-    tt = run/"tt/h32_fast"
+    tt = run/"tt/h64_warmup_ema_mode0124"
     progress = tt/"progress.jsonl"
     config = json.loads((tt/"config.json").read_text()) if (tt/"config.json").exists() else {}
     split = json.loads((tt/"split_audit.json").read_text()) if (tt/"split_audit.json").exists() else {}
@@ -28,17 +28,26 @@ def main():
     checkpoint = tt/"checkpoint.pt"
     loaded = False
     ck_steps = ck_modes = ck_data = None
+    ck_horizon = ck_warmup = ck_ema_power = None
+    ema_available = False
     if checkpoint.is_file():
         try:
             ck = torch.load(checkpoint,map_location="cpu",weights_only=False)
             ck_modes = ck["args"].get("modes")
             ck_data = ck["args"].get("data",[])
             ck_steps = ck["args"].get("steps")
+            ck_horizon = ck["args"].get("horizon")
+            ck_warmup = ck["args"].get("warmup_steps")
+            ck_ema_power = ck["args"].get("ema_power")
+            ema_available = isinstance(ck.get("ema_net"), dict) and bool(ck["ema_net"])
             loaded = "net" in ck and "mu" in ck and "sd" in ck
         except (OSError, ValueError, RuntimeError, KeyError) as exc:
             print(f"Checkpoint is unreadable: {exc}",file=sys.stderr)
     data_match = bool(ck_data) and all(
         "v100_mujoco_10k/rollouts/" in str(path) for path in ck_data)
+    ema_report = json.loads((tt/"ema_validation.json").read_text()) if (tt/"ema_validation.json").exists() else {}
+    ema_val = ema_report.get("ema_val_loss")
+    valid_ema_val = isinstance(ema_val, (int, float)) and math.isfinite(ema_val)
     val = last.get("val_loss")
     finite_val = isinstance(val, (int,float)) and math.isfinite(val)
     done = (audit.get("complete") is True
@@ -46,7 +55,9 @@ def main():
             and audit.get("training_designs") == 200
             and audit.get("episodes") == 40000
             and not audit.get("invalid_files")
-            and loaded and data_match and ck_modes == [1,2,4]
+            and loaded and data_match and ck_modes == [0,1,2,4]
+            and ck_horizon == 64 and ck_warmup == 500 and ck_ema_power == .75
+            and ema_available and valid_ema_val
             and ck_steps == a.steps
             and last.get("step") == a.steps
             and finite_val
@@ -62,6 +73,9 @@ def main():
                    valid_physics_transitions=audit.get("valid_transitions"),
                    checkpoint_exists=checkpoint.exists(), checkpoint_loadable=loaded,
                    checkpoint_matches_new_rollouts=data_match,
+                   checkpoint_horizon=ck_horizon, checkpoint_warmup=ck_warmup,
+                   checkpoint_ema_power=ck_ema_power, ema_available=ema_available,
+                   final_ema_val_loss=ema_val,
                    checkpoint_modes=ck_modes, checkpoint_steps=ck_steps,
                    final_progress_step=last.get("step"),
                    final_val_loss=val, source_split_groups=split.get("independent_source_groups"),
