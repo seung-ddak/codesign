@@ -31,6 +31,7 @@ import torch.nn as nn
 
 from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, intervention_pairs, is_e_swap, load, source_group_keys  # noqa: F401
 from tt_model import CONDITIONING_VERSION, condition_masks, make_net, rebase, schedule, unbase
+from tt_ema import PowerEMA
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
 
@@ -41,6 +42,10 @@ parser.add_argument("--horizon", type=int, default=500, help="학습 window 길�
 parser.add_argument("--steps", type=int, default=20000)
 parser.add_argument("--batch", type=int, default=32)
 parser.add_argument("--lr", type=float, default=2e-4)
+parser.add_argument("--warmup-steps", type=int, default=0, help="linear LR warmup steps inside total updates")
+parser.add_argument("--ema-power", type=float, default=0.0, help="power-warmup EMA: 0 disables, 0.75 enables (original TT-inspired)")
+parser.add_argument("--checkpoint-every", type=int, default=2000, help="save resumable training state this often")
+parser.add_argument("--resume", action="store_true", help="resume interrupted training_state.pt without overwriting prior artifacts")
 parser.add_argument("--d-model", type=int, default=256)
 parser.add_argument("--layers", type=int, default=6)
 parser.add_argument("--diff-steps", type=int, default=100)
@@ -71,6 +76,10 @@ parser.add_argument("--delta-weight", type=float, default=0.0,
                     help="개입 쌍 변화량 손실 λ (remind 8-49). 0 = 기존 (쌍은 모니터만). E 쌍 = e_swap 같은 source, A 쌍 = group_id+variant")
 parser.add_argument("--pair-batch", type=int, default=16, help="step 당 쌍 수 (E, A 각각)")
 args = parser.parse_args()
+if args.warmup_steps < 0 or args.warmup_steps >= args.steps:
+    parser.error("--warmup-steps must be in [0, steps)")
+if args.ema_power < 0 or args.ema_power > 1 or args.checkpoint_every < 1:
+    parser.error("--ema-power must be in [0,1] and --checkpoint-every >= 1")
 if args.loss_balance == "actual" and args.loss_group_weights is None:
     parser.error("--loss-balance actual requires --loss-group-weights")
 try:
@@ -245,7 +254,13 @@ pools = source_pools(trt, swap_flags)
 if args.swap_fraction is not None:
     balanced_sample(pools, args.batch, args.swap_fraction, torch.Generator(device=dev).manual_seed(0))
 mode_weights = torch.tensor(args.mode_weights, device=dev) if args.mode_weights is not None else None
-if args.norm_from:
+resume_path = args.out / "training_state.pt"
+resume_ck = torch.load(resume_path, map_location="cpu", weights_only=False) if args.resume else None
+if args.resume and resume_ck is None:
+    raise FileNotFoundError(f"No resumable training state: {resume_path}")
+if resume_ck is not None:
+    mu, sd = resume_ck["mu"], resume_ck["sd"]
+elif args.norm_from:
     norm_ck = torch.load(args.norm_from, map_location="cpu", weights_only=False)
     if norm_ck["args"]["norm"] != args.norm or norm_ck["args"]["horizon"] != H:
         raise ValueError("normalization checkpoint has different norm or horizon")
@@ -275,8 +290,35 @@ if not args.eval_only:
                "data_split_audit": split_meta}, open(args.out / "config.json", "w"), indent=1)
     (args.out / "split_audit.json").write_text(json.dumps(split_meta, indent=2) + "\n")
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
-    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.steps)
-    log = open(args.out / "progress.jsonl", "w")
+    def lr_multiplier(epoch):
+        if args.warmup_steps and epoch < args.warmup_steps:
+            return max(1e-12, (epoch + 1) / args.warmup_steps)
+        fraction = (epoch - args.warmup_steps) / max(1, args.steps - args.warmup_steps)
+        return 0.5 * (1 + math.cos(math.pi * min(1.0, fraction)))
+    sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_multiplier)
+    ema = PowerEMA(net, power=args.ema_power) if args.ema_power > 0 else None
+    checkpoint_contract = {k: getattr(args, k) for k in
+        ("horizon", "steps", "batch", "lr", "warmup_steps", "ema_power",
+         "d_model", "layers", "diff_steps", "norm", "clip", "val_frac",
+         "seed", "film", "modes", "mode_weights")}
+    if resume_ck is not None:
+        if resume_ck["contract"] != checkpoint_contract:
+            raise ValueError("Resumable checkpoint has different training configuration")
+        net.load_state_dict(resume_ck["net"])
+        opt.load_state_dict(resume_ck["optimizer"])
+        sched.load_state_dict(resume_ck["scheduler"])
+        if ema is not None:
+            ema.load_state_dict(resume_ck["ema"])
+        torch.set_rng_state(resume_ck["torch_rng"])
+        if torch.cuda.is_available() and resume_ck.get("cuda_rng") is not None:
+            torch.cuda.set_rng_state_all(resume_ck["cuda_rng"])
+        first_step = int(resume_ck["step"]) + 1
+        print(f"Resuming at update {first_step}/{args.steps}", flush=True)
+    else:
+        if resume_path.exists() or (args.out / "progress.jsonl").exists():
+            raise FileExistsError("Training artifacts already exist; use --resume rather than overwrite")
+        first_step = 1
+    log = open(args.out / "progress.jsonl", "a" if args.resume else "w")
     valt, t0 = torch.tensor(val, device=dev), time.time()
 
     sampled_modes = torch.zeros(6, device=dev, dtype=torch.long)
@@ -352,7 +394,7 @@ if not args.eval_only:
     # Keep base minibatches/windows/noise matched between twin and delta runs.
     pair_train_gen = torch.Generator(device=dev).manual_seed(args.seed + 128947)
     last_delta = {}
-    for step in range(1, args.steps + 1):
+    for step in range(first_step, args.steps + 1):
         idx = (balanced_sample(pools, args.batch, args.swap_fraction) if args.swap_fraction is not None
                else trt[torch.randint(0, len(tr), (args.batch,), device=dev)])
         loss = loss_on(idx, record=True)
@@ -365,6 +407,8 @@ if not args.eval_only:
         loss.backward()
         torch.nn.utils.clip_grad_norm_(net.parameters(), 1.0)
         opt.step()
+        if ema is not None:
+            ema.update(net)
         sched.step()
         if step % 200 == 0 or step == args.steps:
             # Evaluate ALL validation episodes, not just valt[:batch].
@@ -415,6 +459,18 @@ if not args.eval_only:
             log.write(json.dumps(rec) + "\n")
             log.flush()
             print(rec, flush=True)
+        if step % args.checkpoint_every == 0 or step == args.steps:
+            snapshot = dict(step=step, contract=checkpoint_contract,
+                            net=net.state_dict(), optimizer=opt.state_dict(),
+                            scheduler=sched.state_dict(),
+                            ema=ema.state_dict() if ema is not None else None,
+                            mu=mu, sd=sd,
+                            torch_rng=torch.get_rng_state(),
+                            cuda_rng=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None)
+            tmp = resume_path.with_suffix(".pt.tmp")
+            torch.save(snapshot, tmp)
+            tmp.replace(resume_path)
+            print(f"Saved resumable state: step={step}", flush=True)
     source_validation = {}
     with torch.no_grad():
         for label, flag in (("original", False), ("swap", True)):
@@ -428,10 +484,28 @@ if not args.eval_only:
                     total += float(loss_on(batch, generator, forced_mode=mode)) * len(batch)
                 source_validation[label]["modes"][str(mode)] = total / len(indices) if len(indices) else None
     (args.out / "validation_by_source_mode.json").write_text(json.dumps(source_validation, indent=2))
-    torch.save({"net": net.state_dict(), "mu": mu, "sd": sd, "val": val, "args": vars(args)}, ckpt_path)
+    ema_val_loss = None
+    raw_weights = {k: v.detach().clone() for k, v in net.state_dict().items()}
+    ema_weights = None
+    if ema is not None:
+        ema.copy_to(net)
+        ema_weights = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
+        with torch.no_grad():
+            val_gen = torch.Generator(device=dev).manual_seed(1)
+            total = 0.0
+            for j in range(0, len(valt), args.batch):
+                vb = valt[j:j + args.batch]
+                total += float(loss_on(vb, val_gen)) * len(vb)
+            ema_val_loss = total / len(valt)
+        net.load_state_dict(raw_weights)
+    (args.out / "ema_validation.json").write_text(json.dumps(
+        dict(ema_enabled=ema is not None, ema_power=args.ema_power,
+             ema_val_loss=ema_val_loss), indent=2))
+    torch.save({"net": net.state_dict(), "ema_net": ema_weights,
+                "mu": mu, "sd": sd, "val": val, "args": vars(args)}, ckpt_path)
 
 ck = torch.load(ckpt_path, weights_only=False)
-net.load_state_dict(ck["net"])
+net.load_state_dict(ck.get("ema_net") if ck.get("ema_net") is not None else ck["net"])
 net.eval()
 # The historical post-training evaluation requires Mode 1 (E+s0+A -> S).
 # With joint-only Modes 2+4, it would test an UNTRAINED conditioning mode
