@@ -6,6 +6,7 @@ Run from codesign root; see docs/V100_MUJOCO_10K.md.
 """
 import argparse
 import concurrent.futures
+import fcntl
 import json
 import os
 import subprocess
@@ -315,8 +316,11 @@ def main():
     elif a.command == "run":
         if a.workers < 1:
             p.error("--workers must be positive")
-        collect(out, workers=a.workers, limit_designs=a.limit_designs,
-                include_heldout=a.include_heldout, variants=a.variants)
+        out.mkdir(parents=True, exist_ok=True)
+        with (out / "runner.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            collect(out, workers=a.workers, limit_designs=a.limit_designs,
+                    include_heldout=a.include_heldout, variants=a.variants)
     elif a.command == "audit":
         result = audit(out)
         save(out / "audit.json", result)
@@ -326,7 +330,9 @@ def main():
             print(name, json.dumps(read(out / name, {}), ensure_ascii=False)[:2000])
         print("TT checkpoint:", (out / "tt/h32_fast/checkpoint.pt").exists())
     elif a.command == "train":
-        train(out, steps=a.steps, batch=a.batch, python=a.python)
+        with (out / "runner.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            train(out, steps=a.steps, batch=a.batch, python=a.python)
 
 
 if __name__ == "__main__":
