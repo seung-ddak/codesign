@@ -273,7 +273,7 @@ if not args.eval_only:
     json.dump({**{k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
                "episodes": len(X), "train": len(tr), "val": n_val,
                "data_split_audit": split_meta}, open(args.out / "config.json", "w"), indent=1)
-    (args.out / "split_audit.json").write_text(json.dumps(split_meta, indent=2) + "\\n")
+    (args.out / "split_audit.json").write_text(json.dumps(split_meta, indent=2) + "\n")
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, args.steps)
     log = open(args.out / "progress.jsonl", "w")
