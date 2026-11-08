@@ -116,6 +116,10 @@ def rollout_one(model, ref, variant, seed):
         actions[t] = d.ctrl[:12]
         mujoco.mj_step(model, d, nstep=4)
         if not np.isfinite(d.qpos).all() or not np.isfinite(d.qvel).all():
+            # Last physics step failed; keep the previous finite state only.
+            d.qpos[:] = qpos[t]
+            d.qvel[:] = qvel[t]
+            mujoco.mj_forward(model, d)
             break
         valid[t] = True
     length = int(valid.sum())
@@ -226,7 +230,7 @@ def audit(out):
     if not plan:
         raise FileNotFoundError("plan.json")
     source = set()
-    episodes = steps = falls = 0
+    episodes = steps = falls = usable = 0
     designs = set()
     invalid = []
     for path in sorted((out / "rollouts").glob("*/variant_*.npz")):
@@ -245,6 +249,7 @@ def audit(out):
                 if not np.isfinite(d["qpos"]).all() or not np.isfinite(d["target_q"]).all():
                     raise ValueError("Nonfinite physics")
                 episodes += b
+                usable += int((m.sum(1) >= 2).sum())
                 steps += int(m.sum())
                 falls += int(d["fell"].sum())
                 source.update(int(i) for i, n in zip(d["source_motion_id"], m.sum(1)) if n >= 2)
@@ -256,15 +261,15 @@ def audit(out):
                       {m["id"] for m in plan["motions"]} - source),
                   training_designs=len(designs), target_designs=len(plan["designs"]),
                   episodes=episodes, target_episodes=plan["target_episodes"],
-                  tt_usable_episodes=episodes, valid_transitions=steps,
+                  tt_usable_episodes=usable, valid_transitions=steps,
                   falls=falls, invalid_files=invalid,
-                  complete=(not invalid and len(source)==10000 and
+                  complete=(not invalid and len(source)==10000 and usable >= 10000 and
                             len(designs)==len(plan["designs"]) and
                             episodes==plan["target_episodes"]))
     return result
 
 
-def train(out, *, steps, batch, checkpoint, python):
+def train(out, *, steps, batch, python):
     report = audit(out)
     save(out / "audit.json", report)
     if not report["complete"]:
@@ -319,7 +324,7 @@ def main():
             print(name, json.dumps(read(out / name, {}), ensure_ascii=False)[:2000])
         print("TT checkpoint:", (out / "tt/h32_fast/checkpoint.pt").exists())
     elif a.command == "train":
-        train(out, steps=a.steps, batch=a.batch, checkpoint=None, python=a.python)
+        train(out, steps=a.steps, batch=a.batch, python=a.python)
 
 
 if __name__ == "__main__":
