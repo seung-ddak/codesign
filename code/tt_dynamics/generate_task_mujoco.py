@@ -41,7 +41,7 @@ def floor_contacts(model, data, foot_ids, floor_id):
 
 def make_physics(e):
     model = build_model("00000011", uniforms=np.asarray(e, dtype=np.float64),
-                        kp=30, torque_limit=33.5)
+                        kp=30, torque_limit=33.5, flat_ground=True)
     model.opt.timestep = .005
     if model.nq != 19 or model.nv != 18 or model.nu < 12:
         raise ValueError("Unexpected model topology")
