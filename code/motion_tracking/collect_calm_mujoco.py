@@ -204,7 +204,9 @@ def collect(out, *, workers, limit_designs=0, include_heldout=False, variants=2)
     if include_heldout:
         designs += plan["eval_designs"]
     names = {r["design"] for r in plan["eval_designs"]}
-    jobs = [(str(out), row, list(plan["assignments"][row["design"]]), plan["motions"],
+    metadata = {m["id"]: m for m in plan["motions"]}
+    jobs = [(str(out), row, list(plan["assignments"][row["design"]]),
+             [metadata[i] for i in plan["assignments"][row["design"]]],
              row["design"] in names, variants, plan["config"]["seed"])
             for row in designs]
     print(f"MuJoCo CPU: {len(jobs)} morphologies, {workers} workers", flush=True)
