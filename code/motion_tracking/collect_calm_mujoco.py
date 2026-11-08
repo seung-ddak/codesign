@@ -278,17 +278,23 @@ def train(out, *, steps, batch, python):
     if not report["complete"]:
         raise RuntimeError("Dynamics incomplete; inspect audit.json before TT training")
     data = sorted((out / "rollouts").glob("*/variant_*.npz"))
-    dest = out / "tt" / "h32_fast"
+    dest = out / "tt" / "h64_warmup_ema_mode0124"
     if (dest / "checkpoint.pt").exists():
         raise FileExistsError(f"Preserve existing checkpoint: {dest}")
+    resume = (dest / "training_state.pt").is_file()
     cmd = [python, "-u", str(ROOT / "code/tt_dynamics/train_tt.py"), "--data",
-           *map(str, data), "--out", str(dest), "--horizon", "32", "--steps", str(steps),
+           *map(str, data), "--out", str(dest), "--horizon", "64", "--steps", str(steps),
            "--batch", str(batch), "--lr", "0.0002", "--d-model", "256",
            "--layers", "6", "--diff-steps", "5", "--norm", "minmax",
            "--clip", "1", "--sampler", "ddim", "--val-frac", ".2",
-           "--seed", "0", "--modes", "1", "2", "4", "--mode-weights", ".2", ".4", ".4",
-           "--film", "--eval-episodes", "8"]
-    save(out / "tt_train_command.json", dict(command=cmd, backend="PyTorch CUDA",
+           "--seed", "0", "--modes", "0", "1", "2", "4",
+           "--mode-weights", ".1", ".2", ".35", ".35",
+           "--film", "--eval-episodes", "8",
+           "--warmup-steps", "500", "--ema-power", ".75",
+           "--checkpoint-every", "2000"]
+    if resume:
+        cmd.append("--resume")
+    save(out / "tt_train_command_h64.json", dict(command=cmd, backend="PyTorch CUDA",
                                              source_audit=report, train_starts=time.time()))
     with (out / "tt_train.log").open("a") as log:
         subprocess.run(cmd, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=True)
@@ -328,7 +334,7 @@ def main():
     elif a.command == "status":
         for name in ("status.json", "audit.json"):
             print(name, json.dumps(read(out / name, {}), ensure_ascii=False)[:2000])
-        print("TT checkpoint:", (out / "tt/h32_fast/checkpoint.pt").exists())
+        print("TT checkpoint (H64):", (out / "tt/h64_warmup_ema_mode0124/checkpoint.pt").exists())
     elif a.command == "train":
         with (out / "runner.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
