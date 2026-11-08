@@ -396,6 +396,17 @@ if not args.eval_only:
     # Keep base minibatches/windows/noise matched between twin and delta runs.
     pair_train_gen = torch.Generator(device=dev).manual_seed(args.seed + 128947)
     last_delta = {}
+    # Preserve a zero-update resume point as well: a startup interruption
+    # must not force the user to discard any already-created log files.
+    if first_step == 1:
+        initial = dict(step=0, contract=checkpoint_contract, net=net.state_dict(),
+                       optimizer=opt.state_dict(), scheduler=sched.state_dict(),
+                       ema=ema.state_dict() if ema is not None else None,
+                       mu=mu, sd=sd, torch_rng=torch.get_rng_state(),
+                       cuda_rng=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None)
+        tmp = resume_path.with_suffix(".pt.tmp")
+        torch.save(initial, tmp)
+        tmp.replace(resume_path)
     for step in range(first_step, args.steps + 1):
         idx = (balanced_sample(pools, args.batch, args.swap_fraction) if args.swap_fraction is not None
                else trt[torch.randint(0, len(tr), (args.batch,), device=dev)])
