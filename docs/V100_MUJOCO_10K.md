@@ -32,7 +32,7 @@ dataset improve *generated morphology* and *physical composite-task execution*?
   and actual physical qpos/qvel/contact.
   **Warmup 500 steps + cosine LR + power EMA (0.75)**. Keep original and EMA
   model weights in the finished checkpoint; EMA is the default for generation.
-  A resumable `training_state.pt` is written every 2k steps, with optimizer,
+  Full validation runs every 500 updates. A resumable `training_state.pt` is written every 2k steps, with optimizer,
   scheduler, both sets of model weights, and RNG states.
   Dynamics are **50 Hz** / 500 steps per 10-second episode. Retarget references
   are **30 Hz only before interpolation**, not the TT training sampling rate.
@@ -203,7 +203,7 @@ the old small-dataset v16 checkpoint and the new 10k checkpoint:
   --old-ckpt runs/pipeline_v1/fast_mode24_v16_twin/tt_joint \
   --new-ckpt runs/v100_mujoco_10k/tt/h64_warmup_ema_mode0124 \
   --out runs/v100_mujoco_10k/baseline_comparison \
-  --candidates 4 --seed 0
+  --candidates 4 --seed 0 --allow-mismatch
 ```
 
 Output: `baseline_comparison/comparison.json`, per-task/model
