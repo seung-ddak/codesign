@@ -291,7 +291,7 @@ def train(out, *, steps, batch, python):
            "--mode-weights", ".1", ".2", ".35", ".35",
            "--film", "--eval-episodes", "8",
            "--warmup-steps", "500", "--ema-power", ".75",
-           "--checkpoint-every", "2000"]
+           "--checkpoint-every", "2000", "--val-every", "500"]
     if resume:
         cmd.append("--resume")
     save(out / "tt_train_command_h64.json", dict(command=cmd, backend="PyTorch CUDA",
