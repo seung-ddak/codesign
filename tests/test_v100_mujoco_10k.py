@@ -15,7 +15,11 @@ sys.path.insert(0, str(ROOT / "code/motion_tracking"))
 
 def test_new_experiment_scripts_parse():
     for path in ("code/motion_tracking/collect_calm_mujoco.py",
-                 "code/tt_dynamics/generate_task_mujoco.py"):
+                 "code/tt_dynamics/generate_task_mujoco.py",
+                 "code/tt_dynamics/train_tt.py",
+                 "code/tt_dynamics/tt_ema.py",
+                 "code/tt_dynamics/check_v100_tt.py",
+                 "code/tt_dynamics/compare_mujoco_10k.py"):
         ast.parse((ROOT / path).read_text())
 
 
