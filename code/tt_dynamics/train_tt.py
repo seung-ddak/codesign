@@ -45,6 +45,7 @@ parser.add_argument("--lr", type=float, default=2e-4)
 parser.add_argument("--warmup-steps", type=int, default=0, help="linear LR warmup steps inside total updates")
 parser.add_argument("--ema-power", type=float, default=0.0, help="power-warmup EMA: 0 disables, 0.75 enables (original TT-inspired)")
 parser.add_argument("--checkpoint-every", type=int, default=2000, help="save resumable training state this often")
+parser.add_argument("--val-every", type=int, default=200, help="full validation every N updates")
 parser.add_argument("--resume", action="store_true", help="resume interrupted training_state.pt without overwriting prior artifacts")
 parser.add_argument("--d-model", type=int, default=256)
 parser.add_argument("--layers", type=int, default=6)
@@ -78,7 +79,7 @@ parser.add_argument("--pair-batch", type=int, default=16, help="step 당 쌍 수
 args = parser.parse_args()
 if args.warmup_steps < 0 or args.warmup_steps >= args.steps:
     parser.error("--warmup-steps must be in [0, steps)")
-if args.ema_power < 0 or args.ema_power > 1 or args.checkpoint_every < 1:
+if args.ema_power < 0 or args.ema_power > 1 or args.checkpoint_every < 1 or args.val_every < 1:
     parser.error("--ema-power must be in [0,1] and --checkpoint-every >= 1")
 if args.loss_balance == "actual" and args.loss_group_weights is None:
     parser.error("--loss-balance actual requires --loss-group-weights")
@@ -285,10 +286,11 @@ print(f"episodes={len(X)} (train {len(tr)}, val {n_val}) valid steps={int(M.sum(
 print(f"params={sum(p.numel() for p in net.parameters()) / 1e6:.2f}M")
 
 if not args.eval_only:
-    json.dump({**{k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
-               "episodes": len(X), "train": len(tr), "val": n_val,
-               "data_split_audit": split_meta}, open(args.out / "config.json", "w"), indent=1)
-    (args.out / "split_audit.json").write_text(json.dumps(split_meta, indent=2) + "\n")
+    if not args.resume:
+        json.dump({**{k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()},
+                   "episodes": len(X), "train": len(tr), "val": n_val,
+                   "data_split_audit": split_meta}, open(args.out / "config.json", "w"), indent=1)
+        (args.out / "split_audit.json").write_text(json.dumps(split_meta, indent=2) + "\n")
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-4)
     def lr_multiplier(epoch):
         if args.warmup_steps and epoch < args.warmup_steps:
@@ -300,7 +302,7 @@ if not args.eval_only:
     checkpoint_contract = {k: getattr(args, k) for k in
         ("horizon", "steps", "batch", "lr", "warmup_steps", "ema_power",
          "d_model", "layers", "diff_steps", "norm", "clip", "val_frac",
-         "seed", "film", "modes", "mode_weights")}
+         "seed", "film", "modes", "mode_weights", "val_every")}
     if resume_ck is not None:
         if resume_ck["contract"] != checkpoint_contract:
             raise ValueError("Resumable checkpoint has different training configuration")
@@ -410,7 +412,7 @@ if not args.eval_only:
         if ema is not None:
             ema.update(net)
         sched.step()
-        if step % 200 == 0 or step == args.steps:
+        if step % args.val_every == 0 or step == args.steps:
             # Evaluate ALL validation episodes, not just valt[:batch].
             # Each batch receives deterministic random windows/noise under
             # one generator per checkpoint evaluation; weight by row count.
