@@ -46,7 +46,10 @@ def test_tt_mode_requirements_and_strict_source_coverage():
     assert "morphologies_per_motion=2" in text
     assert "source_motions=10000" in text
     assert "train_designs=200" in text
-    assert '"--modes", "1", "2", "4"' in text
+    assert '"--modes", "0", "1", "2", "4"' in text
+    assert '"--horizon", "64"' in text
+    assert '"--warmup-steps", "500"' in text
+    assert '"--ema-power", ".75"' in text
     assert '"--val-frac", ".2"' in text
     assert 'len(source)==10000' in text
     assert 'torch.cuda' not in text
@@ -59,3 +62,48 @@ def test_task_generator_uses_cpu_mujoco_and_gradients():
     assert "mujoco.mj_step(model, data, nstep=4)" in text
     assert 'choices=("zigzag","circle","straight")' in text
     assert "from mujoco import mjx" not in text
+
+def test_mujoco_data_is_50hz_not_30hz():
+    from collect_calm_mujoco import DT, HORIZON
+    assert abs(DT - 0.02) < 1e-12
+    assert int(round(1 / DT)) == 50
+    assert HORIZON == 500
+    source = (ROOT / "code/motion_tracking/collect_calm_mujoco.py").read_text()
+    assert "model.opt.timestep = .005" in source
+    assert "mujoco.mj_step(model, d, nstep=4)" in source
+    assert "Linear joint interpolation from retargeted 30Hz reference at 50Hz." in source
+
+
+def test_ema_can_track_and_restore_network_weights():
+    import torch
+    sys.path.insert(0, str(ROOT / "code/tt_dynamics"))
+    from tt_ema import PowerEMA
+    net = torch.nn.Linear(2, 1)
+    ema = PowerEMA(net, power=.75)
+    with torch.no_grad():
+        for p in net.parameters():
+            p.add_(1.0)
+    ema.update(net)
+    state = ema.state_dict()
+    assert state["step"] == 1
+    saved = {k: v.clone() for k, v in state["shadow"].items()}
+    with torch.no_grad():
+        for p in net.parameters():
+            p.add_(5.0)
+    ema.copy_to(net)
+    for k, v in net.state_dict().items():
+        torch.testing.assert_close(v, saved[k])
+    recovered = PowerEMA(net, power=.75)
+    recovered.load_state_dict(state)
+    assert recovered.step == 1
+    for k, v in recovered.shadow.items():
+        torch.testing.assert_close(v, saved[k])
+
+
+def test_mode_zero_and_h64_completion_gate():
+    text = (ROOT / "code/tt_dynamics/tt_model.py").read_text()
+    assert "0=s0, 1=E+s0+A" in text
+    text = (ROOT / "code/tt_dynamics/check_v100_tt.py").read_text()
+    assert "h64_warmup_ema_mode0124" in text
+    assert "ck_modes == [0,1,2,4]" in text
+    assert "ema_available" in text
