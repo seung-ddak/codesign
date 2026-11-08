@@ -146,7 +146,7 @@ def one_design(job):
     manifest = dict(topology="00000011", motions=motions)
     design = {**row, "common": [], "extra": ids}
     retarget(manifest, design, out)
-    model = build_model("00000011", uniforms=row["E"], kp=30, torque_limit=33.5)
+    model = build_model("00000011", uniforms=row["E"], kp=30, torque_limit=33.5, flat_ground=True)
     model.opt.timestep = .005
     if model.nq != 19 or model.nv != 18 or model.nu < 12:
         raise ValueError(f"Unexpected A1 model dimensions: {model.nq} {model.nv} {model.nu}")
