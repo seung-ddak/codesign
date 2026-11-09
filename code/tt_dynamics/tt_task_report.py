@@ -275,6 +275,14 @@ def build_report(root):
                      "RL은 에피소드 보상을 사용한 저차원 residual-noise PPO이며, "
                      "상태별 보행 PPO나 TT 재학습이 아니다. "
                      "TT 예측 상태가 물리적으로 일관되지 않을 수 있으므로 실현된 보상만 성능으로 인정한다.", ""])
+    ready_videos = sum(x["video_path"] is not None for x in video_audit)
+    missing_videos = len(video_audit) - ready_videos
+    report["videos"] = dict(available=ready_videos, missing=missing_videos,
+                           candidates=video_audit)
+    markdown.extend(["## 영상 녹화 요약", "",
+                     f"확인된 MP4 {ready_videos}개 / 파일 없음 {missing_videos}개",
+                     "보고서 재생이 안 되면 링크로 직접 MP4 파일을 열고, "
+                     "HTML과 videos 폴더를 동일한 상대 경로로 보관하세요.", ""])
     (root/"report.md").write_text("\n".join(markdown)+"\n", encoding="utf-8")
     (root/"report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     document = ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
@@ -286,6 +294,13 @@ def build_report(root):
                 '<p>TT 가중치 동결 · 10초 오픈루프 물리 검증 · Gradient vs episodic PPO</p>'
                 '<p>초기 무효는 평균 보상에서 제외하고 완주율 분모에는 포함한다. '
                 '실제 시뮬레이션 없이 숫자를 채우지 않는다.</p>'
+                '<section id="video-gallery"><h2>Task별 MuJoCo 실험 영상</h2>'
+                '<p><strong>확인된 MP4: ' + str(ready_videos) +
+                '개 / 누락: ' + str(missing_videos) + '개</strong></p>'
+                + ("".join(video_gallery) if video_gallery else
+                   '<p><strong>MP4 파일이 없습니다.</strong> '
+                   'render_task_videos.py로 생성한 후 보고서를 다시 만드세요.</p>')
+                + '</section>'
                 + "".join("<section>"+s+"</section>" for s in sections)
                 +'<p>RL은 에피소드 단위 PPO이며 상태별 폐루프 PPO는 아님. '
                 '성공 기준은 실제 완주율·실현 보상·진행량.</p></html>')
