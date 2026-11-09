@@ -10,6 +10,8 @@ Reference track and predicted trajectories are explicitly marked as visual
 overlays and never enter the physical simulation or reward.
 """
 import argparse
+import ctypes
+import ctypes.util
 import json
 import os
 import shutil
@@ -97,15 +99,21 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
         raise ValueError("Expect 500 simulation states (10s at 50Hz)")
 
     model = make_physics(morphology)
-    model.vis.global_.offwidth = max(model.vis.global_.offwidth, width)
-    model.vis.global_.offheight = max(model.vis.global_.offheight, height)
+    backend = "wireframe" if os.environ.get("MUJOCO_GL") == "disable" else os.environ.get("MUJOCO_GL")
     data = mujoco.MjData(model)
-    renderer = mujoco.Renderer(model, height=height, width=width)
-    camera = mujoco.MjvCamera()
-    camera.type = mujoco.mjtCamera.mjCAMERA_FREE
-    camera.azimuth = 145.0
-    camera.elevation = -24.0
-    camera.distance = 2.7
+    renderer = None
+    camera = None
+    if backend == "wireframe":
+        from tt_wireframe_render import draw_kinematic_frame
+    else:
+        model.vis.global_.offwidth = max(model.vis.global_.offwidth, width)
+        model.vis.global_.offheight = max(model.vis.global_.offheight, height)
+        renderer = mujoco.Renderer(model, height=height, width=width)
+        camera = mujoco.MjvCamera()
+        camera.type = mujoco.mjtCamera.mjCAMERA_FREE
+        camera.azimuth = 145.0
+        camera.elevation = -24.0
+        camera.distance = 2.7
     stride = 50 // fps
     fall_frame = count-1 if count < STEPS else None
     actual_xy = physical[:count, :2].astype(float)
@@ -118,9 +126,12 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
             physical_frame = min(index, count-1)
             data.qpos[:] = trace[physical_frame]
             mujoco.mj_forward(model, data)
-            camera.lookat[:] = data.qpos[:3] + np.array([0.,0.,0.08])
-            renderer.update_scene(data, camera=camera)
-            rgb = renderer.render().copy()
+            if backend == "wireframe":
+                rgb = draw_kinematic_frame(model, data, width=width, height=height)
+            else:
+                camera.lookat[:] = data.qpos[:3] + np.array([0.,0.,0.08])
+                renderer.update_scene(data, camera=camera)
+                rgb = renderer.render().copy()
             annotated = image_with_overlay(
                 rgb, task=task, task_spec=descriptor,
                 physical_xy=actual_xy, predicted_xy=predicted_xy,
@@ -131,8 +142,9 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
     try:
         encode_frames(video_path, frames(), width=width, height=height, fps=fps)
     finally:
-        renderer.close()
-    return {"fps":fps, "width":width, "height":height, "backend":os.environ["MUJOCO_GL"],
+        if renderer is not None:
+            renderer.close()
+    return {"fps":fps, "width":width, "height":height, "backend":backend,
             "seconds":10.0, "valid_seconds":float(metadata.get("valid_seconds",count*0.02)),
             "fell":bool(count<STEPS), "replay_consistency_checked":True}
 
@@ -142,7 +154,8 @@ def main():
     p.add_argument("--out", type=Path, required=True,
                    help="Existing task benchmark root containing seed_*.json and .npz")
     p.add_argument("--selection", choices=("best", "all"), default="best")
-    p.add_argument("--backend", choices=("osmesa", "egl"), default="osmesa")
+    p.add_argument("--backend", choices=("auto", "osmesa", "egl", "wireframe"), default="auto",
+                   help="auto selects OSMesa mesh if available, else CPU 3D wireframe; wireframe needs no OpenGL")
     p.add_argument("--egl-device", type=int, default=1,
                    help="EGL device index (only with --backend egl); GPU0 may be busy")
     p.add_argument("--fps", choices=(10,25,50), type=int, default=25)
@@ -158,20 +171,33 @@ def main():
     # Must be applied in a fresh process, before any MuJoCo import.
     if "mujoco" in sys.modules:
         p.error("Run video renderer in a fresh process so MUJOCO_GL is set before import")
-    os.environ["MUJOCO_GL"] = args.backend
-    if args.backend == "osmesa":
-        os.environ["PYOPENGL_PLATFORM"] = "osmesa"
+    backend = args.backend
+    if backend == "auto":
+        lib = ctypes.util.find_library("OSMesa")
+        try:
+            if lib is None:
+                raise OSError("libOSMesa is not registered with the system linker")
+            ctypes.CDLL(lib)
+            backend = "osmesa"
+        except OSError:
+            backend = "wireframe"
+        print(f"CPU video backend auto-selected: {backend}", flush=True)
+    os.environ["MUJOCO_GL"] = "disable" if backend == "wireframe" else backend
+    if backend in ("osmesa", "wireframe"):
+        # Explicitly avoid using the V100 (which runs an unrelated UNet).
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    else:
+    if backend == "osmesa":
+        os.environ["PYOPENGL_PLATFORM"] = "osmesa"
+    elif backend == "egl":
         os.environ["MUJOCO_EGL_DEVICE_ID"] = str(args.egl_device)
-    # Defer import until backend is configured.
+    # Defer import until backend is selected.
     try:
         import mujoco  # noqa: F401
-    except (ImportError, OSError) as exc:
+    except (ImportError, OSError, AttributeError) as exc:
         raise RuntimeError(
-            "MuJoCo offscreen renderer unavailable with "
-            +args.backend+". For CPU mode install OSMesa (e.g. libosmesa6), "
-            "or explicitly choose EGL on a permitted non-V100 GPU."
+            f"MuJoCo failed to initialize backend={backend}: {exc}. "
+            "Use --backend wireframe for CPU-only FK video without OpenGL, "
+            "or install libosmesa6 then use --backend osmesa for mesh rendering."
         ) from exc
 
     job_files = sorted(args.out.glob("*/gradient_scale_*/seed_*.json"))
