@@ -86,6 +86,23 @@ def _trajectory_svg(task, npz_path, candidate, task_spec):
             + "".join(els) + "</svg>")
 
 
+def _morphology_svg(e):
+    """Compare normalized morphology entries, not inferred physical lengths."""
+    bar_width, gap, base = 24, 14, 125
+    elements = []
+    for i, v in enumerate(e):
+        v = float(np.clip(v, 0, 1))
+        x = 24 + i*(bar_width+gap)
+        h = v*92
+        fill = "#9ca3af" if i in (0, 11, 12) else "#0f766e"
+        elements.append(f'<rect x="{x}" y="{base-h:.1f}" width="{bar_width}" height="{h:.1f}" fill="{fill}"/>')
+        elements.append(f'<text x="{x+bar_width/2}" y="142" text-anchor="middle" font-size="10" fill="#334155">E{i}</text>')
+        elements.append(f'<text x="{x+bar_width/2}" y="{base-h-4:.1f}" text-anchor="middle" font-size="9">{v:.2f}</text>')
+    return ('<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="정규화된 형상 E 비교" '
+            'viewBox="0 0 540 155" style="width:100%;max-width:640px">'
+            + "".join(elements) + '</svg><p><small>형상 E는 정규화값이며, 회색 E0·E11·E12는 비활성 고정 좌표</small></p>')
+
+
 def collect(root):
     data = defaultdict(lambda: defaultdict(list))
     for path in sorted(Path(root).glob("*/**/seed_*.json")):
@@ -170,7 +187,7 @@ def build_report(root):
                     svg = _trajectory_svg(task, best_file, best["candidate"], descriptor)
                     morph = ", ".join(_number(float(x), 3) for x in best["morphology"])
                     visuals.append("<h3>"+html.escape(method)+" — 최고 보상 후보</h3>"
-                                   +svg+"<p>실제 보상 "+_number(best["reward"])+
+                                   +svg+_morphology_svg(best["morphology"])+"<p>실제 보상 "+_number(best["reward"])+
                                    " · 유효 시간 "+_number(best.get("valid_seconds",0))+
                                    "초 · E=["+html.escape(morph)+"]</p>")
                     markdown.append(f"**{method} 최고 후보 E:** [{morph}]; "
