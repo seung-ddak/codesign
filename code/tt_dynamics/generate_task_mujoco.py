@@ -68,7 +68,12 @@ def settled_start(e):
                     np.stack([floor_contacts(model, data, feet, floor)]))[0]
 
 
-def replay(e, trajectory):
+def replay(e, trajectory, *, state_trace=None):
+    """Physical replay. Optional state_trace list receives copies of valid qpos.
+
+    A recorder can render these states separately without changing physics,
+    actions, initial-state validation, or the existing 3-value return contract.
+    """
     model = make_physics(e)
     data = mujoco.MjData(model)
     feet = [model.geom(leg+"_foot").id for leg in FEET]
@@ -134,6 +139,8 @@ def replay(e, trajectory):
             states_q.append(states_q[-1])
             states_v.append(states_v[-1])
             states_c.append(states_c[-1])
+        if state_trace is not None:
+            state_trace.extend(q.copy() for q in states_q[:n])
         out[:n, :42] = features(np.asarray(states_q[:n]),
                                  np.asarray(states_v[:n]), np.asarray(states_c[:n]))
         out[:n, 42:] = actions[:n]
