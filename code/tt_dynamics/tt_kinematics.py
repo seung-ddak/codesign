@@ -15,7 +15,7 @@ XY_REFERENCE_M = 0.02   # normalize an XY per-axis displacement residual by 2 cm
 JOINT_REFERENCE_RAD = 0.1  # normalize joint-angle residual by 0.1 rad
 
 
-def kinematic_terms(x, valid, *, dt=DT):
+def kinematic_terms(x, valid, *, dt=DT, sample_weights=None):
     """Return differentiable normalized losses and unscaled residual statistics.
 
     x: [B,T,54] physical state+action, in episode/window-aligned XY coordinates.
@@ -41,18 +41,24 @@ def kinematic_terms(x, valid, *, dt=DT):
     joint_residual = dq - expected_dq
 
     pair_mask = (valid[:, 1:] & valid[:, :-1]).to(x.dtype)
+    weighted_mask = pair_mask if sample_weights is None else pair_mask * sample_weights[:, None]
     count = pair_mask.sum()
     xy_sq_sum = ((xy_residual ** 2).sum(-1) * pair_mask).sum()
     joint_sq_sum = ((joint_residual ** 2).sum(-1) * pair_mask).sum()
+    xy_weighted_sq_sum = ((xy_residual ** 2).sum(-1) * weighted_mask).sum()
+    joint_weighted_sq_sum = ((joint_residual ** 2).sum(-1) * weighted_mask).sum()
     # count==0: all outputs are zero, and derivatives are well-defined.
     denom = count.clamp(min=1)
-    xy_axis_mse = xy_sq_sum / (2 * denom)
-    joint_axis_mse = joint_sq_sum / (12 * denom)
+    xy_axis_mse = xy_weighted_sq_sum / (2 * denom)
+    joint_axis_mse = joint_weighted_sq_sum / (12 * denom)
+    raw_joint_mse = joint_sq_sum / (12 * denom)
     return {
         "xy_loss": xy_axis_mse / (XY_REFERENCE_M ** 2),
         "joint_loss": joint_axis_mse / (JOINT_REFERENCE_RAD ** 2),
         "xy_rmse_cm": torch.sqrt(xy_sq_sum / denom) * 100.0,
-        "joint_rmse_deg": torch.sqrt(joint_axis_mse) * (180.0 / math.pi),
+        "joint_rmse_deg": torch.sqrt(raw_joint_mse) * (180.0 / math.pi),
+        "xy_weighted_sq_sum": xy_weighted_sq_sum,
+        "joint_weighted_sq_sum": joint_weighted_sq_sum,
         "xy_sq_sum": xy_sq_sum,
         "joint_sq_sum": joint_sq_sum,
         "pair_count": count,
@@ -71,4 +77,7 @@ def denoised_kinematic_terms(xt, predicted_eps, clean_x, known_mask,
     xhat = ((xt - torch.sqrt(1 - ab) * predicted_eps) / torch.sqrt(ab)).clamp(-clip, clip)
     xhat = torch.where(known_mask > 0, clean_x, xhat)
     physical = xhat * sd.view(1, 1, -1) + mu.view(1, 1, -1)
-    return kinematic_terms(physical, valid, dt=dt)
+    # Min-SNR cap prevents the noisiest DDIM step's x0 reconstruction
+    # from dominating training; raw physical RMSE is reported separately.
+    snr_weights = (5.0 * alpha_bar / (1.0 - alpha_bar)).clamp(max=1.0)
+    return kinematic_terms(physical, valid, dt=dt, sample_weights=snr_weights)
