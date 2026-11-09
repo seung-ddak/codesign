@@ -104,7 +104,13 @@ def cell(root, version_root, runs, title, players):
         video, status = video_for_candidate(version_root, path, row)
         if video:
             relative = (version_root / video).relative_to(root).as_posix()
-            player = video_player(root, relative, f"{title} · {path.stem} · 후보 {row['candidate']}")
+            backend = (row.get("video_metadata", {}).get("backend")
+                       if row.get("video_path") == video else None)
+            display = {"osmesa": "MuJoCo Renderer · CPU OSMesa",
+                       "egl": "MuJoCo Renderer · EGL",
+                       "wireframe": "MuJoCo 상태 · 와이어프레임"}.get(backend, "렌더러 정보 없음")
+            player = video_player(root, relative,
+                                  f"{title} · {path.stem} · 후보 {row['candidate']} · {display}")
             players.add(relative)
             clip = f"<p>영상 후보 실제 보상 {row['reward']:.3f}</p>{player}"
             return f"<td>{metrics}{clip}</td>"
@@ -206,6 +212,22 @@ def run_checkpoint(out, entry, options, resume):
         f"종료 코드 {completed.returncode} · 로그 {log_path.relative_to(out)}")
 
 
+def render_saved_versions(out, index):
+    """Use only saved candidate archives and preserve the wireframe MP4s."""
+    failed = []
+    renderer = Path(__file__).with_name("render_task_videos.py")
+    for entry in index["versions"]:
+        root = out / "versions" / entry["id"]
+        if not collect(root):
+            continue
+        command = [sys.executable, str(renderer), "--out", str(root),
+                   "--backend", "osmesa", "--selection", "best", "--fps", "10", "--resume"]
+        print(f"MuJoCo mesh: {entry['label']}", flush=True)
+        if subprocess.run(command).returncode:
+            failed.append(entry["label"])
+    return failed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, action="append", help="Repeat to select exact checkpoints")
@@ -214,6 +236,8 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--list-only", action="store_true")
     mode.add_argument("--report-only", action="store_true")
+    mode.add_argument("--render-only", action="store_true",
+                      help="render saved physical replays with MuJoCo Renderer on CPU OSMesa")
     mode.add_argument("--resume", action="store_true")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--eval-seeds", type=int, default=1)
@@ -224,9 +248,13 @@ def main():
     args = parser.parse_args()
     if not args.list_only and args.out is None:
         parser.error("--out is required unless using --list-only")
-    if args.report_only:
+    if args.report_only or args.render_only:
         index = json.loads((args.out / "comparison.json").read_text(encoding="utf-8"))
+        failed = render_saved_versions(args.out, index) if args.render_only else []
         build_comparison(args.out, index)
+        if failed:
+            raise SystemExit(f"MuJoCo mesh rendering failed: {', '.join(failed)}")
+        print(f"Report: {args.out / 'report.html'}")
         return
     options = {key: getattr(args, key) for key in
                ("seed", "eval_seeds", "candidates", "rl_updates", "rl_rollouts", "cpu_threads")}

@@ -448,3 +448,20 @@ empty cell or missing clip carries its recorded reason. The matching
 candidate archives, per-version logs, and checkpoint hashes stay alongside
 the HTML. Compare methods within each task. Results across checkpoint
 versions include their different data, window sizes, and diffusion schedules.
+
+### Render the comparison with the native MuJoCo renderer
+
+Benchmark physics uses MuJoCo in both video modes. The default comparison
+videos draw wireframes from replayed poses. For full MuJoCo geometry, finish
+the comparison and then rerender its saved archives with CPU OSMesa:
+
+```bash
+../transformer-transformer/.venv/bin/python -u \
+  code/tt_dynamics/compare_tt_checkpoints.py \
+  --out runs/v100_mujoco_10k/tt_version_comparison --render-only
+```
+
+This requires a working system OSMesa library (for example `libosmesa6`
+on Ubuntu) and uses `mujoco.Renderer`. It preserves the earlier wireframe
+files, records separate mesh MP4s and rebuilds the comparison HTML.
+TT inference and PPO are not rerun. The HTML labels the renderer used.

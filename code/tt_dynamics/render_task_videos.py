@@ -242,7 +242,8 @@ def main():
             if index not in selected:
                 row["video_status"] = "not_selected"
                 continue
-            name = f"{result_path.stem}_candidate_{index}.mp4"
+            suffix = "" if backend == "wireframe" else f"_{backend}"
+            name = f"{result_path.stem}_candidate_{index}{suffix}.mp4"
             video_path = result_path.parent / "videos" / name
             video_path.parent.mkdir(parents=True, exist_ok=True)
             relative_path = video_path.relative_to(args.out).as_posix()
@@ -250,8 +251,11 @@ def main():
                 if not args.resume:
                     raise FileExistsError("Already recorded video: "+str(video_path))
                 if is_mp4(video_path):
+                    if row.get("video_path") != relative_path:
+                        row["video_metadata"] = {"backend": backend}
                     row["video_path"] = relative_path
                     row["video_status"] = "recorded"
+                    row.pop("video_error", None)
                     skipped += 1
                     continue
                 row["video_status"] = "render_failed"

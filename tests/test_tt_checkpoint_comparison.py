@@ -66,3 +66,25 @@ def test_checkpoint_comparison_runs_on_cpu_and_embeds_video(tmp_path, monkeypatc
     assert all(title in page for title in comparison.HEADERS)
     assert "0.800 (1개)" in page and "0.400 (1개)" in page
     assert page.count("data:video/mp4;base64," + base64.b64encode(mp4).decode()) == 1
+
+
+def test_rerender_uses_only_saved_archives(tmp_path, monkeypatch):
+    run = tmp_path / "versions" / "h64" / "circle" / "gradient_scale_1"
+    run.mkdir(parents=True)
+    (run / "seed_20000.json").write_text('{"candidates": []}')
+    np.savez_compressed(run / "seed_20000.npz", pred=np.empty(0))
+    calls = []
+
+    def fake_run(command):
+        calls.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(comparison.subprocess, "run", fake_run)
+    index = {"versions": [{"id": "h64", "label": "H64"},
+                          {"id": "missing", "label": "missing"}]}
+    assert comparison.render_saved_versions(tmp_path, index) == []
+    command, = calls
+    assert Path(command[1]).name == "render_task_videos.py"
+    assert command[command.index("--backend") + 1] == "osmesa"
+    assert "--resume" in command
+    assert "--ckpt" not in command
