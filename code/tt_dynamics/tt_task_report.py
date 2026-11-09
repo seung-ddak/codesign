@@ -64,11 +64,12 @@ def _trajectory_svg(task, npz_path, candidate, task_spec):
     pts = np.concatenate(series)
     minimum = pts.min(0) - .35
     maximum = pts.max(0) + .35
-    span = max(float(np.max(maximum - minimum)), 1)
     width, height, margin = 540, 360, 18
+    span = np.maximum(maximum - minimum, 1e-6)
+    scale = min((width-2*margin)/span[0], (height-2*margin)/span[1])
     def convert(p):
-        x = margin + (p[:, 0] - minimum[0]) / span * (width - 2*margin)
-        y = height - margin - (p[:, 1] - minimum[1]) / span * (width - 2*margin)
+        x = margin + (p[:, 0] - minimum[0]) * scale
+        y = height - margin - (p[:, 1] - minimum[1]) * scale
         return " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(x, y))
     els = []
     for i, line in enumerate(lines):
@@ -125,10 +126,11 @@ def build_report(root):
             sections.append("<p>아직 실제 MuJoCo 평가 결과 없음</p>")
             report["tasks"][task] = {"status": "not_evaluated"}
             continue
-        rows_md = ["| 방식 | 후보 | 초기 유효 | 10초 완주 | 유효후보 평균 보상 | 최고 보상 | 최고 진행량 |",
-                   "|---|---:|---:|---:|---:|---:|---:|"]
+        rows_md = ["| 방식 | 후보 | 초기 유효 | 10초 완주 | 평균 실현 보상 | 최고 보상 | 최고 진행량 | XY 예측 오차(cm) | 관절 예측 오차(°) |",
+                   "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
         rows_html = ["<table><thead><tr><th>방식</th><th>후보</th><th>초기 유효</th><th>10초 완주</th>"
-                     "<th>유효후보 평균 보상</th><th>최고 보상</th><th>최고 진행량</th></tr></thead><tbody>"]
+                     "<th>평균 실현 보상</th><th>최고 보상</th><th>최고 진행량</th>"
+                     "<th>XY 예측오차(cm)</th><th>관절 예측오차(°)</th></tr></thead><tbody>"]
         stats = {}
         visuals = []
         for method, runs in sorted(task_groups.items()):
@@ -137,24 +139,33 @@ def build_report(root):
             completes = sum(bool(c.get("complete_10s")) for c in candidates)
             rewards = [float(c["reward"]) for c in valid]
             progress = [float(c["progress"]) for c in valid if c.get("progress") is not None]
+            xy_errors = [float(c["pred_vs_mujoco_xy_mean_cm"]) for c in valid
+                         if c.get("pred_vs_mujoco_xy_mean_cm") is not None]
+            q_errors = [float(c["pred_vs_mujoco_joint_rmse_deg"]) for c in valid
+                        if c.get("pred_vs_mujoco_joint_rmse_deg") is not None]
             st = dict(candidates=len(candidates), initial_valid=len(valid),
                       completed_10s=completes, completion_rate=completes/max(1, len(candidates)),
                       mean_valid_reward=sum(rewards)/len(rewards) if rewards else None,
                       best_reward=max(rewards) if rewards else None,
-                      best_progress=max(progress) if progress else None)
+                      best_progress=max(progress) if progress else None,
+                      mean_xy_prediction_error_cm=sum(xy_errors)/len(xy_errors) if xy_errors else None,
+                      mean_joint_prediction_rmse_deg=sum(q_errors)/len(q_errors) if q_errors else None)
             stats[method] = st
             summary = (method, len(candidates), len(valid), completes,
                        _number(st["mean_valid_reward"]), _number(st["best_reward"]),
-                       _number(st["best_progress"]))
+                       _number(st["best_progress"]), _number(st["mean_xy_prediction_error_cm"]),
+                       _number(st["mean_joint_prediction_rmse_deg"]))
             rows_md.append("| " + " | ".join(map(str, summary)) + " |")
             rows_html.append("<tr>" + "".join("<td>"+html.escape(str(x))+"</td>" for x in summary) + "</tr>")
             if valid:
-                best = max(valid, key=lambda c: c["reward"])
-                best_file = next((p for _, run, p in runs
-                                  if any(c["candidate"] == best["candidate"] and
-                                         c["morphology"] == best["morphology"]
-                                         for c in run["candidates"])), None)
-                descriptor = next(run["task"] for _, run, _ in runs)
+                best_file = None
+                best = None
+                descriptor = None
+                for _, run, path in runs:
+                    for candidate in run["candidates"]:
+                        if candidate.get("reward") is not None and (
+                                best is None or candidate["reward"] > best["reward"]):
+                            best, best_file, descriptor = candidate, path, run["task"]
                 if best_file is not None:
                     svg = _trajectory_svg(task, best_file, best["candidate"], descriptor)
                     morph = ", ".join(_number(float(x), 3) for x in best["morphology"])
