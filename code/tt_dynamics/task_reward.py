@@ -162,3 +162,61 @@ if __name__ == "__main__":
     x[0, :, 1] += 0.25
     assert abs(zz.terms(x, m)["p_lane"].item() - 0.01) < 1e-4
     print("zigzag ok")
+
+
+class SlalomReward(ZigzagReward):
+    """Pole slalom. Differentiable guidance uses the same route as physical scoring."""
+
+    pole_radius = 0.06
+    pole_height = 0.82
+    collision_penalty = 20.0
+
+    def __init__(self):
+        super().__init__(half_width=0.22)
+        self.poles = [(x, 0.0) for x in (1.0, 2.3, 3.6, 4.9)]
+        self.gates = []
+        for index, (x, _) in enumerate(self.poles):
+            y = 0.42 * (-1)**index
+            self.gates.extend([(x - 0.30, y), (x + 0.20, y)])
+        self.gates.append((6.0, 0.0))
+        self.route = [(0.0, 0.0), *self.gates]
+
+    def y_ref(self, px):
+        route = px.new_tensor(self.route)
+        x, y = route[:, 0].contiguous(), route[:, 1]
+        i = torch.searchsorted(x, px.contiguous()).clamp(1, len(x) - 1)
+        fraction = ((px - x[i - 1]) / (x[i] - x[i - 1])).clamp(0, 1)
+        return y[i - 1] + fraction * (y[i] - y[i - 1])
+
+    def r_progress(self, x, m):
+        # Positive forward progress loses credit away from the route. Reverse
+        # motion always costs progress, even when it happens off the route.
+        px = x[..., 0].clamp(max=self.gates[-1][0])
+        dx = px[:, 1:] - px[:, :-1]
+        xy = (x[:, 1:, :2] + x[:, :-1, :2]) / 2
+        lateral = xy[..., 1] - self.y_ref(xy[..., 0])
+        weight = torch.exp(-(lateral / self.half_width).square())
+        return ((dx.clamp_min(0) * weight + dx.clamp_max(0)) *
+                (m[:, 1:] & m[:, :-1])).sum(1)
+
+    def describe(self):
+        return dict(task="pole_slalom", poles=self.poles, gates=self.gates,
+                    route=self.route, half_width=self.half_width,
+                    pole_radius=self.pole_radius, pole_height=self.pole_height,
+                    collision_penalty_per_pole=self.collision_penalty,
+                    rewards=self.rewards, penalties=self.penalties, unit=self.unit)
+
+    def gate_crossings(self, xy):
+        """Return the fractional frame indices of ordered forward gate crossings."""
+        crossings = []
+        for index, (start, end) in enumerate(zip(xy[:-1], xy[1:])):
+            while len(crossings) < len(self.gates):
+                gx, gy = self.gates[len(crossings)]
+                if not start[0] < gx <= end[0]:
+                    break
+                fraction = (gx - start[0]) / (end[0] - start[0])
+                y = start[1] + fraction * (end[1] - start[1])
+                if abs(y - gy) > self.half_width:
+                    break
+                crossings.append(float(index + fraction))
+        return crossings

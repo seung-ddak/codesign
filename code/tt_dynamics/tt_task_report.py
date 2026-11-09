@@ -6,10 +6,12 @@ statistic is computed from saved candidate-level physical MuJoCo replay data.
 import html
 import json
 import math
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
+
+from tt_video_overlay import reference_lines, slalom_markers
 
 
 TASK_NAMES = {"circle": "원형 트랙", "zigzag": "지그재그 트랙",
@@ -66,32 +68,11 @@ def _trajectory_svg(task, npz_path, candidate, task_spec):
     with np.load(npz_path) as z:
         mask = z["valid"][candidate].astype(bool)
         actual = z["mujoco"][candidate, mask, :2]
-        predicted = z["pred"][candidate, :, :2]
     if not len(actual):
         return '<p>초기 상태 무효: 표시할 실제 궤적이 없음</p>'
-    if task == "circle":
-        theta = np.linspace(0, 2 * math.pi, 180)
-        radius = float(task_spec.get("radius", 1))
-        center = (0, radius)
-        lines = []
-        for rad in (radius, radius - task_spec.get("half_width", 0.3),
-                    radius + task_spec.get("half_width", 0.3)):
-            lines.append(np.stack([rad * np.sin(theta),
-                                   radius - rad * np.cos(theta)], -1))
-    elif task == "zigzag":
-        xp = np.linspace(0, max(6, float(actual[:, 0].max()) + 1), 200)
-        amp = float(task_spec.get("amp", .3))
-        period = float(task_spec.get("period", 2))
-        y = amp * (2 / math.pi) * np.arcsin(
-            np.clip(np.sin(2 * math.pi * xp / period), -1, 1))
-        half = float(task_spec.get("half_width", .15))
-        lines = [np.stack([xp, y + shift], -1) for shift in (0, half, -half)]
-    else:
-        xp = np.linspace(0, max(6, float(actual[:, 0].max()) + 1), 2)
-        half = float(task_spec.get("half_width", .15))
-        lines = [np.stack([xp, xp * 0 + shift], -1)
-                 for shift in (0, half, -half)]
-    series = [actual] + lines
+    lines = reference_lines(task, task_spec, actual)
+    poles, gates = slalom_markers(task_spec)
+    series = [actual] + lines + poles + gates
     pts = np.concatenate(series)
     minimum = pts.min(0) - .35
     maximum = pts.max(0) + .35
@@ -107,6 +88,10 @@ def _trajectory_svg(task, npz_path, candidate, task_spec):
         color = "#999" if i else "#64748b"
         els.append(f'<polyline fill="none" stroke="{color}" stroke-width="1.5"'
                    f' stroke-dasharray="{"" if i == 0 else "5 5"}" points="{convert(line)}"/>')
+    for gate in gates:
+        els.append(f'<polyline fill="none" stroke="#3a5c94" stroke-width="2" points="{convert(gate)}"/>')
+    for pole in poles:
+        els.append(f'<polygon fill="#ac2732" points="{convert(pole)}"/>')
     els.append(f'<polyline fill="none" stroke="#167a62" stroke-width="2.5" '
                f'points="{convert(actual)}"/>')
     els.append('<text x="12" y="24" fill="#167a62" font-size="14">'
@@ -176,9 +161,9 @@ def build_report(root):
             sections.append("<p>아직 실제 MuJoCo 평가 결과 없음</p>")
             report["tasks"][task] = {"status": "not_evaluated"}
             continue
-        rows_md = ["| 방식 | 후보 | 초기 유효 | 10초 완주 | 평균 실현 보상 | 최고 보상 | 최고 진행량 | XY 예측 오차(cm) | 관절 예측 오차(°) |",
-                   "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
-        rows_html = ["<table><thead><tr><th>방식</th><th>후보</th><th>초기 유효</th><th>10초 완주</th>"
+        rows_md = ["| 방식 | 후보 | 초기 유효 | 10초 생존 | 과제 성공 | 평균 실현 보상 | 최고 보상 | 최고 진행량 | XY 예측 오차(cm) | 관절 예측 오차(°) |",
+                   "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        rows_html = ["<table><thead><tr><th>방식</th><th>후보</th><th>초기 유효</th><th>10초 생존</th><th>과제 성공</th>"
                      "<th>평균 실현 보상</th><th>최고 보상</th><th>최고 진행량</th>"
                      "<th>XY 예측오차(cm)</th><th>관절 예측오차(°)</th></tr></thead><tbody>"]
         stats = {}
@@ -186,14 +171,27 @@ def build_report(root):
         for method, runs in sorted(task_groups.items()):
             candidates = [c for _, run, _ in runs for c in run["candidates"]]
             valid = [c for c in candidates if c.get("reward") is not None]
+            versions = sorted({run.get("evaluation_version", 1) for _, run, _ in runs})
+            if len(versions) != 1:
+                raise ValueError(f"Mixed evaluator versions for {task} / {method}")
+            legacy = versions[0] < 2
+            reevaluated = any("source_candidate_file" in run for _, run, _ in runs)
             completes = sum(bool(c.get("complete_10s")) for c in candidates)
+            successes = None if legacy else sum(bool(c["task_success"]) for c in candidates)
+            initial_valid = sum(bool(c.get("initial_valid", c.get("reward") is not None))
+                                for c in candidates)
             rewards = [float(c["reward"]) for c in valid]
             progress = [float(c["progress"]) for c in valid if c.get("progress") is not None]
             xy_errors = [float(c["pred_vs_mujoco_xy_mean_cm"]) for c in valid
                          if c.get("pred_vs_mujoco_xy_mean_cm") is not None]
             q_errors = [float(c["pred_vs_mujoco_joint_rmse_deg"]) for c in valid
                         if c.get("pred_vs_mujoco_joint_rmse_deg") is not None]
-            st = dict(candidates=len(candidates), initial_valid=len(valid),
+            st = dict(candidates=len(candidates), initial_valid=initial_valid,
+                      evaluation_version=versions[0], archived_candidates_replayed=reevaluated,
+                      task_successes=successes,
+                      task_success_rate=None if legacy else successes/max(1, len(candidates)),
+                      terminations=dict(Counter(c.get("termination_reason", "legacy_unknown")
+                                                for c in candidates)),
                       completed_10s=completes, completion_rate=completes/max(1, len(candidates)),
                       mean_valid_reward=sum(rewards)/len(rewards) if rewards else None,
                       best_reward=max(rewards) if rewards else None,
@@ -201,7 +199,9 @@ def build_report(root):
                       mean_xy_prediction_error_cm=sum(xy_errors)/len(xy_errors) if xy_errors else None,
                       mean_joint_prediction_rmse_deg=sum(q_errors)/len(q_errors) if q_errors else None)
             stats[method] = st
-            summary = (method, len(candidates), len(valid), completes,
+            label = method + (" [legacy]" if legacy else " [재평가]" if reevaluated else "")
+            summary = (label, len(candidates), initial_valid, completes,
+                       "—" if successes is None else successes,
                        _number(st["mean_valid_reward"]), _number(st["best_reward"]),
                        _number(st["best_progress"]), _number(st["mean_xy_prediction_error_cm"]),
                        _number(st["mean_joint_prediction_rmse_deg"]))
@@ -225,8 +225,13 @@ def build_report(root):
                                  if video else
                                  '<p><strong>영상 미표시:</strong> '
                                  + html.escape(video_status) + '</p>')
+                    slalom_details = ""
+                    if best.get("gates_total") is not None:
+                        slalom_details = (f"<p>게이트 {best['gates_passed']}/{best['gates_total']} "
+                                          f"· 접촉한 폴 {len(best['pole_contacts'])}개 "
+                                          f"· 결승선 {_number(best.get('finish_seconds'))}초</p>")
                     visuals.append("<h3>"+html.escape(method)+" — 최고 보상 후보</h3>"
-                                   +video_tag+svg+_morphology_svg(best["morphology"])+
+                                   +video_tag+svg+_morphology_svg(best["morphology"])+slalom_details+
                                    "<p>실제 보상 "+_number(best["reward"])+
                                    " · 유효 시간 "+_number(best.get("valid_seconds",0))+
                                    "초 · E=["+html.escape(morph)+"]</p>")
@@ -236,6 +241,11 @@ def build_report(root):
                                     f"보상 {_number(best['reward'])}; "
                                     f"유효 시간 {_number(best.get('valid_seconds',0))}초.")
         markdown.extend(rows_md+[""])
+        for method, st in stats.items():
+            detail = ", ".join(f"{reason} {count}개" for reason, count in st["terminations"].items())
+            markdown.append(f"- {method} 종료 사유 · {detail}")
+            sections.append(f"<p>{html.escape(method)} 종료 사유 · {html.escape(detail)}</p>")
+        markdown.append("")
         rows_html.append("</tbody></table>")
         sections.append("".join(rows_html)+"".join(visuals))
         # Discover actual MP4 files on disk rather than trusting JSON fields.
@@ -269,7 +279,7 @@ def build_report(root):
         report["tasks"][task] = {"status": "evaluated", "methods": stats}
     markdown.extend(["## 판정 기준", "",
                      "운동학적 일관성만으로 성공을 선언하지 않는다. "
-                     "실제 MuJoCo 10초 완주율과 동일 조건에서의 실현 보상 및 진행량을 비교한다. "
+                     "10초 생존과 과제별 성공을 분리한다. legacy 행은 이전 평가기의 시간 판정을 표시한다. "
                      "후보 수가 작거나 RL 평가 Seed가 적으면 차이를 통계적으로 확정하지 않는다.", "",
                      "## 실험 한계", "",
                      "RL은 에피소드 보상을 사용한 저차원 residual-noise PPO이며, "
@@ -303,7 +313,7 @@ def build_report(root):
                 + '</section>'
                 + "".join("<section>"+s+"</section>" for s in sections)
                 +'<p>RL은 에피소드 단위 PPO이며 상태별 폐루프 PPO는 아님. '
-                '성공 기준은 실제 완주율·실현 보상·진행량.</p></html>')
+                '10초 생존과 과제별 성공을 분리한다. legacy 행은 이전 평가기의 시간 판정을 표시한다.</p></html>')
     (root/"report.html").write_text(document, encoding="utf-8")
     return report
 

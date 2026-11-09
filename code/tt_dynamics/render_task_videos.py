@@ -6,8 +6,8 @@ leaving a busy V100 alone. EGL is opt-in and may use a GPU.
 
 Only archived E/S0/A are used. Each candidate is re-replayed with the same
 physics/actions; its physical token/mask must match the saved experiment.
-Reference track and predicted trajectories are explicitly marked as visual
-overlays and never enter the physical simulation or reward.
+The track and predictions are drawn as overlays. Slalom poles are compiled
+into the MuJoCo scene and also marked on the mini-map.
 """
 import argparse
 import ctypes
@@ -80,25 +80,29 @@ def encode_frames(path, frames, *, width, height, fps):
 
 
 def render_candidate(video_path, *, task, descriptor, method, candidate,
-                     morphology, pred, physical, mask, fps, width, height):
+                     morphology, pred, physical, mask, row, fps, width, height):
     """Replay and render a physical robot with trajectory inset, 10s runtime."""
     import mujoco
-    from generate_task_mujoco import STEPS, make_physics, replay
+    from generate_task_mujoco import STEPS, TASKS, make_physics, replay
     from tt_video_overlay import image_with_overlay
 
     trace = []
-    rereplay, new_mask, metadata = replay(morphology, pred, state_trace=trace)
+    reward = TASKS[task]()
+    if json.loads(json.dumps(reward.describe())) != descriptor:
+        raise ValueError("Task geometry differs from the saved replay")
+    rereplay, new_mask, metadata = replay(morphology, pred, task=reward, state_trace=trace)
     count = int(mask.sum())
     if not np.array_equal(new_mask, mask) or len(trace) != count:
         raise RuntimeError("Saved and re-executed physical valid masks differ")
-    if count and not np.allclose(rereplay[:count,:42],physical[:count,:42],atol=2e-5,rtol=2e-5):
+    if count and not np.allclose(rereplay[:count], physical[:count], atol=2e-5, rtol=2e-5):
         raise RuntimeError("Re-render replay diverges from saved physical state. No video written.")
-    if count == 0:
-        raise ValueError("Cannot render physically invalid initial state")
-    if STEPS != 500:
-        raise ValueError("Expect 500 simulation states (10s at 50Hz)")
+    for key in ("termination_reason", "control_steps", "pole_contacts"):
+        if metadata[key] != row[key]:
+            raise RuntimeError(f"Saved and re-executed replay differ in {key}")
+    if count < 2:
+        raise ValueError("Cannot render a candidate without physical transitions")
 
-    model = make_physics(morphology)
+    model = make_physics(morphology, reward)
     backend = "wireframe" if os.environ.get("MUJOCO_GL") == "disable" else os.environ.get("MUJOCO_GL")
     data = mujoco.MjData(model)
     renderer = None
@@ -115,7 +119,7 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
         camera.elevation = -24.0
         camera.distance = 2.7
     stride = 50 // fps
-    fall_frame = count-1 if count < STEPS else None
+    fall_frame = count - 1 if not metadata["complete_10s"] else None
     actual_xy = physical[:count, :2].astype(float)
     predicted_xy = pred[:, :2].astype(float)
 
@@ -123,11 +127,15 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
         for index in range(0, STEPS, stride):
             # After an early fall, hold the last valid physical frame so that
             # the video is EXACTLY 10 seconds and the fall time remains clear.
-            physical_frame = min(index, count-1)
+            # Include the endpoint even when the requested FPS skips it.
+            sample = STEPS if index == STEPS - stride else index
+            physical_frame = min(sample, count-1)
             data.qpos[:] = trace[physical_frame]
             mujoco.mj_forward(model, data)
             if backend == "wireframe":
-                rgb = draw_kinematic_frame(model, data, width=width, height=height)
+                rgb = draw_kinematic_frame(model, data, width=width, height=height,
+                                           poles=descriptor.get("poles", []),
+                                           pole_height=descriptor.get("pole_height", 0.82))
             else:
                 camera.lookat[:] = data.qpos[:3] + np.array([0.,0.,0.08])
                 renderer.update_scene(data, camera=camera)
@@ -136,7 +144,8 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
                 rgb, task=task, task_spec=descriptor,
                 physical_xy=actual_xy, predicted_xy=predicted_xy,
                 frame=physical_frame, fps=fps, candidate=candidate, method=method,
-                fall_step=fall_frame, display_time=index*0.02)
+                fall_step=fall_frame, display_time=sample*0.02,
+                termination_reason=metadata["termination_reason"])
             yield np.asarray(annotated, dtype=np.uint8)
 
     try:
@@ -146,7 +155,8 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
             renderer.close()
     return {"fps":fps, "width":width, "height":height, "backend":backend,
             "seconds":10.0, "valid_seconds":float(metadata.get("valid_seconds",count*0.02)),
-            "fell":bool(count<STEPS), "replay_consistency_checked":True}
+            "fell": metadata["fell"], "termination_reason": metadata["termination_reason"],
+            "replay_consistency_checked": True}
 
 
 def main():
@@ -178,8 +188,13 @@ def main():
             if lib is None:
                 raise OSError("libOSMesa is not registered with the system linker")
             ctypes.CDLL(lib)
-            backend = "osmesa"
-        except OSError:
+            probe = subprocess.run(
+                [sys.executable, "-c", "import mujoco"],
+                env=dict(os.environ, MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa",
+                         CUDA_VISIBLE_DEVICES=""),
+                capture_output=True, timeout=20)
+            backend = "osmesa" if probe.returncode == 0 else "wireframe"
+        except (OSError, subprocess.TimeoutExpired):
             backend = "wireframe"
         print(f"CPU video backend auto-selected: {backend}", flush=True)
     os.environ["MUJOCO_GL"] = "disable" if backend == "wireframe" else backend
@@ -204,11 +219,16 @@ def main():
     job_files += sorted(args.out.glob("*/rl_ppo/seed_*.json"))
     if not job_files:
         p.error(f"No saved physical evaluation files in {args.out}. Run the task benchmark first.")
+    from generate_task_mujoco import EVALUATION_VERSION
+
     completed, skipped = 0, 0
     for result_path in job_files:
         task = result_path.relative_to(args.out).parts[0]
         with result_path.open(encoding="utf-8") as f:
             result = json.load(f)
+        if result.get("evaluation_version") != EVALUATION_VERSION:
+            raise ValueError("Legacy replay archive. Use benchmark_task_inference.py "
+                             "--replay-from with a fresh --out before recording.")
         archive = result_path.with_suffix(".npz")
         if not archive.is_file():
             raise FileNotFoundError(archive)
@@ -233,14 +253,14 @@ def main():
                 row["video_path"] = relative_path
                 skipped += 1
                 continue
-            if not bool(valid[index].any()):
+            if not row["control_steps"]:
                 row["video_status"] = "skipped_invalid_initial_state"
                 skipped += 1
                 continue
             metadata = render_candidate(
                 video_path, task=task, descriptor=result["task"], method=label,
                 candidate=index, morphology=e_all[index],
-                pred=predicted[index], physical=actual[index], mask=valid[index],
+                pred=predicted[index], physical=actual[index], mask=valid[index], row=row,
                 fps=args.fps, width=args.width, height=args.height)
             row["video_path"] = relative_path
             row["video_metadata"] = metadata

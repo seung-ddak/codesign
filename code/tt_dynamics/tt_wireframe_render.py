@@ -54,7 +54,7 @@ def _body_and_leg_paths(model, data):
     return center, rotation, routes
 
 
-def draw_kinematic_frame(model, data, width=960, height=540):
+def draw_kinematic_frame(model, data, width=960, height=540, *, poles=(), pole_height=0.82):
     """Actual 3D MuJoCo FK rendered with CPU Pillow (RGB uint8 frame)."""
     if width < 240 or height < 180:
         raise ValueError("Image is too small for kinematic view")
@@ -79,6 +79,10 @@ def draw_kinematic_frame(model, data, width=960, height=540):
         line_y = [ground+np.array([t,-1.5,0]), ground+np.array([t,1.5,0])]
         draw.line([project(p) for p in line_x],fill=(210,222,233),width=1)
         draw.line([project(p) for p in line_y],fill=(210,222,233),width=1)
+
+    for x, y in poles:
+        draw.line([project([x, y, 0]), project([x, y, pole_height])],
+                  fill=(172, 39, 50), width=7)
 
     # Torso cuboid oriented by the genuine base quaternion in MuJoCo.
     hx,hy,hz = .20,.105,.065

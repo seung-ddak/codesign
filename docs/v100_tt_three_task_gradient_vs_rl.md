@@ -4,7 +4,9 @@
 This is **task inference** using frozen TT parameters, not re-training TT or
 PPO motion/transition experts. The physical evaluator is MuJoCo, not MJX.
 
-## Tasks and metrics
+> For the current evaluator and archive migration command, see [Physical evaluator v2](#physical-evaluator-v2). The pilot discussion and old rendering commands below document the original runs.
+
+## Original tasks and metrics
 
 | Task flag | Reward class | What "success" actually means |
 |---|---|---|
@@ -341,3 +343,47 @@ PY
   manager, or download the **whole output folder**, not the HTML alone.
 - Rebuilding the report does not install OSMesa or encode video files.
   It only validates their presence and links them correctly.
+
+## Physical evaluator v2
+
+The pilot numbers above describe the original evaluator. V2 records 500
+position-control commands at 50 Hz plus the initial and terminal states. It
+checks the terminal state for falls and physics errors. The replay NPZ stores
+`pred[N,500,54]`, `mujoco[N,501,54]`, `valid[N,501]` and
+`action_valid[N,500]`. The first 500 rows of `mujoco[...,42:54]` hold the
+applied controls at valid action indices. The terminal state repeats the last
+command only as padding for the reward tensor. The JSON records the stop
+reason, elapsed physical time, candidate score and success separately.
+
+| Task | Success after surviving all 500 commands |
+| --- | --- |
+| Circle | At least one counterclockwise lap within the radius-1 m corridor |
+| Zigzag | Pass all nine gates in order and contact none of the four physical poles |
+| Straight | Make positive forward progress and stay in the straight corridor. Compare speed using forward distance divided by 10 s. |
+
+The slalom puts gates before and after each pole, on alternating sides. It
+checks collisions at the 200 Hz physics rate. Gradient guidance uses smooth
+route-weighted progress and lane error. Physical scoring also uses gate
+progress, distance to the next gate, finish time, and a penalty of 20 per
+distinct contacted pole. A successful candidate must pass the finish gate at x = 6 m. Task and
+collision checks run on measured MuJoCo states.
+
+To re-evaluate existing candidates without loading a checkpoint or retraining
+the PPO residual policy, run the following on the machine with the archives:
+
+```bash
+cd ~/quad_ws/codesign
+export MUJOCO_GL=disable CUDA_VISIBLE_DEVICES=""
+TT_PY="$PWD/../transformer-transformer/.venv/bin/python"
+"$TT_PY" -u code/tt_dynamics/benchmark_task_inference.py \
+  --replay-from runs/v100_mujoco_10k/task_gradient_vs_ppo_video_v1 \
+  --out runs/v100_mujoco_10k/task_gradient_vs_ppo_replay_v2 \
+  --record-video --video-backend wireframe --video-selection all
+```
+
+This replays the archived E, S0 and A in the updated scenes. The original
+files and policies are preserved. The report labels reevaluated candidates.
+To test optimization under the new scoring, use a fresh `--out` with
+`--ckpt` instead. The saved H64 pilot checkpoint uses five diffusion steps.
+When testing a separately trained 100-step checkpoint, add
+`--expected-diffusion-steps 100` to check the schedule before inference.
