@@ -290,3 +290,54 @@ The recorder never silently overwrites existing MP4 files.
 Pilot results: all three tasks had zero 10-second completions across
 3 methods × 2 candidates = 18 physical rollouts. The successful PPO
 iteration logs do **not** imply task success or policy convergence.
+
+## Video does not appear in report.html (path / recording audit)
+
+Starting with the report MP4 gallery update, `tt_task_report.py` now
+**discovers existing video files directly** in each method's `videos/`
+folder, even if the saved candidate JSON does not contain `video_path`.
+It also shows an explicit available/missing count and a direct link for
+each MP4 (in addition to HTML5 video players).
+
+**Do not rerun TT inference or PPO training just to rebuild a report.**
+Use the existing experiment directory:
+
+```bash
+cd ~/quad_ws/codesign
+git pull --ff-only origin experiment/v100-mujoco-10k-tt
+export PYTHON="$PWD/../transformer-transformer/.venv/bin/python"
+export CUDA_VISIBLE_DEVICES=""
+export OMP_NUM_THREADS=2
+export OPENBLAS_NUM_THREADS=2
+ROOT=runs/v100_mujoco_10k/task_gradient_vs_ppo_video_v1
+
+"$PYTHON" -m pytest -q tests/test_tt_task_benchmark.py
+find "$ROOT" -type f -name '*.mp4' -printf '%p (%s bytes)\\n'
+"$PYTHON" code/tt_dynamics/tt_task_report.py --out "$ROOT" >/dev/null
+
+"$PYTHON" - <<'PY'
+import json
+from pathlib import Path
+root=Path("runs/v100_mujoco_10k/task_gradient_vs_ppo_video_v1")
+s=json.loads((root/"report.json").read_text())
+print("Videos available:",s["videos"]["available"],
+      "missing:",s["videos"]["missing"])
+for item in s["videos"]["candidates"]:
+    print(item["task"],item["method"],item["candidate"],
+          item["status"],item["video_path"])
+print("HTML:",(root/"report.html").resolve())
+PY
+```
+
+- If `available=0`, there are no completed MP4 files. Run
+  `render_task_videos.py --out "$ROOT" --backend wireframe --selection best --resume`
+  and inspect the traceback if it fails. This is a rendering issue, not a
+  TT training issue.
+- If `available > 0` but the browser cannot play the video,
+  click `MP4 직접 열기` in the report and open the MP4 directly. Keep
+  `report.html` and the sibling `circle/`, `zigzag/`,
+  `straight/` folders together; copying just the HTML breaks relative
+  video URLs. Open the actual report on the server via the browser/file
+  manager, or download the **whole output folder**, not the HTML alone.
+- Rebuilding the report does not install OSMesa or encode video files.
+  It only validates their presence and links them correctly.
