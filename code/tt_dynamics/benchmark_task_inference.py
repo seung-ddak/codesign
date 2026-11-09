@@ -61,7 +61,22 @@ def physical_results(task, predicted, morphology):
         rl_return = INVALID_REWARD if invalid else score
         progress = (terms.get("r_progress") * task.unit_scale
                     if score is not None else None)
+        n_valid = int(mask.sum())
+        pos_err_cm = (float(np.linalg.norm(path[:n_valid, :2] -
+                        actual[:n_valid, :2], axis=1).mean()*100)
+                      if n_valid else None)
+        joint_rmse_deg = (float(np.degrees(np.sqrt(np.mean(
+                          (path[:n_valid, 14:26] -
+                           actual[:n_valid, 14:26])**2))))
+                          if n_valid else None)
+        seams = [t for t in range(63, len(path), 63)]
+        seam_jump_rad = (max(float(np.abs(path[t, 42:54] -
+                                           path[t-1, 42:54]).max()) for t in seams)
+                         if seams else None)
         rows.append({
+            "pred_vs_mujoco_xy_mean_cm": pos_err_cm,
+            "pred_vs_mujoco_joint_rmse_deg": joint_rmse_deg,
+            "max_seam_action_jump_rad": seam_jump_rad,
             "candidate": i,
             "morphology": e.tolist(),
             "reward": score,
