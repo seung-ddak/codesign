@@ -1,5 +1,6 @@
 """Video assets and CPU-only visual overlay regressions (no MuJoCo GL needed)."""
 import shutil
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -9,6 +10,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "code" / "tt_dynamics"))
 from render_task_videos import encode_frames, select_candidates
 from tt_video_overlay import image_with_overlay, reference_lines
+
+
+def has_ffmpeg_encoder():
+    return (shutil.which("ffmpeg") is not None
+            or importlib.util.find_spec("imageio_ffmpeg") is not None)
 
 
 def test_video_selects_best_physical_reward_not_prediction():
@@ -50,7 +56,7 @@ def test_video_overlay_draws_trajectory_and_fall():
     assert np.asarray(img).sum()>100
 
 
-@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+@pytest.mark.skipif(not has_ffmpeg_encoder(), reason="ffmpeg / imageio-ffmpeg not installed")
 def test_ffmpeg_mp4_stream_and_no_overwrite(tmp_path):
     path=tmp_path/"sample.mp4"
     frames=[np.zeros((128,160,3),dtype=np.uint8),
@@ -62,7 +68,7 @@ def test_ffmpeg_mp4_stream_and_no_overwrite(tmp_path):
         encode_frames(path,frames,width=160,height=128,fps=25)
 
 
-@pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg not installed")
+@pytest.mark.skipif(not has_ffmpeg_encoder(), reason="ffmpeg / imageio-ffmpeg not installed")
 def test_invalid_frame_rolls_back_partial_file(tmp_path):
     path=tmp_path/"bad.mp4"
     with pytest.raises(ValueError):
