@@ -176,6 +176,8 @@ def main():
 
     job_files = sorted(args.out.glob("*/gradient_scale_*/seed_*.json"))
     job_files += sorted(args.out.glob("*/rl_ppo/seed_*.json"))
+    if not job_files:
+        p.error(f"No saved physical evaluation files in {args.out}. Run the task benchmark first.")
     completed, skipped = 0, 0
     for result_path in job_files:
         task = result_path.relative_to(args.out).parts[0]
@@ -188,7 +190,12 @@ def main():
         label = _gradient_name(result_path)
         with np.load(archive) as z:
             e_all, predicted, actual, valid = (z[k] for k in ("E", "pred", "mujoco", "valid"))
-        for index in select_candidates(result["candidates"], args.selection):
+        selected = select_candidates(result["candidates"], args.selection)
+        if not selected:
+            for row in result["candidates"]:
+                row["video_status"] = "skipped_no_valid_physical_candidate"
+            print(f"No physically valid candidate to record: {result_path}", flush=True)
+        for index in selected:
             row = result["candidates"][index]
             name = f"{result_path.stem}_candidate_{index}.mp4"
             video_path = result_path.parent / "videos" / name
