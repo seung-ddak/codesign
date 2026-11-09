@@ -342,6 +342,10 @@ if not args.eval_only:
         ("horizon", "steps", "batch", "lr", "warmup_steps", "ema_power",
          "d_model", "layers", "diff_steps", "norm", "clip", "val_frac",
          "seed", "film", "modes", "mode_weights", "val_every")}
+    # Zero-weight runs preserve their original resumable checkpoint contract.
+    if args.kin_xy_weight or args.kin_joint_weight:
+        checkpoint_contract.update(kin_xy_weight=args.kin_xy_weight,
+                                   kin_joint_weight=args.kin_joint_weight)
     if resume_ck is not None:
         if resume_ck["contract"] != checkpoint_contract:
             raise ValueError("Resumable checkpoint has different training configuration")
@@ -367,6 +371,7 @@ if not args.eval_only:
 
     recorded_group_terms = torch.zeros(6, device=dev)
     recorded_raw_terms = torch.zeros(6, device=dev)
+    recorded_kin = {}
 
     def loss_on(idx, gen=None, forced_mode=None, record=False, return_components=False):
         x, m = window(idx, gen)
@@ -398,10 +403,21 @@ if not args.eval_only:
         wx = (1 - kx) * m[..., None]
         total, terms, raw = diffusion_objective(px, nx, wx, pe, ne, e_weight, args.loss_group_weights,
                                                balance_actual=args.loss_balance == "actual", return_raw=True)
+        kin = None
+        if args.kin_xy_weight or args.kin_joint_weight or record or return_components:
+            # Reconstruct/inpaint physical x0 before measuring 20ms consistency.
+            # The epsilon objective and conditioning masks are unchanged.
+            kin = denoised_kinematic_terms(xt, px, x0, kx, m, ab, mu_t, sd_t, args.clip)
+            if args.kin_xy_weight:
+                total = total + args.kin_xy_weight * kin["xy_loss"]
+            if args.kin_joint_weight:
+                total = total + args.kin_joint_weight * kin["joint_loss"]
         if record:
             recorded_group_terms.copy_(terms.detach())
             recorded_raw_terms.copy_(raw.detach())
-        return (total, terms, raw) if return_components else total
+            recorded_kin.update({key: float(kin[key].detach()) for key in
+                                 ("xy_loss", "joint_loss", "xy_rmse_cm", "joint_rmse_deg")})
+        return (total, terms, raw, kin) if return_components else total
 
     def delta_loss(pairs, gen=None, n_pairs=None):
         """개입 쌍 (i, j) 를 같은 시작·같은 k·같은 noise·Mode 1 (E, s0, A 알려짐) 로 넣어
@@ -471,12 +487,16 @@ if not args.eval_only:
                 total_v = 0.0
                 val_group_terms = torch.zeros(6, device=dev)
                 val_raw_terms = torch.zeros(6, device=dev)
+                val_kin_xy_sq = val_kin_joint_sq = val_kin_pairs = 0.0
                 for j in range(0, len(valt), args.batch):
                     vb = valt[j:j + args.batch]
-                    vb_loss, vb_terms, vb_raw = loss_on(vb, val_gen, return_components=True)
+                    vb_loss, vb_terms, vb_raw, vb_kin = loss_on(vb, val_gen, return_components=True)
                     total_v += float(vb_loss) * len(vb)
                     val_group_terms.add_(vb_terms * len(vb))
                     val_raw_terms.add_(vb_raw * len(vb))
+                    val_kin_xy_sq += float(vb_kin["xy_sq_sum"])
+                    val_kin_joint_sq += float(vb_kin["joint_sq_sum"])
+                    val_kin_pairs += float(vb_kin["pair_count"])
                 vl = total_v / len(valt)
                 # 개입 쌍 R²_Δ 모니터 (twin 도 기록): 고정 512 쌍, 단일 noise 단계 x0_hat 기준. 최종 판정은 measure_delta_r2.py.
                 val_delta = {}
@@ -499,6 +519,16 @@ if not args.eval_only:
             raw_train = recorded_raw_terms.cpu().tolist()
             raw_validation = (val_raw_terms / len(valt)).cpu().tolist()
             monitor_weights = args.loss_group_weights if args.loss_group_weights is not None else [1/6]*6
+            kin_pairs = max(val_kin_pairs, 1.)
+            rec.update(xy_kinematic_loss=recorded_kin["xy_loss"],
+                       joint_kinematic_loss=recorded_kin["joint_loss"],
+                       xy_kinematic_rmse_cm=recorded_kin["xy_rmse_cm"],
+                       joint_kinematic_rmse_deg=recorded_kin["joint_rmse_deg"],
+                       val_xy_kinematic_loss=val_kin_xy_sq / (2*kin_pairs*XY_REFERENCE_M**2),
+                       val_joint_kinematic_loss=val_kin_joint_sq / (12*kin_pairs*JOINT_REFERENCE_RAD**2),
+                       val_xy_kinematic_rmse_cm=100*math.sqrt(val_kin_xy_sq/kin_pairs),
+                       val_joint_kinematic_rmse_deg=180/math.pi*math.sqrt(val_kin_joint_sq/(12*kin_pairs)),
+                       val_kinematic_transition_count=int(val_kin_pairs))
             rec.update(raw_group_mse=dict(zip(GROUP_NAMES, raw_train)),
                        val_raw_group_mse=dict(zip(GROUP_NAMES, raw_validation)),
                        raw_loss=sum(v*w for v,w in zip(raw_train, monitor_weights)),
