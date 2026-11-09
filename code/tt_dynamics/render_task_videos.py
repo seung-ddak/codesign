@@ -33,7 +33,11 @@ def encode_frames(path, frames, *, width, height, fps):
     """Stream uncompressed RGB frames through ffmpeg; write MP4 atomically."""
     exe = shutil.which("ffmpeg")
     if not exe:
-        raise RuntimeError("ffmpeg not found. Install ffmpeg for MP4 output.")
+        try:
+            from imageio_ffmpeg import get_ffmpeg_exe
+            exe = get_ffmpeg_exe()
+        except (ImportError, RuntimeError, FileNotFoundError) as exc:
+            raise RuntimeError("ffmpeg not found. Install ffmpeg or imageio-ffmpeg for MP4 output.") from exc
     if path.exists():
         raise FileExistsError("Refusing to overwrite existing video: " + str(path))
     tmp = path.with_name(path.stem + ".partial.mp4")
