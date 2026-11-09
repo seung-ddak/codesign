@@ -31,6 +31,37 @@ def _gradient_name(path):
     return path.parent.name
 
 
+def video_for_candidate(root, result_path, candidate):
+    """Discover valid MP4 from files, including legacy JSON without video_path."""
+    root = Path(root)
+    result_path = Path(result_path)
+    recorded = candidate.get("video_path")
+    inferred = result_path.parent / "videos" / (
+        f"{result_path.stem}_candidate_{candidate['candidate']}.mp4")
+    possible = ([root / recorded] if recorded else []) + [inferred]
+    for path in possible:
+        if path.is_file() and path.stat().st_size > 256:
+            try:
+                return path.relative_to(root).as_posix(), "recorded"
+            except ValueError:
+                continue
+    return None, ("Referenced MP4 missing or empty" if recorded
+                  else "MP4 not generated yet")
+
+
+def video_player(path, title):
+    """HTML5 video with visible direct link on browsers without playback."""
+    safe = html.escape(path, quote=True)
+    return (
+        '<div class="video-entry"><p><strong>' + html.escape(title) + '</strong></p>'
+        '<video controls playsinline preload="metadata" '
+        'style="width:100%;max-width:720px;background:#0b1420">'
+        '<source src="' + safe + '" type="video/mp4">'
+        'Cannot play this MP4 in the browser.</video>'
+        '<p><a href="' + safe + '">MP4 직접 열기</a></p></div>'
+    )
+
+
 def _trajectory_svg(task, npz_path, candidate, task_spec):
     with np.load(npz_path) as z:
         mask = z["valid"][candidate].astype(bool)
