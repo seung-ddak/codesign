@@ -488,6 +488,7 @@ if not args.eval_only:
                 val_group_terms = torch.zeros(6, device=dev)
                 val_raw_terms = torch.zeros(6, device=dev)
                 val_kin_xy_sq = val_kin_joint_sq = val_kin_pairs = 0.0
+                val_kin_xy_weighted = val_kin_joint_weighted = 0.0
                 for j in range(0, len(valt), args.batch):
                     vb = valt[j:j + args.batch]
                     vb_loss, vb_terms, vb_raw, vb_kin = loss_on(vb, val_gen, return_components=True)
@@ -496,6 +497,8 @@ if not args.eval_only:
                     val_raw_terms.add_(vb_raw * len(vb))
                     val_kin_xy_sq += float(vb_kin["xy_sq_sum"])
                     val_kin_joint_sq += float(vb_kin["joint_sq_sum"])
+                    val_kin_xy_weighted += float(vb_kin["xy_weighted_sq_sum"])
+                    val_kin_joint_weighted += float(vb_kin["joint_weighted_sq_sum"])
                     val_kin_pairs += float(vb_kin["pair_count"])
                 vl = total_v / len(valt)
                 # 개입 쌍 R²_Δ 모니터 (twin 도 기록): 고정 512 쌍, 단일 noise 단계 x0_hat 기준. 최종 판정은 measure_delta_r2.py.
@@ -524,8 +527,8 @@ if not args.eval_only:
                        joint_kinematic_loss=recorded_kin["joint_loss"],
                        xy_kinematic_rmse_cm=recorded_kin["xy_rmse_cm"],
                        joint_kinematic_rmse_deg=recorded_kin["joint_rmse_deg"],
-                       val_xy_kinematic_loss=val_kin_xy_sq / (2*kin_pairs*XY_REFERENCE_M**2),
-                       val_joint_kinematic_loss=val_kin_joint_sq / (12*kin_pairs*JOINT_REFERENCE_RAD**2),
+                       val_xy_kinematic_loss=val_kin_xy_weighted / (2*kin_pairs*XY_REFERENCE_M**2),
+                       val_joint_kinematic_loss=val_kin_joint_weighted / (12*kin_pairs*JOINT_REFERENCE_RAD**2),
                        val_xy_kinematic_rmse_cm=100*math.sqrt(val_kin_xy_sq/kin_pairs),
                        val_joint_kinematic_rmse_deg=180/math.pi*math.sqrt(val_kin_joint_sq/(12*kin_pairs)),
                        val_kinematic_transition_count=int(val_kin_pairs))
