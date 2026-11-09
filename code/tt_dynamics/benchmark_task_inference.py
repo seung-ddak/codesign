@@ -35,7 +35,7 @@ def task_class(name):
     return TASKS[name]()
 
 
-def physical_results(task, predicted, morphology):
+def physical_results(task, predicted, morphology, *, horizon=64):
     """Evaluate exactly each generated E/S0/A once in real CPU MuJoCo."""
     predicted = predicted.detach().cpu().numpy()
     morphology = morphology.detach().cpu().numpy()
@@ -69,7 +69,7 @@ def physical_results(task, predicted, morphology):
                           (path[:n_valid, 14:26] -
                            actual[:n_valid, 14:26])**2))))
                           if n_valid else None)
-        seams = [t for t in range(63, len(path), 63)]
+        seams = [t for t in range(horizon - 1, n_valid, horizon - 1)]
         seam_jump_rad = (max(float(np.abs(path[t, 42:54] -
                                            path[t-1, 42:54]).max()) for t in seams)
                          if seams else None)
@@ -141,7 +141,8 @@ def run_and_store(folder, name, model, setup, task, *, count, seed,
     predicted, morphology, audit = generate(
         model, setup, task, count=count, seed=seed, scale=scale,
         rl_raw=rl_raw, rl_policy=rl_policy)
-    actual, valid, rows, returns = physical_results(task, predicted, morphology)
+    actual, valid, rows, returns = physical_results(task, predicted, morphology,
+                                                    horizon=setup['config']['horizon'])
     np.savez_compressed(npz_file, pred=predicted.detach().cpu().numpy(),
                         E=morphology.detach().cpu().numpy(), mujoco=actual, valid=valid)
     result = dict(method=name, task=task.describe(), seed=seed, samples=count,
@@ -179,7 +180,8 @@ def train_rl(task_name, model, setup, task, folder, *, seed, updates,
             model, setup, task, count=rollouts,
             seed=seed + 1000 + iteration, rl_raw=raw,
             rl_policy=policy)
-        _, _, rows, rewards = physical_results(task, predicted, morph)
+        _, _, rows, rewards = physical_results(task, predicted, morph,
+                                              horizon=setup['config']['horizon'])
         metrics = ppo_update(policy, optimizer, raw, old_lp, rewards,
                              epochs=ppo_epochs)
         record = dict(task=task_name, iteration=iteration + 1, rollouts=rollouts,
