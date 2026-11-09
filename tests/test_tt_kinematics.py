@@ -88,3 +88,15 @@ def test_error_from_unconditioned_model_propagates_gradient():
     (kin["xy_loss"]+kin["joint_loss"]).backward()
     assert torch.isfinite(eps.grad).all()
     assert eps.grad.abs().sum().item() > 0
+
+def test_min_snr_damps_high_noise_penalty_without_hiding_raw_rmse():
+    x0 = physical_motion()
+    eps = torch.randn_like(x0)
+    xt = x0.clone()
+    mask = torch.ones(2, 6, dtype=torch.bool)
+    out = denoised_kinematic_terms(
+        xt, eps, x0, torch.zeros_like(x0), mask,
+        torch.tensor([0.0001, 0.0001]), torch.zeros(54), torch.ones(54), 1.)
+    assert out["xy_loss"].item() < 50
+    assert out["joint_loss"].item() < 50
+    assert out["xy_rmse_cm"].item() >= 0
