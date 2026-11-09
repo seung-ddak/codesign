@@ -237,3 +237,56 @@ compete with other CPU jobs.
   explicitly skipped. It is not animated as if successful.
 - The 3D MuJoCo video is not a policy rollout; it is physical open-loop replay
   of TT-generated actions under the generated morphology.
+
+## 2026-11-09: OSMesa error on the V100 server — CPU no-GL fallback
+
+The first 3-task pilot **completed all 18 physical MuJoCo replays** but
+`MUJOCO_GL=osmesa` failed during import with
+`AttributeError: 'NoneType' object has no attribute 'glGetError'`.
+This is a missing/unloadable OSMesa library error, **not** a failed TT,
+PPO, or physical rollout. Do not rerun training just to get video.
+
+Pull the current branch, then use the *existing* NPZ/JSON to produce MP4:
+
+```bash
+cd ~/quad_ws/codesign
+git pull --ff-only origin experiment/v100-mujoco-10k-tt
+export PYTHON="$PWD/../transformer-transformer/.venv/bin/python"
+export CUDA_VISIBLE_DEVICES=""
+export OMP_NUM_THREADS=2
+export OPENBLAS_NUM_THREADS=2
+
+# Check the MP4 encoder: either system ffmpeg or imageio-ffmpeg is needed.
+command -v ffmpeg || "$PYTHON" -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
+
+"$PYTHON" -m pytest -q tests/test_tt_task_video.py
+"$PYTHON" -u code/tt_dynamics/render_task_videos.py \
+  --out runs/v100_mujoco_10k/task_gradient_vs_ppo_video_v1 \
+  --backend wireframe --selection best --fps 25 --resume
+```
+
+If both MP4 encoders are absent, install the **Python-only encoder wheel**
+in the existing project venv, not the UNet conda env:
+
+```bash
+"$PYTHON" -m pip install imageio-ffmpeg
+```
+
+`--backend wireframe` renders the **actual MuJoCo forward-kinematics
+joint anchors, foot geoms and body orientation** as an animated 3-D
+isometric **line drawing**. It does not provide photorealistic 3-D meshes
+or collision geometry visualization and it **does not use GPU/OSMesa/EGL**.
+The right-side path overlay and fall marker are preserved. This is the
+recommended zero-GL, zero-GPU option while UNet is using V100.
+
+`--backend auto` uses OSMesa mesh rendering if its system library can
+be loaded and otherwise falls back to wireframe. For fully rendered robot
+meshes (distinct from kinematic line art), ask the system administrator to
+install `libosmesa6` and validate `MUJOCO_GL=osmesa` in the research
+Python environment. Do not kill or interfere with the ongoing UNet job.
+Once OSMesa is available you can request `--backend osmesa`.
+The recorder never silently overwrites existing MP4 files.
+
+Pilot results: all three tasks had zero 10-second completions across
+3 methods × 2 candidates = 18 physical rollouts. The successful PPO
+iteration logs do **not** imply task success or policy convergence.
