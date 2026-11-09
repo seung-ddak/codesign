@@ -23,12 +23,16 @@ def main():
     p.add_argument("--kin-xy-weight", type=float, default=0.002)
     p.add_argument("--kin-joint-weight", type=float, default=0.01)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--resume", action="store_true", help="resume the NEW fine-tuning run; do not load source weights again")
     args = p.parse_args()
 
     ckpt = args.ckpt / "checkpoint.pt" if args.ckpt.is_dir() else args.ckpt
     if not ckpt.is_file():
         p.error(f"Checkpoint does not exist: {ckpt}")
-    if args.out.exists():
+    if args.resume:
+        if not (args.out / "training_state.pt").is_file():
+            p.error(f"No resumable fine-tuning state in: {args.out}")
+    elif args.out.exists():
         p.error(f"Output directory exists (do not overwrite): {args.out}")
     if args.steps < 2 or not 0 <= args.warmup_steps < args.steps:
         p.error("Require steps >= 2 and 0 <= warmup_steps < steps")
@@ -44,8 +48,12 @@ def main():
         p.error("Training requires a CUDA GPU; rerun on the V100 machine")
 
     train = Path(__file__).with_name("train_tt.py")
-    command = [sys.executable, str(train), "--out", str(args.out),
-               "--init-from", str(ckpt), "--data", *data]
+    command = [sys.executable, str(train), "--out", str(args.out)]
+    if args.resume:
+        command.append("--resume")
+    else:
+        command.extend(["--init-from", str(ckpt)])
+    command.extend(["--data", *data])
 
     def scalar(name, value):
         if value is not None:
