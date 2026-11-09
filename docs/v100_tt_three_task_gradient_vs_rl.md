@@ -132,3 +132,108 @@ model's previously measured dynamics inconsistency.
 **No actual three-task results are contained in this commit.** They will only
 appear after executing the run against the pre-trained checkpoint and
 full MuJoCo environment on the research machine.
+
+## 10-second MuJoCo MP4 video recording (new)
+
+The video tool **never trains TT or RL**. It reads archived generated E/S0/A
+from each method's NPZ, replays the same CPU MuJoCo model, and verifies the
+rerun matches the saved physical state/mask before making the video.
+The video displays the actual 3D robot and a top-down mini-map:
+gray = task centerline/boundaries, orange = TT-predicted path,
+green = actual physical MuJoCo path. The 2D guide is **not a physical obstacle**.
+
+Each video is exactly **10 seconds**, even if the robot falls earlier.
+After a fall, the last actual physical frame is held and the fall time is
+shown explicitly. Default output: H.264 MP4, **960×540, 25 FPS**, no audio.
+
+### Video added automatically during the 3-task experiment
+
+Add these options to the command above:
+
+```bash
+  --record-video --video-selection best --video-backend osmesa --video-fps 25
+```
+
+Use `--video-selection all` to record every candidate, not only the best
+physical reward candidate per method and evaluation seed.
+
+### Add videos to an experiment already finished (recommended if running now)
+
+This does not repeat the 3-task TT or RL inference, only physics replay
+for validation and rendering:
+
+```bash
+cd ~/quad_ws/codesign
+export PYTHON="$PWD/../transformer-transformer/.venv/bin/python"
+export CUDA_VISIBLE_DEVICES=""
+export OMP_NUM_THREADS=2
+export OPENBLAS_NUM_THREADS=2
+
+"$PYTHON" -m pytest -q tests/test_tt_task_video.py
+
+"$PYTHON" -u code/tt_dynamics/render_task_videos.py \
+  --out runs/v100_mujoco_10k/task_gradient_vs_ppo_pilot_v1 \
+  --backend osmesa --selection best --fps 25 --width 960 --height 540 \
+  --resume
+```
+
+Change `--out` to your actual existing completed benchmark folder.
+The tool emits paths such as:
+
+```text
+circle/gradient_scale_0/videos/seed_20000_candidate_0.mp4
+circle/gradient_scale_1/videos/seed_20000_candidate_0.mp4
+circle/rl_ppo/videos/seed_20000_candidate_0.mp4
+zigzag/... /videos/...
+straight/... /videos/...
+report.html  (embedded MP4 players for best candidates)
+report.md    (direct MP4 links)
+```
+
+You can inspect `report.html` in a browser; links are relative to the
+benchmark folder. All videos are preserved during resume and never silently
+overwritten.
+
+### Renderer dependency and GPU safety
+
+**Default = OSMesa CPU software rendering.** This is deliberate while the
+V100 runs the unrelated UNet job. It needs the system OSMesa runtime and
+Python Pillow plus ffmpeg (a bundled `imageio-ffmpeg` binary also works).
+Before rendering, check:
+
+```bash
+ldconfig -p | grep -i osmesa
+"$PYTHON" -c "import PIL; print('Pillow ready')"
+ffmpeg -version | head -n 1
+```
+
+If OSMesa cannot import, install/activate the appropriate system OSMesa
+package (`libosmesa6` on Debian/Ubuntu) using your administrator.
+Do not terminate the UNet process to make a video.
+
+EGL rendering is an explicit alternative only if a **separate permitted
+GPU** is known to be available. For example, on a machine where EGL device
+index 1 has been verified to be Quadro P620 and NOT the V100:
+
+```bash
+"$PYTHON" code/tt_dynamics/render_task_videos.py \
+  --out runs/v100_mujoco_10k/task_gradient_vs_ppo_pilot_v1 \
+  --backend egl --egl-device 1 --selection best --resume
+```
+
+Do not assume EGL device ordering matches `nvidia-smi` numbering without
+checking. The safe default remains OSMesa; CPU video processing may still
+compete with other CPU jobs.
+
+### Recording integrity and scope
+
+- Video recording only happens **after** numerical task evaluation.
+- If recording fails, existing NPZ and JSON scores stay intact.
+- No created MP4 is presented as evidence unless recorded real MuJoCo
+  poses match the archived physical result within tolerance.
+- The candidate's `video_path` and recording metadata are written back to
+  its result JSON; the report is regenerated.
+- A candidate with an invalid initial S0 has no physical video and is
+  explicitly skipped. It is not animated as if successful.
+- The 3D MuJoCo video is not a policy rollout; it is physical open-loop replay
+  of TT-generated actions under the generated morphology.
