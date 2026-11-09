@@ -186,16 +186,41 @@ def build_report(root):
                 if best_file is not None:
                     svg = _trajectory_svg(task, best_file, best["candidate"], descriptor)
                     morph = ", ".join(_number(float(x), 3) for x in best["morphology"])
+                    video = best.get("video_path")
+                    video_tag = ('<video controls playsinline preload="metadata" '
+                                 'style="width:100%;max-width:700px" '
+                                 'src="'+html.escape(video, quote=True)+'"></video>'
+                                 if video else '<p>동작 MP4 미녹화</p>')
                     visuals.append("<h3>"+html.escape(method)+" — 최고 보상 후보</h3>"
-                                   +svg+_morphology_svg(best["morphology"])+"<p>실제 보상 "+_number(best["reward"])+
+                                   +video_tag+svg+_morphology_svg(best["morphology"])+
+                                   "<p>실제 보상 "+_number(best["reward"])+
                                    " · 유효 시간 "+_number(best.get("valid_seconds",0))+
                                    "초 · E=["+html.escape(morph)+"]</p>")
+                    if video:
+                        markdown.append(f"**{method} 실제 MuJoCo 동작 영상:** [MP4]({video})")
                     markdown.append(f"**{method} 최고 후보 E:** [{morph}]; "
                                     f"보상 {_number(best['reward'])}; "
                                     f"유효 시간 {_number(best.get('valid_seconds',0))}초.")
         markdown.extend(rows_md+[""])
         rows_html.append("</tbody></table>")
         sections.append("".join(rows_html)+"".join(visuals))
+        # Link all recorded candidate MP4 files when --selection all is used.
+        video_links = []
+        for method, runs in sorted(task_groups.items()):
+            for _, run, _ in runs:
+                for c in run["candidates"]:
+                    if c.get("video_path"):
+                        video_links.append((method, c["candidate"], c["video_path"]))
+        if video_links:
+            markdown.append("### 녹화된 후보 전체 목록")
+            markdown.extend(f"- {method} · 후보 {i}: [MP4]({path})"
+                            for method, i, path in video_links)
+            markdown.append("")
+            sections.append("<h3>전체 녹화 영상</h3><ul>"+
+                            "".join("<li>"+html.escape(method)+
+                                    " · 후보 "+str(i)+" · <a href='"+
+                                    html.escape(path, quote=True)+"'>MP4 보기</a></li>"
+                                    for method, i, path in video_links)+"</ul>")
         report["tasks"][task] = {"status": "evaluated", "methods": stats}
     markdown.extend(["## 판정 기준", "",
                      "운동학적 일관성만으로 성공을 선언하지 않는다. "
