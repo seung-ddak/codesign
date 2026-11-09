@@ -223,8 +223,9 @@ def main():
                         help="record MuJoCo 3D MP4 after evaluations in a separate offscreen process")
     parser.add_argument("--video-selection", choices=("best", "all"), default="best",
                         help="record best physical reward candidate per method/seed or all candidates")
-    parser.add_argument("--video-backend", choices=("osmesa", "egl"), default="osmesa",
-                        help="OSMesa software renderer does not use GPU; EGL can use a GPU")
+    parser.add_argument("--video-backend", choices=("auto", "osmesa", "egl", "wireframe"),
+                        default="auto",
+                        help="auto: CPU OSMesa mesh if installed, otherwise GL-free MuJoCo 3D FK wireframe")
     parser.add_argument("--video-fps", type=int, choices=(10, 25, 50), default=25)
     args = parser.parse_args()
     if args.candidates < 1 or args.eval_seeds < 1 or args.rl_updates < 1 or args.rl_rollouts < 2:
@@ -294,9 +295,8 @@ def main():
                    "--backend", args.video_backend, "--fps", str(args.video_fps),
                    "--resume"]
         env = os.environ.copy()
-        if args.video_backend == "osmesa":
+        if args.video_backend in ("auto", "osmesa", "wireframe"):
             env["CUDA_VISIBLE_DEVICES"] = ""
-            env["MUJOCO_GL"] = "osmesa"
         # A separate process is mandatory because this process imported
         # MuJoCo before the CLI/video backend was selected.
         print("Rendering physical replay videos:", args.video_backend, flush=True)
