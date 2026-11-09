@@ -32,6 +32,8 @@ import torch.nn as nn
 from rollout_data import A_DIM, E_DIM, S_DIM, X_DIM, features, intervention_pairs, is_e_swap, load, source_group_keys  # noqa: F401
 from tt_model import CONDITIONING_VERSION, condition_masks, make_net, rebase, schedule, unbase
 from tt_ema import PowerEMA
+from tt_kinematics import (denoised_kinematic_terms, XY_REFERENCE_M,
+                           JOINT_REFERENCE_RAD)
 Q = slice(14, 26)  # S 안의 관절각 (pos 2, z 1, yaw 2, grav 3, vel 3, angvel 3 다음)
 POS = slice(0, 2)
 
@@ -53,6 +55,9 @@ parser.add_argument("--diff-steps", type=int, default=100)
 parser.add_argument("--val-frac", type=float, default=0.1)
 parser.add_argument("--split-key", help="NPZ row key with fixed train/val/test labels; test rows are excluded from training")
 parser.add_argument("--norm-from", type=Path, help="reuse another checkpoint's train-only x normalization")
+parser.add_argument("--init-from", type=Path, help="initialize NEW run with weights and normalization from a checkpoint")
+parser.add_argument("--kin-xy-weight", type=float, default=0., help="denoised x0 XY displacement/velocity consistency loss weight")
+parser.add_argument("--kin-joint-weight", type=float, default=0., help="denoised x0 joint angle/velocity consistency loss weight")
 parser.add_argument("--eval-episodes", type=int, default=64)
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--eval-only", action="store_true")
@@ -77,6 +82,12 @@ parser.add_argument("--delta-weight", type=float, default=0.0,
                     help="개입 쌍 변화량 손실 λ (remind 8-49). 0 = 기존 (쌍은 모니터만). E 쌍 = e_swap 같은 source, A 쌍 = group_id+variant")
 parser.add_argument("--pair-batch", type=int, default=16, help="step 당 쌍 수 (E, A 각각)")
 args = parser.parse_args()
+if any(not math.isfinite(w) or w < 0 for w in (args.kin_xy_weight, args.kin_joint_weight)):
+    parser.error("kinematic loss weights must be finite and nonnegative")
+if (args.kin_xy_weight or args.kin_joint_weight) and args.pose != "abs":
+    parser.error("kinematic loss requires --pose abs; delta pose uses different XY channels")
+if args.init_from and (args.resume or args.eval_only or args.norm_from):
+    parser.error("--init-from must start a NEW training run (no --resume/--eval-only/--norm-from)")
 if args.warmup_steps < 0 or args.warmup_steps >= args.steps:
     parser.error("--warmup-steps must be in [0, steps)")
 if args.ema_power < 0 or args.ema_power > 1 or args.checkpoint_every < 1 or args.val_every < 1:
@@ -96,6 +107,28 @@ if args.mode_weights is not None and (len(args.mode_weights) != len(args.modes) 
         any(not math.isfinite(w) or w <= 0 for w in args.mode_weights)):
     parser.error("--mode-weights must contain one finite positive weight per mode")
 args.conditioning_version = CONDITIONING_VERSION
+
+# Warm start reuses trained weights and original data normalization, never the
+# previous optimizer, scheduler, EMA counter or global training step.
+init_ck = None
+if args.init_from is not None:
+    source_checkpoint = args.init_from / "checkpoint.pt" if args.init_from.is_dir() else args.init_from
+    init_ck = torch.load(source_checkpoint, map_location="cpu", weights_only=False)
+    original_args = init_ck["args"]
+    comparable = ("horizon", "d_model", "layers", "diff_steps", "norm", "film",
+                  "pose", "clip", "modes", "mode_weights", "val_frac", "seed",
+                  "loss_group_weights", "loss_balance", "contact_range", "swap_fraction")
+    for key in comparable:
+        if original_args.get(key, parser.get_default(key)) != getattr(args, key):
+            parser.error(f"--init-from requires identical {key}; source={original_args.get(key)} current={getattr(args, key)}")
+    source_data = [str(Path(p)) for p in original_args["data"]]
+    current_data = [str(Path(p)) for p in args.data]
+    if source_data != current_data:
+        parser.error("--init-from requires the original --data list/order to preserve the train/val split")
+    if "mu" not in init_ck or "sd" not in init_ck:
+        parser.error("--init-from source has no normalization")
+    print(f"Warm start from {source_checkpoint} (EMA preferred)", flush=True)
+
 dev = "cuda"
 torch.manual_seed(args.seed)
 
@@ -266,6 +299,8 @@ elif args.norm_from:
     if norm_ck["args"]["norm"] != args.norm or norm_ck["args"]["horizon"] != H:
         raise ValueError("normalization checkpoint has different norm or horizon")
     mu, sd = norm_ck["mu"], norm_ck["sd"]
+elif init_ck is not None:
+    mu, sd = init_ck["mu"], init_ck["sd"]
 else:
     xs, ms = zip(*[window(trt[torch.randint(0, len(tr), (2048,), device=dev, generator=g)], g) for _ in range(10)])
     flat = torch.cat([x[m] for x, m in zip(xs, ms)]).cpu().numpy()
@@ -281,6 +316,10 @@ En = torch.tensor((E - emu) / esd, device=dev)
 args.out.mkdir(parents=True, exist_ok=True)
 beta, abar = schedule(args.diff_steps, dev)
 net = make_net({"horizon": H, "d_model": args.d_model, "layers": args.layers, "film": args.film}).to(dev)
+if init_ck is not None:
+    source_net = init_ck["ema_net"] if init_ck.get("ema_net") is not None else init_ck["net"]
+    net.load_state_dict(source_net, strict=True)
+    print("Loaded warm-start " + ("EMA" if init_ck.get("ema_net") is not None else "raw") + " weights", flush=True)
 ckpt_path = args.out / "checkpoint.pt"
 print(f"episodes={len(X)} (train {len(tr)}, val {n_val}) valid steps={int(M.sum())} horizon={H} sources={sorted(set(src))}")
 print(f"params={sum(p.numel() for p in net.parameters()) / 1e6:.2f}M")
