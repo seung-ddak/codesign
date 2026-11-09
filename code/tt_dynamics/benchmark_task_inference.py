@@ -69,12 +69,16 @@ def physical_results(task, predicted, morphology, *, horizon=64):
             rows, torch.tensor(policy_rewards, dtype=torch.float32))
 
 
-def load_model(checkpoint, device):
-    ck = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    config = ck["args"]
+def check_task_checkpoint(config):
     check_rest_checkpoint(config)
     if 2 not in config["modes"] or config.get("pose", "abs") != "abs":
         raise ValueError("Needs TT with mode 2, corrected mode 4, absolute pose")
+
+
+def load_model(checkpoint, device):
+    ck = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    config = ck["args"]
+    check_task_checkpoint(config)
     model = make_net(config).to(device)
     weights = ck["ema_net"] if ck.get("ema_net") is not None else ck["net"]
     model.load_state_dict(weights, strict=True)
@@ -125,6 +129,13 @@ def run_and_store(folder, name, model, setup, task, *, count, seed,
 def store_evaluation(result_file, task, predicted, morphology, provenance):
     actual, valid, rows, returns = physical_results(task, predicted, morphology,
                                                      horizon=provenance["horizon"])
+    with torch.no_grad():
+        finite = np.isfinite(predicted).all(axis=(1, 2))
+        if finite.any():
+            tokens = torch.as_tensor(predicted[finite])
+            scores, _ = task(tokens, torch.ones(tokens.shape[:2], dtype=torch.bool))
+            for index, score in zip(np.flatnonzero(finite), scores.tolist()):
+                rows[index]["predicted_guidance_score"] = score if math.isfinite(score) else None
     npz_file = result_file.with_suffix(".npz")
     temporary_npz = npz_file.with_suffix(".npz.tmp")
     with temporary_npz.open("wb") as f:

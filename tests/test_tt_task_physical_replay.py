@@ -193,3 +193,28 @@ def test_real_slalom_replay_can_render_wireframe(physical_model, monkeypatch, tm
     assert result["replay_consistency_checked"]
     assert result["backend"] == "wireframe"
     assert video.stat().st_size > 256
+
+
+def test_frozen_checkpoint_both_guidance_methods_on_cpu(tmp_path, physical_model, monkeypatch):
+    from tt_model import make_net
+    from tt_rl_residual_ppo import EpisodicResidualPPO
+    from joint_diffusion_guidance import _windows
+
+    config = dict(horizon=64, d_model=16, layers=1, diff_steps=1,
+                  modes=[2, 4], conditioning_version=4, norm="minmax", clip=1)
+    checkpoint = tmp_path / "checkpoint.pt"
+    torch.save(dict(args=config, net=make_net(config).state_dict(),
+                    mu=np.zeros(54, np.float32), sd=np.ones(54, np.float32)), checkpoint)
+    model, setup = benchmark.load_model(checkpoint, "cpu")
+    monkeypatch.setattr(benchmark, "settled_start", lambda _e: candidate()[0, :42])
+    policy = EpisodicResidualPPO(len(_windows(evaluation.STEPS, config["horizon"])))
+    raw = policy.mean.detach()[None, :]
+    methods = [("gradient", dict(scale=1.0)), ("rl", dict(rl_raw=raw, rl_policy=policy))]
+    for method, kwargs in methods:
+        out = tmp_path / method
+        benchmark.run_and_store(out, method, model, setup, StraightReward(),
+                                count=1, seed=20000, **kwargs)
+        row = json.loads((out / "seed_20000.json").read_text())["candidates"][0]
+        assert np.isfinite(row["predicted_guidance_score"])
+        assert row["control_steps"] > 0
+        assert np.isfinite(row["reward"])

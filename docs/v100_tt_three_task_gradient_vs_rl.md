@@ -411,3 +411,40 @@ When the MP4s already exist, rebuilding the HTML alone is enough.
 ../transformer-transformer/.venv/bin/python code/tt_dynamics/tt_task_report.py \
   --out runs/v100_mujoco_10k/task_gradient_vs_ppo_replay_v2
 ```
+
+## Compare saved TT versions in one video report
+
+On the machine with the trained checkpoints, run this from the repository
+root. The runner searches `runs/pipeline_v1` and `runs/v100_mujoco_10k` for
+`checkpoint.pt` files. It reports missing reference paths and incompatible
+conditioning versions. Only run checkpoints from trusted sources.
+
+```bash
+TT_PY="$PWD/../transformer-transformer/.venv/bin/python"
+"$TT_PY" code/tt_dynamics/compare_tt_checkpoints.py --list-only
+
+"$TT_PY" -u code/tt_dynamics/compare_tt_checkpoints.py \
+  --out runs/v100_mujoco_10k/tt_version_comparison
+```
+
+Repeat `--checkpoint PATH` to select specific checkpoint files or run folders
+instead of scanning. For example, use the V7 E-swap, V16 Twin and H64 base
+run folders. Append `--resume` to the same command after interruption.
+Use `--report-only --out PATH` to rebuild the report from existing results.
+
+Each compatible checkpoint runs all three tasks with unguided TT, reward
+gradient at scale 1, and episodic residual PPO on the same evaluation
+seeds and candidate budget. The default is a pilot of one evaluation seed,
+two candidates per method, and two PPO updates with four training rollouts
+per task. The checkpoint keeps its original diffusion schedule and uses EMA
+when available. TT weights stay frozen. The residual PPO updates also run
+on CPU. GPU visibility is disabled for each benchmark child process.
+
+Open `tt_version_comparison/report.html` directly in a browser. Each task
+groups the versions by row and the guidance methods by column. The report
+separates the TT-predicted objective from physical reward and completion.
+It embeds one available video per cell, ranked by physical reward. An
+empty cell or missing clip carries its recorded reason. The matching
+candidate archives, per-version logs, and checkpoint hashes stay alongside
+the HTML. Compare methods within each task. Results across checkpoint
+versions include their different data, window sizes, and diffusion schedules.
