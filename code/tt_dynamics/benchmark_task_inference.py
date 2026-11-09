@@ -13,6 +13,7 @@ import json
 import math
 import os
 import sys
+import subprocess
 from pathlib import Path
 
 import numpy as np
@@ -218,6 +219,13 @@ def main():
     parser.add_argument("--ppo-epochs", type=int, default=4)
     parser.add_argument("--resume", action="store_true",
                         help="resume interrupted RL policy and skip completed evaluations")
+    parser.add_argument("--record-video", action="store_true",
+                        help="record MuJoCo 3D MP4 after evaluations in a separate offscreen process")
+    parser.add_argument("--video-selection", choices=("best", "all"), default="best",
+                        help="record best physical reward candidate per method/seed or all candidates")
+    parser.add_argument("--video-backend", choices=("osmesa", "egl"), default="osmesa",
+                        help="OSMesa software renderer does not use GPU; EGL can use a GPU")
+    parser.add_argument("--video-fps", type=int, choices=(10, 25, 50), default=25)
     args = parser.parse_args()
     if args.candidates < 1 or args.eval_seeds < 1 or args.rl_updates < 1 or args.rl_rollouts < 2:
         parser.error("Invalid episode count")
@@ -236,7 +244,10 @@ def main():
     config_file = args.out / "experiment_config.json"
     if config_file.exists():
         old = json.loads(config_file.read_text(encoding="utf-8"))
-        # Only the resume flag is permitted to change.
+        # Video flags are post-evaluation presentation options. Existing
+        # benchmark configs from before video support remain resumable.
+        for key in ("record_video", "video_selection", "video_backend", "video_fps"):
+            old[key] = cfg[key]
         old["resume"], cfg["resume"] = False, False
         if old != cfg:
             raise ValueError("Existing experiment settings differ from current arguments")
@@ -276,6 +287,26 @@ def main():
     from tt_task_report import build_report
     build_report(args.out)
     print("Saved result report:", args.out / "report.html", flush=True)
+    if args.record_video:
+        video_script = Path(__file__).with_name("render_task_videos.py")
+        command = [sys.executable, str(video_script),
+                   "--out", str(args.out), "--selection", args.video_selection,
+                   "--backend", args.video_backend, "--fps", str(args.video_fps),
+                   "--resume"]
+        env = os.environ.copy()
+        if args.video_backend == "osmesa":
+            env["CUDA_VISIBLE_DEVICES"] = ""
+            env["MUJOCO_GL"] = "osmesa"
+        # A separate process is mandatory because this process imported
+        # MuJoCo before the CLI/video backend was selected.
+        print("Rendering physical replay videos:", args.video_backend, flush=True)
+        try:
+            subprocess.run(command, env=env, check=True)
+        except subprocess.CalledProcessError as exc:
+            # Numeric physical results are already saved and remain valid.
+            print(f"Video rendering failed ({exc}). Task results remain saved. "
+                  "Run render_task_videos.py manually after installing the backend.",
+                  file=sys.stderr, flush=True)
 
 
 if __name__ == "__main__":
