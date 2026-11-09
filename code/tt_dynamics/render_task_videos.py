@@ -221,7 +221,9 @@ def main():
         p.error(f"No saved physical evaluation files in {args.out}. Run the task benchmark first.")
     from generate_task_mujoco import EVALUATION_VERSION
 
-    completed, skipped = 0, 0
+    from tt_task_report import _gradient_name, build_report, is_mp4
+
+    completed, skipped, failed = 0, 0, 0
     for result_path in job_files:
         task = result_path.relative_to(args.out).parts[0]
         with result_path.open(encoding="utf-8") as f:
@@ -232,17 +234,14 @@ def main():
         archive = result_path.with_suffix(".npz")
         if not archive.is_file():
             raise FileNotFoundError(archive)
-        from tt_task_report import _gradient_name
         label = _gradient_name(result_path)
         with np.load(archive) as z:
             e_all, predicted, actual, valid = (z[k] for k in ("E", "pred", "mujoco", "valid"))
         selected = select_candidates(result["candidates"], args.selection)
-        if not selected:
-            for row in result["candidates"]:
-                row["video_status"] = "skipped_no_valid_physical_candidate"
-            print(f"No physically valid candidate to record: {result_path}", flush=True)
-        for index in selected:
-            row = result["candidates"][index]
+        for index, row in enumerate(result["candidates"]):
+            if index not in selected:
+                row["video_status"] = "not_selected"
+                continue
             name = f"{result_path.stem}_candidate_{index}.mp4"
             video_path = result_path.parent / "videos" / name
             video_path.parent.mkdir(parents=True, exist_ok=True)
@@ -250,19 +249,34 @@ def main():
             if video_path.is_file():
                 if not args.resume:
                     raise FileExistsError("Already recorded video: "+str(video_path))
-                row["video_path"] = relative_path
-                skipped += 1
+                if is_mp4(video_path):
+                    row["video_path"] = relative_path
+                    row["video_status"] = "recorded"
+                    skipped += 1
+                    continue
+                row["video_status"] = "render_failed"
+                row["video_error"] = "Existing MP4 is invalid. Move it aside and retry."
+                failed += 1
                 continue
             if not row["control_steps"]:
-                row["video_status"] = "skipped_invalid_initial_state"
+                row["video_status"] = "no_physical_steps"
                 skipped += 1
                 continue
-            metadata = render_candidate(
-                video_path, task=task, descriptor=result["task"], method=label,
-                candidate=index, morphology=e_all[index],
-                pred=predicted[index], physical=actual[index], mask=valid[index], row=row,
-                fps=args.fps, width=args.width, height=args.height)
+            try:
+                metadata = render_candidate(
+                    video_path, task=task, descriptor=result["task"], method=label,
+                    candidate=index, morphology=e_all[index],
+                    pred=predicted[index], physical=actual[index], mask=valid[index], row=row,
+                    fps=args.fps, width=args.width, height=args.height)
+            except (ImportError, RuntimeError, ValueError, OSError) as exc:
+                row["video_status"] = "render_failed"
+                row["video_error"] = str(exc)
+                failed += 1
+                print(f"Video failed: {video_path}: {exc}", file=sys.stderr, flush=True)
+                continue
             row["video_path"] = relative_path
+            row["video_status"] = "recorded"
+            row.pop("video_error", None)
             row["video_metadata"] = metadata
             completed += 1
             print(f"MP4 saved: {video_path}", flush=True)
@@ -270,10 +284,11 @@ def main():
         temp.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
         temp.replace(result_path)
 
-    from tt_task_report import build_report
     build_report(args.out)
-    print(f"Videos rendered={completed}, skipped={skipped}. "
+    print(f"Videos rendered={completed}, skipped={skipped}, failed={failed}. "
           f"Report: {args.out/'report.html'}", flush=True)
+    if failed:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

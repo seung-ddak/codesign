@@ -340,6 +340,7 @@ def report_and_video(args):
             print(f"Video rendering failed ({exc}). Task results remain saved. "
                   "Run render_task_videos.py manually after installing the backend.",
                   file=sys.stderr, flush=True)
+            raise SystemExit(exc.returncode) from exc
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@
 No invented values: absent runs appear explicitly as not evaluated. Every
 statistic is computed from saved candidate-level physical MuJoCo replay data.
 """
+import base64
 import html
 import json
 import math
@@ -33,34 +34,60 @@ def _gradient_name(path):
     return path.parent.name
 
 
+def is_mp4(path):
+    """Recognize MP4 container headers, including files emitted by older runs."""
+    if not path.is_file() or path.stat().st_size <= 256:
+        return False
+    with path.open("rb") as stream:
+        return stream.read(8)[4:] == b"ftyp"
+
+
 def video_for_candidate(root, result_path, candidate):
-    """Discover valid MP4 from files, including legacy JSON without video_path."""
-    root = Path(root)
+    """Find the candidate MP4 and explain why it is absent."""
+    root = Path(root).resolve()
     result_path = Path(result_path)
     recorded = candidate.get("video_path")
     inferred = result_path.parent / "videos" / (
         f"{result_path.stem}_candidate_{candidate['candidate']}.mp4")
     possible = ([root / recorded] if recorded else []) + [inferred]
+    unusable_file = False
     for path in possible:
-        if path.is_file() and path.stat().st_size > 256:
-            try:
-                return path.relative_to(root).as_posix(), "recorded"
-            except ValueError:
-                continue
-    return None, ("Referenced MP4 missing or empty" if recorded
-                  else "MP4 not generated yet")
+        path = path.resolve()
+        if not path.is_relative_to(root):
+            continue
+        if is_mp4(path):
+            return path.relative_to(root).as_posix(), "recorded"
+        unusable_file |= path.exists()
+    if unusable_file:
+        return None, "MP4 파일이 손상되었거나 비어 있음"
+    status = candidate.get("video_status")
+    if status == "render_failed":
+        return None, "영상 생성 실패 · " + candidate["video_error"]
+    if candidate.get("initial_valid") is False or candidate.get("control_steps") == 0:
+        reason = candidate.get("invalid_reason") or candidate.get("termination_reason")
+        return None, "재생할 물리 스텝 없음" + (f" · {reason}" if reason else "")
+    if status == "not_selected":
+        return None, "녹화 대상에서 제외됨"
+    return None, "MP4가 아직 생성되지 않음"
 
 
-def video_player(path, title):
-    """HTML5 video with visible direct link on browsers without playback."""
-    safe = html.escape(path, quote=True)
+def video_anchor(path):
+    return "video-" + path
+
+
+def video_player(root, path, title):
+    """Embed the MP4 once so the HTML alone plays in a browser."""
+    safe_path = html.escape(path, quote=True)
+    anchor = html.escape(video_anchor(path), quote=True)
+    encoded = base64.b64encode((root / path).read_bytes()).decode("ascii")
     return (
-        '<div class="video-entry"><p><strong>' + html.escape(title) + '</strong></p>'
-        '<video controls playsinline preload="metadata" '
-        'style="width:100%;max-width:720px;background:#0b1420">'
-        '<source src="' + safe + '" type="video/mp4">'
-        'Cannot play this MP4 in the browser.</video>'
-        '<p><a href="' + safe + '">MP4 직접 열기</a></p></div>'
+        '<div class="video-entry" id="' + anchor + '"><p><strong>'
+        + html.escape(title) + '</strong></p>'
+        '<video controls playsinline preload="none" '
+        'style="display:block;width:100%;max-width:720px;background:#0b1420">'
+        '<source src="data:video/mp4;base64,' + encoded + '" type="video/mp4">'
+        '이 브라우저에서 MP4를 재생할 수 없습니다.</video>'
+        '<p><a href="' + safe_path + '">원본 MP4 열기</a></p></div>'
     )
 
 
@@ -150,7 +177,7 @@ def build_report(root):
                 "초기 상태 무효 후보는 평균 보상에서 제외한다. 완주율의 분모는 모든 후보이다.", ""]
     report = {"tasks": {}, "interpretation": "physical MuJoCo replay; frozen TT; no training-completion claims"}
     sections = []
-    video_gallery = []
+    video_gallery = {}
     video_audit = []
     for task in TASK_ORDER:
         task_groups = groups.get(task, {})
@@ -221,7 +248,7 @@ def build_report(root):
                     morph = ", ".join(_number(float(x), 3) for x in best["morphology"])
                     video, video_status = video_for_candidate(
                         root, best_file.with_suffix(".json"), best)
-                    video_tag = (video_player(video, method + " · " + TASK_NAMES[task])
+                    video_tag = (f'<p><a href="#{html.escape(video_anchor(video), quote=True)}">영상 재생 위치로 이동</a></p>'
                                  if video else
                                  '<p><strong>영상 미표시:</strong> '
                                  + html.escape(video_status) + '</p>')
@@ -259,9 +286,12 @@ def build_report(root):
                                             video_path=path, status=status))
                     if path:
                         video_links.append((method, candidate["candidate"], path))
-                        video_gallery.append(video_player(path, TASK_NAMES[task] +
-                                                          " · " + method +
-                                                          " · 후보 " + str(candidate["candidate"])))
+                        if path not in video_gallery:
+                            title = f"{TASK_NAMES[task]} · {method} · {result_path.stem} · 후보 {candidate['candidate']}"
+                            video_gallery[path] = video_player(root, path, title)
+                    else:
+                        label = f"{method} · {result_path.stem} · 후보 {candidate['candidate']}"
+                        sections.append(f"<p>{html.escape(label)} · {html.escape(status)}</p>")
         markdown.append("### 녹화된 MP4")
         if video_links:
             markdown.extend(f"- {method} · 후보 {i}: [MP4]({path})"
@@ -291,8 +321,7 @@ def build_report(root):
                            candidates=video_audit)
     markdown.extend(["## 영상 녹화 요약", "",
                      f"확인된 MP4 {ready_videos}개 / 파일 없음 {missing_videos}개",
-                     "보고서 재생이 안 되면 링크로 직접 MP4 파일을 열고, "
-                     "HTML과 videos 폴더를 동일한 상대 경로로 보관하세요.", ""])
+                     "영상은 report.html에 포함됩니다. 파일을 브라우저에서 직접 여세요.", ""])
     (root/"report.md").write_text("\n".join(markdown)+"\n", encoding="utf-8")
     (root/"report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     document = ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
@@ -307,7 +336,8 @@ def build_report(root):
                 '<section id="video-gallery"><h2>Task별 MuJoCo 실험 영상</h2>'
                 '<p><strong>확인된 MP4: ' + str(ready_videos) +
                 '개 / 누락: ' + str(missing_videos) + '개</strong></p>'
-                + ("".join(video_gallery) if video_gallery else
+                + ("<p>MP4를 포함한 HTML입니다. 브라우저에서 파일을 직접 열면 재생할 수 있습니다.</p>"
+                   + "".join(video_gallery.values()) if video_gallery else
                    '<p><strong>MP4 파일이 없습니다.</strong> '
                    'render_task_videos.py로 생성한 후 보고서를 다시 만드세요.</p>')
                 + '</section>'

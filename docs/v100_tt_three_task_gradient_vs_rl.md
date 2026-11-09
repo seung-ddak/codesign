@@ -387,3 +387,27 @@ To test optimization under the new scoring, use a fresh `--out` with
 `--ckpt` instead. The saved H64 pilot checkpoint uses five diffusion steps.
 When testing a separately trained 100-step checkpoint, add
 `--expected-diffusion-steps 100` to check the schedule before inference.
+
+### Show videos in the HTML report
+
+The current `report.html` embeds every available MP4 once. Open it directly
+in Chrome or Edge, including when you copy only the HTML to another computer.
+The report lists the reason beside each missing candidate. A candidate with
+zero physical steps has no simulation frames to encode.
+
+For an existing v2 run, generate missing MP4s and rebuild the report from its
+archives with the following command. It replays only the recorded candidates
+needed for video and leaves TT inference and PPO training untouched.
+
+```bash
+../transformer-transformer/.venv/bin/python code/tt_dynamics/render_task_videos.py \
+  --out runs/v100_mujoco_10k/task_gradient_vs_ppo_replay_v2 \
+  --backend wireframe --selection all --resume
+```
+
+When the MP4s already exist, rebuilding the HTML alone is enough.
+
+```bash
+../transformer-transformer/.venv/bin/python code/tt_dynamics/tt_task_report.py \
+  --out runs/v100_mujoco_10k/task_gradient_vs_ppo_replay_v2
+```

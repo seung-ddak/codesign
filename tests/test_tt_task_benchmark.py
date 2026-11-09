@@ -1,4 +1,5 @@
 """Lightweight CPU regressions for episodic PPO and report compilation."""
+import base64
 import sys
 import json
 from pathlib import Path
@@ -68,12 +69,20 @@ def test_report_marks_unevaluated_tasks_and_reads_physical_npz(tmp_path):
     # Rebuilding the report must find the real file, embed it, and expose a link.
     videos = folder/"videos"
     videos.mkdir()
-    (videos/"seed_20000_candidate_0.mp4").write_bytes(b"x"*1024)
+    mp4 = b"\x00\x00\x00\x18ftyp" + b"x"*1024
+    (videos/"seed_20000_candidate_0.mp4").write_bytes(mp4)
     report = build_report(tmp_path)
     assert report["videos"]["available"] == 1
     assert report["videos"]["missing"] == 0
     page = (tmp_path/"report.html").read_text(encoding="utf-8")
     assert '<video controls' in page
-    assert '<source src="circle/gradient_scale_0/videos/seed_20000_candidate_0.mp4"' in page
-    assert "MP4 직접 열기" in page
+    embedded = base64.b64encode(mp4).decode("ascii")
+    assert page.count(f'data:video/mp4;base64,{embedded}') == 1
+    assert 'href="#video-circle/gradient_scale_0/videos/seed_20000_candidate_0.mp4"' in page
+    assert "원본 MP4 열기" in page
     assert report["videos"]["candidates"][0]["status"] == "recorded"
+
+    (videos/"seed_20000_candidate_0.mp4").write_bytes(b"x"*1024)
+    report = build_report(tmp_path)
+    assert report["videos"]["available"] == 0
+    assert "손상되었거나 비어 있음" in report["videos"]["candidates"][0]["status"]
