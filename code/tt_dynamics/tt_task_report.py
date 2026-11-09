@@ -217,11 +217,12 @@ def build_report(root):
                 if best_file is not None:
                     svg = _trajectory_svg(task, best_file, best["candidate"], descriptor)
                     morph = ", ".join(_number(float(x), 3) for x in best["morphology"])
-                    video = best.get("video_path")
-                    video_tag = ('<video controls playsinline preload="metadata" '
-                                 'style="width:100%;max-width:700px" '
-                                 'src="'+html.escape(video, quote=True)+'"></video>'
-                                 if video else '<p>동작 MP4 미녹화</p>')
+                    video, video_status = video_for_candidate(
+                        root, best_file.with_suffix(".json"), best)
+                    video_tag = (video_player(video, method + " · " + TASK_NAMES[task])
+                                 if video else
+                                 '<p><strong>영상 미표시:</strong> '
+                                 + html.escape(video_status) + '</p>')
                     visuals.append("<h3>"+html.escape(method)+" — 최고 보상 후보</h3>"
                                    +video_tag+svg+_morphology_svg(best["morphology"])+
                                    "<p>실제 보상 "+_number(best["reward"])+
