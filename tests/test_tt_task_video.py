@@ -70,3 +70,24 @@ def test_invalid_frame_rolls_back_partial_file(tmp_path):
                       width=160,height=128,fps=25)
     assert not path.exists()
     assert not (tmp_path/"bad.partial.mp4").exists()
+
+
+def test_opengl_free_wireframe_projection(monkeypatch):
+    pytest.importorskip("PIL")
+    import tt_wireframe_render as wire
+    center = np.array([0.,0.,.3])
+    rotation = np.eye(3)
+    limbs = {
+        leg: [center, center + np.array([sx*.15, sy*.10, 0.]),
+              center + np.array([sx*.22, sy*.16, -.1]),
+              center + np.array([sx*.22, sy*.16, -.29])]
+        for leg, (sx,sy) in zip(("FR","FL","RR","RL"),
+                                ((1,-1),(1,1),(-1,-1),(-1,1)))
+    }
+    monkeypatch.setattr(wire,"_body_and_leg_paths",
+                        lambda model,data: (center,rotation,limbs))
+    rgb = wire.draw_kinematic_frame(None,None,width=480,height=300)
+    assert rgb.shape==(300,480,3)
+    assert rgb.dtype==np.uint8
+    assert rgb.max()>rgb.min()
+    assert not np.all(rgb==rgb[0,0])
