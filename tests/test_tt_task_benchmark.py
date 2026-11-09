@@ -64,3 +64,16 @@ def test_report_marks_unevaluated_tasks_and_reads_physical_npz(tmp_path):
     assert x["mean_valid_reward"] == -21.5
     assert "svg" in (tmp_path/"report.html").read_text(encoding="utf-8")
     assert (tmp_path/"report.md").is_file()
+    # A previous recorder can produce an MP4 without a video_path field in JSON.
+    # Rebuilding the report must find the real file, embed it, and expose a link.
+    videos = folder/"videos"
+    videos.mkdir()
+    (videos/"seed_20000_candidate_0.mp4").write_bytes(b"x"*1024)
+    report = build_report(tmp_path)
+    assert report["videos"]["available"] == 1
+    assert report["videos"]["missing"] == 0
+    page = (tmp_path/"report.html").read_text(encoding="utf-8")
+    assert '<video controls' in page
+    assert '<source src="circle/gradient_scale_0/videos/seed_20000_candidate_0.mp4"' in page
+    assert "MP4 직접 열기" in page
+    assert report["videos"]["candidates"][0]["status"] == "recorded"
