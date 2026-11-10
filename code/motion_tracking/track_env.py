@@ -88,6 +88,7 @@ class TrackMjxEnv(MjxEnv):
         switch_ramp: bool = True,
         switch_vel_weight: float = 0.0,
         action_reference: Literal["home", "reference"] = "home",
+        penalty_foot_slip: float = 0.0,
     ):
         super().__init__(ctrl_dt, sim_dt)
         self.max_episode_length = max_episode_length
@@ -107,6 +108,8 @@ class TrackMjxEnv(MjxEnv):
         self.penalty_joint_acc = penalty_joint_acc
         self.penalty_joint_pos_limit = penalty_joint_pos_limit
         self.penalty_termination = penalty_termination
+        # 접지한 발의 월드 수평 속도² 합에 곱한다 (0 = 끔, 기존과 동일). 2026-11-10 사용자 결정.
+        self.penalty_foot_slip = penalty_foot_slip
         self.reward_clip_positive = reward_clip_positive
         self.reward_nan_to_num = reward_nan_to_num
         self.impratio = impratio
@@ -167,7 +170,8 @@ class TrackMjxEnv(MjxEnv):
         cy, sy = np.cos(yaw), np.sin(yaw)
         vh = np.c_[cy * v[:, 0] + sy * v[:, 1], -sy * v[:, 0] + cy * v[:, 1]]
         match = np.zeros((N, n_clip), np.int32)  # A 의 각 프레임에서 B 로 갈 때 들어갈 프레임 = 관절각·접지가 가장 비슷한 프레임
-        for b in range(n_clip):
+        # 바꾸기를 끄면 (switch_prob 0) match 는 쓰이지 않는다. 프레임 수의 제곱으로 느려지는 계산을 건너뛰고 B 의 시작 프레임으로 채운다.
+        for b in (range(n_clip) if self.switch_prob > 0 else ()):
             cand = np.where(dst_ok & (frame_clip == b))[0]
             if len(cand) == 0:
                 match[:, b] = starts[b]
@@ -176,6 +180,9 @@ class TrackMjxEnv(MjxEnv):
             if self.switch_vel_weight:  # B 를 로봇 yaw 에 맞추므로 속도는 각 프레임 heading frame 에서 비교
                 dist = dist + self.switch_vel_weight * ((vh[:, None] - vh[cand][None]) ** 2).sum(-1)
             match[:, b] = cand[dist.argmin(1)]
+        if self.switch_prob <= 0:
+            # 바꾸기를 끄면 match 는 쓰이지 않는다. (프레임 수 × 모션 수) 크기를 GPU 에 올리지 않도록 한 칸짜리로 둔다.
+            match = np.zeros((N, 1), np.int32)
         has_dst = np.array([(dst_ok & (frame_clip == b)).any() for b in range(n_clip)])
         pair_ok = (~excl[:, None]) & (~excl[None]) & has_dst[None] & ~np.eye(n_clip, dtype=bool)
         for a, b in forbid:  # held-out 조합은 학습에서 뺀다
@@ -183,6 +190,11 @@ class TrackMjxEnv(MjxEnv):
         self.src_ok, self.match, self.pair_ok = jnp.array(src_ok), jnp.array(match), jnp.array(pair_ok)
         # live 매칭용: B 후보 프레임을 로봇 실제 관절각·발 접지·속도와 비교 (match 와 같은 거리식)
         self._dst_ok, self._frame_clip, self._ref_vh = jnp.array(dst_ok), jnp.array(frame_clip), jnp.array(vh)
+
+    def _foot_contact(self, data: mjx.Data) -> jax.Array:
+        """발 4 개의 바닥 접촉 (0/1). _live_match 와 같은 판정."""
+        geom, dist = data._impl.contact.geom, data._impl.contact.dist
+        return jnp.stack([((geom == f).any(1) & (dist < 1e-3)).any() for f in self._foot_ids]).astype(jnp.float32)
 
     def _live_match(self, data: mjx.Data, clip_b: jax.Array) -> jax.Array:
         n = self.n_ctrl
@@ -370,6 +382,8 @@ class TrackMjxEnv(MjxEnv):
             "sw_step": sw_step,
             "sw_left": jnp.zeros((), jnp.int32),
             "switches": jnp.zeros((), jnp.int32),
+            "prev_foot_xy": data.geom_xpos[self._foot_ids][:, :2],
+            "foot_slip": jnp.zeros(()),
         }
         info, terms = self.tracking_terms(data, info)
         obs = self._get_obs(data, info)
@@ -410,15 +424,14 @@ class TrackMjxEnv(MjxEnv):
         residual = jnp.clip(action,*self.clip_actions)*self.action_scale
         return center.at[:self.n_ctrl].add(residual)
 
+    def _physics(self, data: mjx.Data, target: jax.Array) -> mjx.Data:
+        """제어 한 번 동안의 물리 (기본: 구동기 ctrl = target, n_substeps). 하위 클래스가 바꿀 수 있다."""
+        return step(model=self.mjx_model, data=data, action=target, n_substeps=self.n_substeps)
+
     def step(self, state: State, action: jax.Array) -> State:
         action = jnp.clip(action, self.clip_actions[0], self.clip_actions[1])
         state = self._maybe_apply_kick(state)
-        data = step(
-            model=self.mjx_model,
-            data=state.data,
-            action=self.action_target(action, state.info),
-            n_substeps=self.n_substeps,
-        )
+        data = self._physics(state.data, self.action_target(action, state.info))
         data_is_nan = jnp.any(jnp.array([jnp.isnan(x).any() for x in jax.tree_util.tree_leaves(data)]))
         data = jax.tree.map(lambda x, y: jnp.where(jnp.isnan(x), y, x), data, state.data)
         info = state.info
@@ -427,6 +440,10 @@ class TrackMjxEnv(MjxEnv):
         hold = (info["sw_left"] > 0) & (self.switch_entry == "start")  # start: 전환 구간에는 B 첫 프레임 유지
         info["frame"] = jnp.where(hold, info["frame"], jnp.minimum(info["frame"] + 1, info["clip_end"] - 1))
         info["sw_left"] = jnp.maximum(info["sw_left"] - 1, 0)
+        foot_xy = data.geom_xpos[self._foot_ids][:, :2]
+        speed2 = jnp.sum(jnp.square((foot_xy - info["prev_foot_xy"]) / self.dt), axis=1)
+        info["foot_slip"] = jnp.sum(speed2 * self._foot_contact(data))
+        info["prev_foot_xy"] = foot_xy
         info = self._maybe_switch(data, info)
         info, terms = self.tracking_terms(data, info)
         state = self.get_done(state.replace(data=data, info=info))
@@ -473,6 +490,7 @@ class TrackMjxEnv(MjxEnv):
         joint_pos = data.qpos[7:]
         out_of_limits = -jnp.clip(joint_pos - self._soft_lowers, None, 0.0) + jnp.clip(joint_pos - self._soft_uppers, 0.0, None)
         rewards["joint_pos_limit"] = jnp.sum(out_of_limits) * self.penalty_joint_pos_limit
+        rewards["foot_slip"] = info["foot_slip"] * self.penalty_foot_slip
         rewards["termination"] = (
             info["done/fellover"] + info["done/pos_err"] + info["done/orn_err"] + info["state_is_nan"]
         ) * self.penalty_termination

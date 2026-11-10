@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPERTS = ROOT / "runs/pipeline_v1/experts"
+EXPERTS = ROOT / "legacy/runs/pipeline_v1/experts"
 TOKEN_FILE = Path.home() / ".config/codesign/github_token"
 API = "https://api.github.com/repos/seung-ddak/codesign"
 

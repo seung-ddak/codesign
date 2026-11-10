@@ -1,0 +1,148 @@
+Actor MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=7876, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=1, bias=True)
+)
+....                                                                     [100%]
+=============================== warnings summary ===============================
+tests/test_native_tt_chain.py::test_installed_ppo_learns_known_residual_and_stores_terminal_reward
+  /home/cgr-ugrad-2026/quad_ws/codesign/tests/test_native_tt_chain.py:54: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+  Consider using tensor.detach() first. (Triggered internally at /__w/pytorch/pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:820.)
+    initial=float(((policy.act_inference(obs)-target)**2).mean())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4 passed, 1 warning in 2.34s
+{"passed": true, "microbatch": 4, "calibration": [{"batch": 1, "seconds": 0.39553332328796387, "peak_bytes": 179984896}, {"batch": 2, "seconds": 0.027182579040527344, "peak_bytes": 284136960}, {"batch": 4, "seconds": 0.023065567016601562, "peak_bytes": 477507584}], "zero_residual_matches": true, "denoising_steps": 100, "motor_targets_changed": true, "physical_replay": {"return_value": -22.403650992760948, "invalid": false, "survived": false, "steps": 256, "seconds": 5.12, "progress": 0.05662263460904066, "lane_fraction": 0.95703125, "fell": true, "prediction_position_rmse_m": 0.1170981900488822}, "source_plan_sha256": "e9a08c8d53baf898760ffb325096270c07ca13736f6c407cdd021919d4da085a", "approximate_seconds_per_optimizer_update": 5.90478515625, "warning": "Calibration excludes full-data I/O, validation and checkpoint costs; not a completion promise."}
+Actor MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=7876, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=1, bias=True)
+)
+Actor MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=7876, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=1, bias=True)
+)
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 239, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 228, in main
+    elif args.stage=='preflight':preflight(source,out,args.device)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 91, in preflight
+    train_policy(model,cfg,'straight',0,pilot_base,out/'pilot_residual',stop_after=1)
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/native_tt_residual.py", line 138, in train_policy
+    row,arrays=physical_replay({k:v[i] for k,v in decoded.items()},task);rows.append(row)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/native_tt_eval.py", line 127, in physical_replay
+    root,_,_,_=detokenize(robot,gravcomp=False)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/robotok/tokenizer.py", line 1388, in detokenize
+    sorted_link_indices = _topological_sort(
+                          ^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/robotok/tokenizer.py", line 1359, in _topological_sort
+    raise DetokenizeError(
+t2.robotok.tokenizer.DetokenizeError: Missing fixed joints from topological sort: {35, 3, 4, 41, 13, 46}
+Actor MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=7876, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=1, bias=True)
+)
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 255, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 244, in main
+    elif args.stage=='preflight':preflight(source,out,args.device)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 83, in preflight
+    if key in fixed:np.testing.assert_allclose(fixed[key][0,:len(value)],value,atol=1e-4,rtol=1e-4)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/numpy/testing/_private/utils.py", line 1768, in assert_allclose
+    assert_array_compare(compare, actual, desired, err_msg=str(err_msg),
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/numpy/testing/_private/utils.py", line 842, in assert_array_compare
+    raise AssertionError(msg)
+AssertionError: 
+Not equal to tolerance rtol=0.0001, atol=0.0001
+
+(shapes (58,), (58, 1) mismatch)
+ ACTUAL: array([ 3,  4,  3,  5,  2,  6,  1,  7, 10, 11, 10, 12,  9, 13,  8, 14, 17,
+       18, 17, 19, 16, 20, 15, 21, 24, 25, 24, 26, 23, 27, 22, 28,  0, 29,
+        0, 30,  0, 31,  0, 32,  0, 33,  0, 34,  0, 35,  0, 36,  0, 37,  0,
+       38,  0, 39,  0, 40,  0, 41])
+ DESIRED: array([[ 3],
+       [ 4],
+       [ 3],...
+Actor MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=7876, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=1, bias=True)
+)
+Actor MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=7876, bias=True)
+)
+Critic MLP: Sequential(
+  (0): Linear(in_features=1, out_features=1, bias=True)
+  (1): ELU(alpha=1.0)
+  (2): Linear(in_features=1, out_features=1, bias=True)
+)
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 259, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 248, in main
+    elif args.stage=='preflight':preflight(source,out,args.device)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/run_native_tt_chain.py", line 97, in preflight
+    train_policy(model,cfg,'straight',0,pilot_base,out/'pilot_residual',stop_after=1)
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/native_tt_residual.py", line 145, in train_policy
+    losses=algo.update()
+           ^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/quad/rsl_rl/rsl_rl/algorithms/ppo.py", line 236, in update
+    self.actor_critic.act(obs_batch, masks=masks_batch, hidden_states=hid_states_batch[0])
+  File "/home/cgr-ugrad-2026/quad_ws/quad/rsl_rl/rsl_rl/modules/actor_critic.py", line 162, in act
+    self.update_distribution(observations)
+  File "/home/cgr-ugrad-2026/quad_ws/quad/rsl_rl/rsl_rl/modules/actor_critic.py", line 159, in update_distribution
+    self.distribution = Normal(mean, mean*0. + std)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/torch/distributions/normal.py", line 66, in __init__
+    super().__init__(batch_shape, validate_args=validate_args)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/torch/distributions/distribution.py", line 77, in __init__
+    raise ValueError(
+ValueError: Expected parameter loc (Tensor of shape (16, 7876)) of distribution Normal(loc: torch.Size([16, 7876]), scale: torch.Size([16, 7876])) to satisfy the constraint Real(), but found invalid values:
+tensor([[nan, nan, nan,  ..., nan, nan, nan],
+        [nan, nan, nan,  ..., nan, nan, nan],
+        [nan, nan, nan,  ..., nan, nan, nan],
+        ...,
+        [nan, nan, nan,  ..., nan, nan, nan],
+        [nan, nan, nan,  ..., nan, nan, nan],
+        [nan, nan, nan,  ..., nan, nan, nan]], device='cuda:0',
+       grad_fn=<CatBackward0>)

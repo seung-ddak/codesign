@@ -1,0 +1,37 @@
+{
+  "balanced": true,
+  "allocation_basis": "equal five-second command slots including transitions",
+  "random_episodes": 10,
+  "random_command_limits": {
+    "max_speed_mps": 0.6,
+    "knot_seconds": [
+      1.0,
+      2.5
+    ],
+    "yaw_delta_rad": [
+      -0.7,
+      0.7
+    ],
+    "interpolation": "smoothstep"
+  },
+  "stand_seconds": null,
+  "seed": 100,
+  "model": "/home/cgr-ugrad-2026/quad_ws/external/a1-calm-main/assets/urdf/a1_description/urdf/a1.urdf",
+  "model_sha256": "7889c545a61095a92995ad419728f004e0e52dac69a1b811040ede91fb68fe4e",
+  "git_commit": "49b5bb78dc67a794ec0734cfdffc1b0121c8992e",
+  "source_sha256": "5b0467a67a75c72b65e88ccced65735335141ce459a20bec06950fb58e0c9bcf",
+  "checkpoint_sha256": {
+    "lowLevelController.pth": "a023eb35757086dde8386b8deebad0c095ba1d654794995845695b6bf58b1fbf",
+    "highLevelPolicy.pth": "0a65e7223ed38a35c7cdfbd95f83b95c8324478ec34b3238b221a112937f9276"
+  },
+  "inference": "Original CALM builders, strict checkpoint loading, original running normalization",
+  "observation_adapter": "Original 23 physical body observations, no virtual markers",
+  "kp": 40,
+  "kd": 1.5,
+  "effort_limit_nm": 15,
+  "self_collision_filter": 1,
+  "physics_dt": 0.016666666666666666,
+  "substeps": 2,
+  "control_dt": 0.03333333333333333,
+  "warning": "Self-collision disabled: physical condition differs from original file defaults"
+}

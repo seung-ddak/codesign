@@ -1,0 +1,36 @@
+defaults:
+  - run_rl_procedural
+  - _self_
+
+# Stage 1: only near_short. Advance to near_long/near_body ONLY after
+# 10-second full-horizon evaluation passes shared_ppo_gate.py.
+# Re-run from the saved checkpoint with [0,0,2147483647] then [0,0,0].
+# The observation always includes E, so the network input shape stays fixed.
+train_designs: [near_short, near_long, near_body]
+eval_designs: [e003, e008]
+design_unlock_steps: [0, 2147483647, 2147483647]
+render_final: false
+train:
+  num_envs: 32
+  batch_size: 32
+  num_eval_envs: 10
+  num_timesteps: 393216  # mid-scale gate stage, not a full 5.2M run
+  num_evals: 9
+  log_training_metrics: true
+  training_metrics_steps: 24576
+  network_factory:
+    _target_: multi_design.make_fixed_e_ppo_networks  # E 는 running normalizer 를 거치지 않는다
+
+env:
+  reference_dir: ${hydra:runtime.cwd}/runs/calm_pilot_tracking/try4/references/e003
+  clips: [calm_random_001, calm_random_002, calm_random_004, calm_random_006]
+  ctrl_dt: 0.03333333333333333
+  sim_dt: 0.0033333333333333335
+  max_episode_length: 300
+
+eval_env:
+  reference_dir: ${env.reference_dir}
+  clips: [calm_random_007]
+  ctrl_dt: ${env.ctrl_dt}
+  sim_dt: ${env.sim_dt}
+  max_episode_length: ${env.max_episode_length}

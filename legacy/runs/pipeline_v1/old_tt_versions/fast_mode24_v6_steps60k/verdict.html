@@ -1,0 +1,13 @@
+<p><b>결론: 통과한 scale 없음. guidance 를 세게 하면 TT 예측 progress 는 크게 오르지만 MJX 실제 progress 는 조금만 오르고, 예측-실제 경로 차가 늘어난다. 판정 = "guidance 가 생성을 TT 가 부정확한 영역으로 민다" 갈래.</b></p>
+<p>scale 0 → 1 → 3 → 10 에서 TT 예측 progress 중앙값은 −0.11 → +0.03 → +0.08 → +0.23 m 로 오른다. MJX 실제는 −0.07 → −0.05 → −0.07 → +0.07 m 로, scale 10 에서 처음 양수가 됐지만 기준 +0.15 m 에 못 미친다. 예측과 실제의 progress 차가 scale 10 에서 0.16 m 로 벌어진다.</p>
+<p>경로 차 중앙값은 0.05 → 0.08 → 0.10 → 0.11 m 로 늘지만 기준 0.15 m 안이다. 모든 scale 에서 16/16 완주했다. MJX fall 기여는 guidance 를 켜면 늘고 (0.08 → 0.13~0.20), TT 예측 fall (0.01~0.03) 은 이를 놓친다.</p>
+<p>해석: 현재 guidance 는 생성 S (몸통 경로) 에도 직접 gradient 를 준다. scale 을 키우면 TT 가 그린 경로는 앞으로 가지만, 그 경로와 함께 생성된 A 를 MJX 에 넣으면 덜 간다. 다음은 미리 정한 대로 --no-guide-s (A·E 에만 guidance) 를 scale 10 에서 시험한다.</p>
+<p><b>no-guide-s (scale 10, 후보 16): 예측-실제는 다시 일치 (경로 차 0.11 → 0.05 m, MJX fall 0.125 → 0.065) 하지만 progress 도 사라졌다 (예측 +0.03, MJX −0.02 m, +0.15 넘은 후보 1/16). A·E 만 guidance 하면 힘이 약하다.</b></p>
+<p><b>10 s open-loop (후보 8): 실패. 병목은 open-loop 오차 누적이다.</b></p>
+<div class="scroll"><table>
+<tr><th>10 s</th><th>완주</th><th>낙상 시각</th><th>예측 progress</th><th>MJX progress</th><th>경로 차 @2 s / 5 s / 10 s</th><th>MJX R</th></tr>
+<tr><td>scale 0</td><td>6/8</td><td>1.4, 3.9 s</td><td>−0.35 m</td><td>−0.19 m</td><td>0.05 / 0.32 / 1.27 m</td><td>−3.33</td></tr>
+<tr><td>scale 10 (S guidance)</td><td>1/8</td><td>1.4 ~ 5.4 s</td><td>+0.78 m</td><td>−0.35 m</td><td>0.43 / 0.94 / 0.68 m (생존 표본 감소)</td><td>−2.77</td></tr>
+</table></div>
+<p>guidance 가 없어도 예측-실제 경로 차가 2 s 0.05 m 에서 10 s 1.27 m 로 커진다. TT 가 2 s 에서 정확해도 실행을 피드백 없이 10 s 이어가면 오차가 쌓인다. S guidance 는 10 s 에서 예측을 크게 부풀리고 (예측 +0.78 vs 실제 −0.35 m) 7/8 이 넘어진다.</p>
+<p><b>추천: scale 을 늘리지 말고 window 단위 MJX 재계획 (--replan) 을 먼저 구현한다.</b> scale 은 2 s 안의 생성 방향만 바꾸므로 10 s 누적 오차를 해결하지 못한다. 재계획은 32 step (0.64 s) 마다 MJX 실제 상태를 S0 로 넣고 다시 생성해, 쌓이는 오차를 window 하나 길이 안으로 묶는다 (2 s 전체 오차가 0.05 m 수준이므로 그보다 작다). scale (no-guide-s 30 / 100) 비교는 재계획이 들어간 10 s 조건에서 하는 것이 맞다.</p>

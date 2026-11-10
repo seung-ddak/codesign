@@ -45,6 +45,7 @@ penalty_joint_vel: -0.002
 penalty_joint_acc: -0.0000005  # TT 원본 -5e-5 는 tracking 의 ~18 배 → 1/100 (사용자 결정 B)
 penalty_joint_pos_limit: -1.0
 penalty_termination: -100.0  # tracking weight ×10 과 비율 유지 (try1 의 -10 대비). tiltYaw 근시안 넘어짐 대응, 사용자 결정
+penalty_foot_slip: 0.0  # 접지한 발 수평 속도² 합 × 이 값 (0 = 끔). 2026-11-10 추가
 reward_nan_to_num: -10.0
 reward_clip_positive: false
 

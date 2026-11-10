@@ -1,0 +1,850 @@
+{
+  "status": "FAIL",
+  "failed_stage": "3b-generated-E-S0-physics",
+  "stages": [
+    {
+      "name": "0-prerequisites",
+      "status": "PASS",
+      "reason": "Input artifacts and expert model located",
+      "measurements": {
+        "missing": [],
+        "choice": "00000011",
+        "paths": [
+          "runs/pipeline_v1/wide16_action/rollouts/e000/primitive_seed0.npz",
+          "runs/pipeline_v1/wide16_action/rollouts/e001/primitive_seed0.npz",
+          "runs/pipeline_v1/wide16_action/rollouts/e002/primitive_seed0.npz",
+          "runs/pipeline_v1/fast_mode24_v4_smoke_audit/smoke_zigzag_joint/summary.json",
+          "runs/pipeline_v1/fast_mode24_v4_smoke_audit/smoke_zigzag_joint/scale_0.npz",
+          "runs/pipeline_v1/fast_mode24_v4_smoke_audit/smoke_zigzag_joint/scale_1.npz"
+        ]
+      }
+    },
+    {
+      "name": "1-original-MJX-physics",
+      "status": "PASS",
+      "reason": "Original physical MJX states pass the current collision gate",
+      "measurements": {
+        "sources": [
+          {
+            "source": "e000",
+            "attempted": 4,
+            "accepted": 3,
+            "rejected_reasons": {
+              "foot_ground_penetration": 1
+            },
+            "rejected_examples": [
+              {
+                "episode": 162,
+                "frame": 49,
+                "audit": {
+                  "valid": false,
+                  "reasons": [
+                    "foot_ground_penetration"
+                  ],
+                  "foot_clearance_mm": [
+                    58.598,
+                    -6.117,
+                    -1.871,
+                    77.181
+                  ],
+                  "max_foot_penetration_mm": 6.117,
+                  "nonfoot_penetration_mm": 0.0,
+                  "self_penetration_mm": 0.0,
+                  "foot_contacts": [
+                    false,
+                    true,
+                    true,
+                    false
+                  ],
+                  "floor_contact_count": 2,
+                  "body_height_m": 0.29480066895484924,
+                  "body_speed_m_s": 0.6020222902297974
+                }
+              }
+            ]
+          },
+          {
+            "source": "e001",
+            "attempted": 4,
+            "accepted": 3,
+            "rejected_reasons": {
+              "foot_ground_penetration": 1
+            },
+            "rejected_examples": [
+              {
+                "episode": 162,
+                "frame": 49,
+                "audit": {
+                  "valid": false,
+                  "reasons": [
+                    "foot_ground_penetration"
+                  ],
+                  "foot_clearance_mm": [
+                    74.218,
+                    -5.039,
+                    -1.487,
+                    88.045
+                  ],
+                  "max_foot_penetration_mm": 5.039,
+                  "nonfoot_penetration_mm": 0.0,
+                  "self_penetration_mm": 0.0,
+                  "foot_contacts": [
+                    false,
+                    true,
+                    true,
+                    false
+                  ],
+                  "floor_contact_count": 2,
+                  "body_height_m": 0.3491423428058624,
+                  "body_speed_m_s": 0.6676462292671204
+                }
+              }
+            ]
+          },
+          {
+            "source": "e002",
+            "attempted": 4,
+            "accepted": 3,
+            "rejected_reasons": {
+              "foot_ground_penetration": 1
+            },
+            "rejected_examples": [
+              {
+                "episode": 162,
+                "frame": 49,
+                "audit": {
+                  "valid": false,
+                  "reasons": [
+                    "foot_ground_penetration"
+                  ],
+                  "foot_clearance_mm": [
+                    76.592,
+                    -2.072,
+                    -0.776,
+                    88.184
+                  ],
+                  "max_foot_penetration_mm": 2.072,
+                  "nonfoot_penetration_mm": 0.0,
+                  "self_penetration_mm": 0.0,
+                  "foot_contacts": [
+                    false,
+                    true,
+                    true,
+                    false
+                  ],
+                  "floor_contact_count": 2,
+                  "body_height_m": 0.35535794496536255,
+                  "body_speed_m_s": 0.6991104483604431
+                }
+              }
+            ]
+          }
+        ],
+        "total_accepted": 9
+      }
+    },
+    {
+      "name": "2-real-S0-feature-roundtrip",
+      "status": "PASS",
+      "reason": "Real E/S0 preserved across TT features and execution decoder",
+      "measurements": {
+        "probes": [
+          {
+            "source": "e000",
+            "episode": 162,
+            "frame": 0,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.27,
+                0.281,
+                0.295,
+                0.287
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.2960986793041229,
+              "body_speed_m_s": 0.3780509829521179
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.27,
+                0.281,
+                0.295,
+                0.287
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.2960986793041229,
+              "body_speed_m_s": 0.378050964733968
+            }
+          },
+          {
+            "source": "e000",
+            "episode": 162,
+            "frame": 96,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                26.123,
+                0.035,
+                -0.164,
+                56.465
+              ],
+              "max_foot_penetration_mm": 0.164,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                false,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 2,
+              "body_height_m": 0.29796674847602844,
+              "body_speed_m_s": 0.7497309446334839
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                26.123,
+                0.035,
+                -0.164,
+                56.465
+              ],
+              "max_foot_penetration_mm": 0.164,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                false,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 2,
+              "body_height_m": 0.29796674847602844,
+              "body_speed_m_s": 0.749730893101291
+            }
+          },
+          {
+            "source": "e000",
+            "episode": 295,
+            "frame": 0,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.27,
+                0.281,
+                0.295,
+                0.287
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.2960986793041229,
+              "body_speed_m_s": 0.3780509829521179
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.27,
+                0.281,
+                0.295,
+                0.287
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.2960986793041229,
+              "body_speed_m_s": 0.378050964733968
+            }
+          },
+          {
+            "source": "e001",
+            "episode": 162,
+            "frame": 0,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.013,
+                0.003
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.35115647315979004,
+              "body_speed_m_s": 0.45222529768943787
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.013,
+                0.003
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.35115647315979004,
+              "body_speed_m_s": 0.452225280107331
+            }
+          },
+          {
+            "source": "e001",
+            "episode": 162,
+            "frame": 96,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                35.668,
+                -0.315,
+                -0.386,
+                59.102
+              ],
+              "max_foot_penetration_mm": 0.386,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                false,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 2,
+              "body_height_m": 0.351953387260437,
+              "body_speed_m_s": 0.9200144410133362
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                35.668,
+                -0.315,
+                -0.386,
+                59.102
+              ],
+              "max_foot_penetration_mm": 0.386,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                false,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 2,
+              "body_height_m": 0.351953387260437,
+              "body_speed_m_s": 0.9200144439729795
+            }
+          },
+          {
+            "source": "e001",
+            "episode": 295,
+            "frame": 0,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.013,
+                0.003
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.35115647315979004,
+              "body_speed_m_s": 0.45222529768943787
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.013,
+                0.003
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.35115647315979004,
+              "body_speed_m_s": 0.452225280107331
+            }
+          },
+          {
+            "source": "e002",
+            "episode": 162,
+            "frame": 0,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.414,
+                0.416
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.3580276370048523,
+              "body_speed_m_s": 0.4531737267971039
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.414,
+                0.416
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.3580276370048523,
+              "body_speed_m_s": 0.45317370857533884
+            }
+          },
+          {
+            "source": "e002",
+            "episode": 162,
+            "frame": 96,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                30.476,
+                0.127,
+                0.132,
+                66.798
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                false,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 2,
+              "body_height_m": 0.35710281133651733,
+              "body_speed_m_s": 0.9513074159622192
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                30.476,
+                0.127,
+                0.132,
+                66.798
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                false,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 2,
+              "body_height_m": 0.35710281133651733,
+              "body_speed_m_s": 0.9513073848136391
+            }
+          },
+          {
+            "source": "e002",
+            "episode": 295,
+            "frame": 0,
+            "pass_check": true,
+            "foot_height_error_mm": 0.0,
+            "token_error": 0.0,
+            "original": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.414,
+                0.416
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.3580276370048523,
+              "body_speed_m_s": 0.4531737267971039
+            },
+            "reconstructed": {
+              "valid": true,
+              "reasons": [],
+              "foot_clearance_mm": [
+                0.217,
+                0.229,
+                0.414,
+                0.416
+              ],
+              "max_foot_penetration_mm": 0.0,
+              "nonfoot_penetration_mm": 0.0,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.3580276370048523,
+              "body_speed_m_s": 0.45317370857533884
+            }
+          }
+        ],
+        "failed": 0,
+        "conversion_tolerance_mm": 1.0
+      }
+    },
+    {
+      "name": "3a-reproduce-saved-geometry",
+      "status": "PASS",
+      "reason": "Current model reproduces the saved smoke feet geometry",
+      "measurements": {
+        "candidates": [
+          {
+            "scale": 0,
+            "candidate": 0,
+            "E": [
+              0.5,
+              0.4038940966129303,
+              0.21139517426490784,
+              0.9153015613555908,
+              0.8204495906829834,
+              0.42453306913375854,
+              0.5040158629417419,
+              0.2926058769226074,
+              0.5584421157836914,
+              0.40512707829475403,
+              0.7372086644172668,
+              0.5,
+              0.5
+            ],
+            "S0_height_m": 0.15555265545845032,
+            "physics": {
+              "valid": false,
+              "reasons": [
+                "foot_ground_penetration",
+                "nonfoot_ground_penetration"
+              ],
+              "foot_clearance_mm": [
+                -60.679,
+                -22.904,
+                -4.89,
+                5.983
+              ],
+              "max_foot_penetration_mm": 60.679,
+              "nonfoot_penetration_mm": 43.52,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 3,
+              "body_height_m": 0.15555265545845032,
+              "body_speed_m_s": 1.3540598578778522
+            },
+            "prior_smoke_physics_valid": false,
+            "reproduction_foot_height_error_mm": 0.00019823046159217483
+          },
+          {
+            "scale": 1,
+            "candidate": 0,
+            "E": [
+              0.5,
+              0.41590800881385803,
+              0.13424378633499146,
+              0.9243619441986084,
+              0.825770914554596,
+              0.4192558825016022,
+              0.5538293123245239,
+              0.20513957738876343,
+              0.5985079407691956,
+              0.39800941944122314,
+              0.7975263595581055,
+              0.5,
+              0.5
+            ],
+            "S0_height_m": 0.15555265545845032,
+            "physics": {
+              "valid": false,
+              "reasons": [
+                "foot_ground_penetration",
+                "nonfoot_ground_penetration"
+              ],
+              "foot_clearance_mm": [
+                -51.825,
+                -32.19,
+                -14.778,
+                -7.992
+              ],
+              "max_foot_penetration_mm": 51.825,
+              "nonfoot_penetration_mm": 35.76,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.15555265545845032,
+              "body_speed_m_s": 0.8133421146191965
+            },
+            "prior_smoke_physics_valid": false,
+            "reproduction_foot_height_error_mm": 0.0003746374996378421
+          }
+        ],
+        "max_allowed_error_mm": 1.0,
+        "disagreement_count": 0
+      }
+    },
+    {
+      "name": "3b-generated-E-S0-physics",
+      "status": "FAIL",
+      "reason": "2/2 generated pairs fail geometry; MJX execution is blocked",
+      "measurements": {
+        "candidates": [
+          {
+            "scale": 0,
+            "candidate": 0,
+            "E": [
+              0.5,
+              0.4038940966129303,
+              0.21139517426490784,
+              0.9153015613555908,
+              0.8204495906829834,
+              0.42453306913375854,
+              0.5040158629417419,
+              0.2926058769226074,
+              0.5584421157836914,
+              0.40512707829475403,
+              0.7372086644172668,
+              0.5,
+              0.5
+            ],
+            "S0_height_m": 0.15555265545845032,
+            "physics": {
+              "valid": false,
+              "reasons": [
+                "foot_ground_penetration",
+                "nonfoot_ground_penetration"
+              ],
+              "foot_clearance_mm": [
+                -60.679,
+                -22.904,
+                -4.89,
+                5.983
+              ],
+              "max_foot_penetration_mm": 60.679,
+              "nonfoot_penetration_mm": 43.52,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                false
+              ],
+              "floor_contact_count": 3,
+              "body_height_m": 0.15555265545845032,
+              "body_speed_m_s": 1.3540598578778522
+            },
+            "prior_smoke_physics_valid": false,
+            "reproduction_foot_height_error_mm": 0.00019823046159217483
+          },
+          {
+            "scale": 1,
+            "candidate": 0,
+            "E": [
+              0.5,
+              0.41590800881385803,
+              0.13424378633499146,
+              0.9243619441986084,
+              0.825770914554596,
+              0.4192558825016022,
+              0.5538293123245239,
+              0.20513957738876343,
+              0.5985079407691956,
+              0.39800941944122314,
+              0.7975263595581055,
+              0.5,
+              0.5
+            ],
+            "S0_height_m": 0.15555265545845032,
+            "physics": {
+              "valid": false,
+              "reasons": [
+                "foot_ground_penetration",
+                "nonfoot_ground_penetration"
+              ],
+              "foot_clearance_mm": [
+                -51.825,
+                -32.19,
+                -14.778,
+                -7.992
+              ],
+              "max_foot_penetration_mm": 51.825,
+              "nonfoot_penetration_mm": 35.76,
+              "self_penetration_mm": 0.0,
+              "foot_contacts": [
+                true,
+                true,
+                true,
+                true
+              ],
+              "floor_contact_count": 4,
+              "body_height_m": 0.15555265545845032,
+              "body_speed_m_s": 0.8133421146191965
+            },
+            "prior_smoke_physics_valid": false,
+            "reproduction_foot_height_error_mm": 0.0003746374996378421
+          }
+        ],
+        "failed": 2
+      }
+    }
+  ],
+  "config": {
+    "real_sources": [
+      "e000",
+      "e001",
+      "e002"
+    ],
+    "data_root": "runs/pipeline_v1/wide16_action/rollouts",
+    "smoke_dir": "runs/pipeline_v1/fast_mode24_v4_smoke_audit/smoke_zigzag_joint",
+    "expert_config": "runs/pipeline_v1/experts_wide16/walkForwardSlow__r00",
+    "tolerance_mm": 2.0,
+    "conversion_tolerance_mm": 1.0,
+    "probes_per_shape": 3,
+    "seed": 0
+  },
+  "next_action": "The original real states and encoder-decoder passed; the SAVED generated E/S0 pairs are inconsistent. Next compare many seeds and analyze E-dependent body height/joints. Do not shift height or relax collision tolerance to force a pass."
+}

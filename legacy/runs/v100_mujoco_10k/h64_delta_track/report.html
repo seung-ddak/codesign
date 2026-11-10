@@ -1,0 +1,140 @@
+<title>h64_delta_track 결과</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 한 열 실험 보고서: 결론 → 조건 → 판정 지표 → 보조 지표 → 해석 */
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --fg:#1b2230; --muted:#5d6878; --line:#d9dee6;
+  --accent:#2f5fb3; --bad:#b4442f; --good:#2e7d4f; --chip:#e8edf5;
+  --sans:"IBM Plex Sans KR",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161d; --panel:#1a2029; --fg:#e3e8ef; --muted:#9aa5b4; --line:#2c3440;
+  --accent:#7fa6ea; --bad:#ec8a73; --good:#7cc79a; --chip:#232b37; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161d; --panel:#1a2029; --fg:#e3e8ef; --muted:#9aa5b4; --line:#2c3440;
+  --accent:#7fa6ea; --bad:#ec8a73; --good:#7cc79a; --chip:#232b37; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.6}
+main{max-width:860px;margin:0 auto;padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:28px}
+h1{font-size:1.6rem;margin:0;text-wrap:balance}
+h2{font-size:1.1rem;margin:0 0 8px;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.sub{color:var(--muted);font-size:.9rem}
+.verdict{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--bad);border-radius:6px;padding:16px 18px;display:flex;flex-direction:column;gap:8px}
+.pill{display:inline-block;font-size:.75rem;letter-spacing:.04em;padding:2px 8px;border-radius:99px;background:var(--chip);color:var(--bad);font-weight:600}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:.9rem}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:.8rem}
+.up{color:var(--good)} .down{color:var(--bad)}
+code{font-family:var(--mono);font-size:.85em;background:var(--chip);padding:1px 5px;border-radius:4px}
+ul{margin:0;padding-left:1.2em;max-width:68ch}
+section{display:flex;flex-direction:column;gap:10px}
+</style>
+<main>
+<header>
+  <h1>추종 잘 된 구간만으로 TT 재학습 (h64_delta_track)</h1>
+  <p class="sub">2026-11-10 · 비교 대상 h64_delta_trim · 원인 확인 2번</p>
+</header>
+
+<div class="verdict">
+  <span class="pill">판정: 가설 지지 안 됨</span>
+  <p><b>데이터 추종 품질은 회전 학습을 막은 원인이 아니다.</b> 1 초 회전 상관이 0.436 → 0.414 로 오히려 떨어졌다 (사전 기준: +0.1 이상 상승). 전진 상관도 0.618 → 0.480 으로 떨어졌다.</p>
+  <p>대신 생성 행동의 MuJoCo 10 초 생존은 크게 올랐다 (넘어지지 않은 에피소드 75 → 91/100, 넘어진 에피소드 62 → 86/100). 세 task 에서 18 후보가 모두 10 초를 버텼지만 과제 성공은 0 이고, 진행량은 0 근처이거나 음수다. 더 안정적으로 서 있지만 목표대로 움직이지는 않는다.</p>
+</div>
+
+<section>
+  <h2>바꾼 것 (이것만 다름)</h2>
+  <div class="wrap"><table>
+    <tr><th>항목</th><th>h64_delta_trim</th><th>h64_delta_track</th></tr>
+    <tr><td>학습 데이터</td><td>10k PD 전체 (낙상 마지막 1 초 제외)</td><td>원본 모션을 연속으로 잘 따라간 가장 긴 구간만</td></tr>
+    <tr><td>추종 기준 (1 초 구간)</td><td>없음</td><td>회전 오차 &lt; 0.2 rad, 이동 오차 &lt; 0.1 m</td></tr>
+    <tr><td>남은 데이터</td><td>—</td><td>12,017,076 → 2,869,170 step (24 %)</td></tr>
+  </table></div>
+  <p class="sub">같은 것: 파일·행 순서, train/val 분할, H64, delta, norm-quantile 0.005, 60k step, batch 64, 모델 크기, modes 0/1/2/4, EMA, seed 0. 40,000 에피소드 중 15,660 개는 2 step 미만만 남았다.</p>
+</section>
+
+<section>
+  <h2>판정 지표: 실제 행동을 준 예측의 1 초 몸통 움직임 상관</h2>
+  <p class="sub">재현 확인 100 + 100 에피소드, 805 / 388 개 1 초 구간. 두 모델 같은 에피소드·같은 계산 (<code>repro_turn_metrics.py</code>).</p>
+  <div class="wrap"><table>
+    <tr><th>구간</th><th>지표</th><th>trim</th><th>track</th><th>변화</th></tr>
+    <tr><td>넘어지지 않음</td><td>회전 상관 (판정)</td><td>0.436</td><td>0.414</td><td class="down">−0.022</td></tr>
+    <tr><td>넘어지지 않음</td><td>전진 상관</td><td>0.618</td><td>0.480</td><td class="down">−0.138</td></tr>
+    <tr><td>넘어지지 않음</td><td>측면 상관</td><td>0.182</td><td>0.212</td><td class="up">+0.030</td></tr>
+    <tr><td>넘어짐</td><td>회전 상관</td><td>0.371</td><td>0.327</td><td class="down">−0.044</td></tr>
+    <tr><td>넘어짐</td><td>전진 상관</td><td>0.510</td><td>0.294</td><td class="down">−0.216</td></tr>
+    <tr><td>넘어짐</td><td>측면 상관</td><td>0.375</td><td>0.363</td><td class="down">−0.012</td></tr>
+  </table></div>
+  <p class="sub">기울기 (예측/실제) 도 줄었다: 회전 0.38 → 0.28, 전진 0.50 → 0.31. 예측 움직임이 실제보다 더 작아졌다.</p>
+</section>
+
+<section>
+  <h2>생성 행동의 MuJoCo 10 초 생존</h2>
+  <div class="wrap"><table>
+    <tr><th>원본 데이터 구간</th><th>실제 행동</th><th>trim 생성</th><th>track 생성</th></tr>
+    <tr><td>넘어지지 않음 (100)</td><td>90</td><td>75</td><td class="up">91</td></tr>
+    <tr><td>넘어짐 (100)</td><td>5</td><td>62</td><td class="up">86</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <h2>세 task (task_delta_trim_v1 과 같은 명령)</h2>
+  <p class="sub">TT 동결, 후보 2개씩, CPU MuJoCo 10 초 오픈루프. 낙상하면 보상 −20.</p>
+  <div class="wrap"><table>
+    <tr><th>task · 방식</th><th>10 초 생존 trim</th><th>track</th><th>과제 성공</th><th>평균 보상 trim</th><th>track</th><th>최고 진행 trim</th><th>track</th></tr>
+    <tr><td>원 · gradient s0</td><td>1/2</td><td>2/2</td><td>0 / 0</td><td>−11.03</td><td>−0.47</td><td>0.013</td><td>−0.019</td></tr>
+    <tr><td>원 · gradient s1</td><td>2/2</td><td>2/2</td><td>0 / 0</td><td>−0.70</td><td>−0.53</td><td>−0.059</td><td>−0.027</td></tr>
+    <tr><td>원 · PPO</td><td>1/2</td><td>2/2</td><td>0 / 0</td><td>−11.04</td><td>−0.48</td><td>0.019</td><td>−0.019</td></tr>
+    <tr><td>슬라럼 · gradient s0</td><td>1/2</td><td>2/2</td><td>0 / 0</td><td>−13.30</td><td>−2.54</td><td>0.101</td><td>−0.115</td></tr>
+    <tr><td>슬라럼 · gradient s1</td><td>0/2</td><td>2/2</td><td>0 / 0</td><td>−23.42</td><td>−2.60</td><td>−0.029</td><td>−0.176</td></tr>
+    <tr><td>슬라럼 · PPO</td><td>1/2</td><td>2/2</td><td>0 / 0</td><td>−13.58</td><td>−2.53</td><td>−0.217</td><td>−0.113</td></tr>
+    <tr><td>직진 · gradient s0</td><td>1/2</td><td>2/2</td><td>0 / 0</td><td>−11.08</td><td>−0.47</td><td>0.101</td><td>−0.115</td></tr>
+    <tr><td>직진 · gradient s1</td><td>0/2</td><td>2/2</td><td>0 / 0</td><td>−21.83</td><td>−0.65</td><td>0.118</td><td>−0.180</td></tr>
+    <tr><td>직진 · PPO</td><td>1/2</td><td>2/2</td><td>0 / 0</td><td>−11.11</td><td>−0.46</td><td>0.160</td><td>−0.113</td></tr>
+  </table></div>
+  <p class="sub">보상 차이는 대부분 낙상 감점이 사라진 효과다. 진행량은 track 에서 9 개 모두 음수 (뒤로 감).</p>
+</section>
+
+<section>
+  <h2>task 수행 영상</h2>
+  <p class="sub">각 방식의 최고 보상 후보, 실제 MuJoCo 10 초 재생 (메쉬 렌더링). 왼쪽 trim, 오른쪽 track. track 영상은 메쉬 렌더링이 가능한 환경에서 추가 예정.</p>
+  <div class="vids" id="vids"></div>
+</section>
+<style>
+.vids{display:flex;flex-direction:column;gap:18px}
+.vrow h3{font-size:.9rem;margin:0 0 6px;color:var(--muted);font-weight:600}
+.vpair{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.vpair figure{margin:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.vpair figcaption{font-size:.8rem;color:var(--muted)}
+video{width:100%;max-width:100%;border-radius:4px;background:var(--chip)}
+.pending{aspect-ratio:16/9;max-width:100%;border:1px dashed var(--line);border-radius:4px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.85rem}
+</style>
+<script>
+const tasks=[["circle","원"],["zigzag","슬라럼"],["straight","직진"]];
+const methods=[["gradient_scale_0","gradient s0 (보정 없음)"],["gradient_scale_1","gradient s1 (보상 기울기)"],["rl_ppo","PPO"]];
+const root=document.getElementById("vids");
+for(const [t,tn] of tasks)for(const [m,mn] of methods){
+  const row=document.createElement("div");row.className="vrow";
+  row.innerHTML=`<h3>${tn} · ${mn}</h3><div class="vpair">
+  <figure><video src="videos/trim_${t}_${m}.mp4" controls muted loop playsinline preload="metadata"></video><figcaption>trim</figcaption></figure>
+  <figure><div class="pending">track 메쉬 영상 대기</div><figcaption>track</figcaption></figure></div>`;
+  root.appendChild(row);
+}
+</script>
+
+<section>
+  <h2>해석과 한계</h2>
+  <ul>
+    <li>[판정] 사전 기준 미달. 데이터 품질 외 원인 (모델·학습량·목표) 쪽으로 좁혀진다.</li>
+    <li>[추정] 잘 따라간 구간은 주로 느리고 안정적인 구간이라, 모델이 "작게 움직이고 버티는" 쪽으로 기울었을 수 있다. 예측 기울기 감소와 생존 증가가 이와 맞는다. 미검증.</li>
+    <li>[한계] 데이터가 24 % 로 줄어 데이터 양의 효과와 품질의 효과가 섞여 있다. seed 1 개, task 후보 2 개.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>파일</h2>
+  <p class="sub"><code>codesign/runs/v100_mujoco_10k/h64_delta_track/</code> — <code>tt/</code> 모델, <code>repro/</code> 재현 확인, <code>task_v1/</code> task 평가, <code>PLAN.md</code>, <code>run.sh</code>, 로그.</p>
+</section>
+</main>

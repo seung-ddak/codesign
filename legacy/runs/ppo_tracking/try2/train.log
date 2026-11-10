@@ -1,0 +1,65 @@
+W1110 14:49:19.033545  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 440.98MiB (rounded to 462400000)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:49:19.034115  946589 bfc_allocator.cc:525] ***********************_******************************************************************___*******
+W1110 14:49:31.589818  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 470.73MiB (rounded to 493600000)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:49:31.590399  946589 bfc_allocator.cc:525] ******************************************************************************************___*******
+W1110 14:49:44.211906  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 436.97MiB (rounded to 458200064)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:49:44.212717  946589 bfc_allocator.cc:525] ***********************_*******************************************************************__*******
+W1110 14:49:56.693328  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 447.84MiB (rounded to 469600000)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:49:56.693947  946589 bfc_allocator.cc:525] ********************************************************************************************_*******
+W1110 14:50:09.414654  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 450.13MiB (rounded to 472000000)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:50:09.415434  946589 bfc_allocator.cc:525] ********************************************************************************************_*******
+W1110 14:50:20.529319  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 435.60MiB (rounded to 456760064)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:50:20.530134  946589 bfc_allocator.cc:525] **********************__****************************************************************************
+W1110 14:50:30.570806  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 412.67MiB (rounded to 432720128)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:50:30.571620  946589 bfc_allocator.cc:525] **********************__****************************************************************************
+W1110 14:50:40.623192  946589 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 275.12MiB (rounded to 288480000)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1110 14:50:40.623976  946589 bfc_allocator.cc:525] **********************__****************************************************************************
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/shared_calm_train.py", line 84, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/shared_calm_train.py", line 75, in main
+    train(environment=env,eval_env=ev,num_timesteps=a.steps,num_envs=c['num_envs'],batch_size=c['batch_size'],unroll_length=c['unroll_length'],num_minibatches=c['num_minibatches'],num_updates_per_batch=c['num_updates_per_batch'],
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/mjx_env/train.py", line 393, in train
+    env_state = reset_fn(key_envs)
+                ^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/pmap.py", line 319, in wrapped
+    out = jitted_f(*dyn_args_flat)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/array.py", line 1108, in _array_mlir_constant_handler
+    return mlir.ir_constant(val._value)
+    ^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/array.py", line 623, in _value
+    npy_value, did_copy = self._single_device_array_to_np_array_did_copy()
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jax.errors.JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 435.60MiB. [executable_name='jit_stack'] [tf-allocator-allocation-error='']
+--------------------
+For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.
+학습 전이 2,064,384 / 100,000,000,000 | 묶음 1 | {'평균 누적 보상': -7.508}
+학습 전이 4,128,768 / 100,000,000,000 | 묶음 1 | {'평균 누적 보상': -4.7508}
+학습 전이 6,193,152 / 100,000,000,000 | 묶음 1 | {'평균 누적 보상': -3.7069}
+학습 전이 8,257,536 / 100,000,000,000 | 묶음 1 | {'평균 누적 보상': -3.5694}

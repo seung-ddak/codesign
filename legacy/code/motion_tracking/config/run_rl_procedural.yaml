@@ -1,0 +1,72 @@
+defaults:
+  - env: a1_track
+  - env@eval_env: a1_track_eval
+  - _self_
+  - override hydra/job_logging: custom
+
+kp: null  # TT 형상 PD 비례 이득 덮어쓰기 (null = 원본 30)
+restore_ckpt: null  # 이전 run checkpoint 경로 (files/checkpoints/<step>). 이어 학습
+tau_scale: null  # 구형 실험용 배율; torque_limit 지정 시 최종 토크 한계는 torque_limit 우선
+torque_limit: 33.5  # A1과 같은 12개 관절 토크 한계 (N·m); 이전 run 재평가 시 저장된 config 사용
+choice: "00000011"  # A1과 앞·뒤 무릎 굽힘 방향이 모두 같은 TT topology
+uniforms: null  # Single-design runs may supply their morphology explicitly.
+multi_design: true
+train_designs: [e000, e001, e002]
+eval_designs: [e003]
+eval_env:
+  clips: [standUp__r00]
+# 각 병렬 환경의 누적 제어 step. 에피소드 경계에서만 다음 범위를 허용한다.
+design_unlock_steps: [0, 3000, 9000]
+rollout_dir: null  # 경로 지정 시 성공/실패 전체 궤적 저장; 기본 학습은 디스크 기록 끔
+
+wandb:
+  tags: null
+
+seed: 0
+render_final: true
+full_reset: true
+
+train:
+  _convert_: all
+  _target_: t2.mjx_env.train.train
+  num_timesteps: 400000000
+  num_evals: 10
+  num_eval_envs: 100
+  reward_scaling: 1.0
+  clipping_epsilon: 0.2
+  episode_length: ${env.max_episode_length}
+  normalize_observations: true
+  action_repeat: 1
+  unroll_length: 24
+  num_minibatches: 4
+  num_updates_per_batch: 8
+  discounting: 0.99
+  learning_rate: 1e-3
+  entropy_cost: 1e-2
+  gae_lambda: 0.95
+  num_envs: 4096
+  batch_size: 1024
+  max_grad_norm: 1.0
+  deterministic_eval: true
+  log_training_metrics: false
+  training_metrics_steps: null
+  seed: ${seed}
+  network_factory:
+    _partial_: true
+    _target_: brax.training.agents.ppo.networks.make_ppo_networks
+    state_dependent_std: false
+    init_noise_std: 1.0
+    noise_std_type: scalar
+    distribution_type: normal
+    activation:
+      # _target_: flax.linen.swish
+      _target_: flax.linen.elu
+      _partial_: true
+    policy_hidden_layer_sizes:
+      - 256
+      - 128
+      - 64
+    value_hidden_layer_sizes:
+      - 256
+      - 128
+      - 64

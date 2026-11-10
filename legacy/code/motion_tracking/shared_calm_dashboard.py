@@ -1,0 +1,112 @@
+"""Dependency-free Korean dashboard; live localhost server and offline HTML export."""
+import argparse,json,shutil,subprocess,time,os
+from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
+from pathlib import Path
+from shared_calm_common import read,save,covered_length
+
+def lines(path):
+    result=[]
+    try:
+        with Path(path).open() as f:
+            for line in f:
+                try:result.append(json.loads(line))
+                except json.JSONDecodeError:continue
+    except FileNotFoundError:pass
+    return result
+
+def snapshot(out):
+    plan=read(out/'plan.json',{});summaries=[];evaluations=[]
+    for folder,rows in [('rollouts',summaries),('evaluation',evaluations)]:
+        for p in sorted((out/folder).glob('*/variant_*.json')):
+            r=read(p)
+            if r:rows.append(r)
+    source={i for r in summaries for i in r['source_ids']};episodes=sum(r['episodes'] for r in summaries)
+    intervals={}
+    for r in summaries:
+        for i,start,end in r.get('source_intervals',[]):intervals.setdefault(int(i),[]).append((int(start),int(end)))
+    frame_target=sum(round(r['seconds']*30) for r in plan.get('motions',[]));frame_covered=sum(covered_length(v) for v in intervals.values())
+    coverage=read(out/'training_coverage.json',{'motions':{},'pairs':{}})
+    hardware=lines(out/'hardware.jsonl');metrics=lines(out/'metrics.jsonl')
+    return dict(now=time.time(),state=read(out/'state.json',{}),clock=read(out/'clock.json',{}),config=plan.get('config',{}),machine=read(out/'machine.json',{}),
+                resolved=read(out/'resolved_training_config.json',{}),target_episodes=plan.get('target_episodes',0),target_pairs=plan.get('target_pairs',0),source_target=len(plan.get('motions',[])),train_sources=len(coverage['motions']),train_pairs=len(coverage['pairs']),
+                ready_designs=len(list((out/'ready').glob('*.json'))),episodes=episodes,source_coverage=len(source),frame_target=frame_target,frame_covered=frame_covered,valid_transitions=sum(r['valid_transitions'] for r in summaries),
+                summaries=summaries,evaluations=evaluations,metrics=metrics[-2500:],hardware=hardware,audit=read(out/'audit.json',{}),motions=[dict(id=r['id'],k=r['k'],seconds=r['seconds']) for r in plan.get('motions',[])],
+                shapes=[dict(design=r['design'],changed=len(r['changed_tokens'])) for r in plan.get('designs',[])])
+
+PAGE=r'''<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>공용 PPO 학습·데이터 수집 현황</title>
+<style>body{font-family:"Noto Sans CJK KR","Malgun Gothic",sans-serif;background:#f3f6fa;color:#15233b;margin:24px auto;max-width:1400px;padding:0 16px}h1{font-size:25px}.cards,.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}.grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr))}.cards{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:850px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:460px){.cards{grid-template-columns:1fr}}.card,article{background:white;border-radius:12px;padding:18px;box-shadow:0 2px 10px #16233b0d}.card b{display:block;font-size:23px;margin:8px 0}h2{font-size:18px}article p,small{color:#53657d;line-height:1.6}canvas{width:100%;height:310px}table{border-collapse:collapse;width:100%;background:white}td,th{padding:8px;border-bottom:1px solid #dde4ef;text-align:left}.warn{background:#fff0cc;padding:14px;border-radius:8px}progress{width:100%}#settings{white-space:pre-wrap}button{padding:9px;cursor:pointer}</style>
+<h1>공용 PPO 학습·데이터 수집 현황</h1><p id="status"></p><p class="warn" id="notice"></p><div class="cards" id="cards"></div><p><progress id="progress" max="1"></progress></p><button onclick="refresh()">지금 새로고침</button><span id="updated"></span><div class="grid" id="charts"></div>
+<h2>무엇을 확인해야 하나요?</h2><p>학습 전이가 늘면 실제 학습이 진행 중입니다. 보상은 같은 조건에서 비교하고, 손실이 줄었다는 이유만으로 추종 성공이라고 판단하지 마세요. 낙상률·유효 전이·모션 커버리지를 함께 확인하세요. VRAM 예약량과 GPU 활용률은 서로 다른 지표입니다. 묶음 교체 시 컴파일로 학습 전이가 잠시 멈출 수 있습니다.</p>
+<h2>검증 형상 결과 — 학습에 쓰지 않은 형상</h2><p>모션 원본은 모두 정책 학습에 사용합니다. 아래 결과는 보지 않은 형상 평가이며, 보지 않은 모션 평가가 아닙니다.</p><div id="eval"></div>
+<h2>실제 실행 설정</h2><table id="settings"></table><h2>실제 보상·종료 조건</h2><p>추종 보상은 오차의 지수함수로 감소합니다. 합산 보상에 제어 주기 1/30초를 곱합니다. 아래 값은 실행에 적용된 설정에서 읽습니다.</p><table id="rewards"></table><h2>최종 데이터 검사</h2><pre id="audit"></pre>
+<script>
+let STEP_SCALE=1e6,STEP_LABEL='학습 전이 (백만 회)';
+const fmt=x=>Number(x||0).toLocaleString('ko-KR');
+const tick=(v,span)=>v.toLocaleString('ko-KR',{maximumFractionDigits:span>=100?0:span>=1?2:span>=.01?4:6});
+function card(title,value,detail){let e=document.createElement('div');e.className='card';let s=document.createElement('small');s.textContent=title;let b=document.createElement('b');b.textContent=value;let p=document.createElement('small');p.textContent=detail;e.append(s,b,p);document.querySelector('#cards').append(e)}
+function chart(title,xlabel,ylabel,points,description,bar=false,labels=null){let e=document.createElement('article');let h=document.createElement('h2');h.textContent=title;let c=document.createElement('canvas');c.width=900;c.height=labels?520:440;if(labels)c.style.height='350px';let p=document.createElement('p');p.textContent=description;e.append(h,c,p);document.querySelector('#charts').append(e);let g=c.getContext('2d');g.font='20px "Noto Sans CJK KR","Malgun Gothic",sans-serif';g.fillStyle='#53657d';g.fillText(xlabel,340,labels?505:425);g.save();g.translate(23,280);g.rotate(-Math.PI/2);g.fillText(ylabel,0,0);g.restore();points=points.filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]));if(!points.length){g.fillText('아직 데이터 없음',340,210);return}let xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(0,...ys),ymax=Math.max(...ys);if(xmax===xmin)xmax=xmin+1;if(ymax===ymin)ymax=ymin+1;let X=x=>100+(x-xmin)/(xmax-xmin)*740,Y=y=>355-(y-ymin)/(ymax-ymin)*300;g.strokeStyle='#dbe3ef';g.lineWidth=1;for(let i=0;i<=4;i++){let v=ymin+(ymax-ymin)*i/4;g.beginPath();g.moveTo(100,Y(v));g.lineTo(840,Y(v));g.stroke();g.fillText(tick(v,ymax-ymin),34,Y(v)+5);let v2=xmin+(xmax-xmin)*i/4;if(bar&&(xlabel.includes('개수')||xlabel.includes('번호')))v2=Math.round(v2);if(!labels)g.fillText(tick(v2,xmax-xmin),X(v2)-15,390)}if(labels){g.font='18px sans-serif';labels.forEach((label,i)=>{g.save();g.translate(X(i)-4,375);g.rotate(Math.PI/3);g.fillText(label,0,0);g.restore()})}g.strokeStyle='#2674c8';g.fillStyle='#2674c8';g.lineWidth=3;g.beginPath();points.forEach(([x,y],i)=>{if(bar){let width=Math.min(28,650/points.length);g.fillRect(X(x)-width/2,Y(y),width,355-Y(y));}else if(!i)g.moveTo(X(x),Y(y));else g.lineTo(X(x),Y(y));});if(!bar)g.stroke();c.title='그래프 위를 움직이면 가까운 측정값이 표시됩니다.';c.onmousemove=e=>{let x=xmin+((e.offsetX/c.clientWidth*900)-100)/740*(xmax-xmin);let nearest=points.reduce((a,b)=>Math.abs(a[0]-x)<Math.abs(b[0]-x)?a:b);c.title=xlabel+': '+nearest[0].toFixed(6)+' / '+ylabel+': '+nearest[1].toFixed(6)};}
+function metric(rows,keys){return rows.flatMap(r=>{for(let k of keys){if(Number.isFinite(r.metrics[k]))return [[r.step/STEP_SCALE,r.metrics[k]]]}return []})}
+function render(d){STEP_SCALE=d.config.train_transitions<1000000?1:1e6;STEP_LABEL=STEP_SCALE===1?'학습 전이 (회)':'학습 전이 (백만 회)';let state={prepared:'준비 완료',running:'실행 중',paused:'중지됨',complete:'배정된 실행 완료 · 품질 지표 확인 필요',failed:'오류로 종료',budget_finished_incomplete:'예산 종료 · 미확보 데이터 있음',incomplete:'검사 미달 · 미확보 데이터 있음'};let phase={ready:'시작 대기',prepare:'모션 리타겟팅',train:'공용 PPO 학습',collect:'실제 rollout 수집',verify:'검증 형상 평가·데이터 검사',finished:'종료'};document.querySelector('#status').textContent=(state[d.state.status]||'아직 시작 전')+' / '+(phase[d.state.phase]||'대기')+' / '+(d.machine.gpu||'GPU 미확인');let rows=d.metrics,last=rows.at(-1),step=Math.max(0,...rows.map(r=>r.step)),remaining=d.clock.deadline?Math.max(0,(d.clock.deadline-d.now)/3600):d.config.hours;document.querySelector('#notice').textContent=(d.source_target<10000?'기능 검사 자료입니다. 작은 모션 집합·짧은 학습의 결과이며 본 수집 성능이 아닙니다. ':'')+(d.state.error?'오류: '+d.state.error+' / ':'')+(d.state.note?d.state.note+' / ':'')+'48시간은 실행 예산이며 데이터 양이나 수렴 보장이 아닙니다. 모든 원본 모션이 실제로 기록됐는지 커버리지를 확인하세요.'+(last?' 마지막 학습 지표: '+Math.round((d.now-last.time)/60)+'분 전.':' 아직 학습 지표가 없습니다. 준비·컴파일 중일 수 있으므로 상태와 로그를 확인하세요.');document.querySelector('#cards').innerHTML='';card('학습 전이',fmt(step)+' / '+fmt(d.config.train_transitions),'시뮬레이터와 상호작용한 누적 수');card('수집한 rollout',fmt(d.episodes)+' / '+fmt(d.target_episodes),'실제 물리 실행 episode 수');card('수집된 원본 모션',fmt(d.source_coverage)+' / '+fmt(d.source_target),'TT 로더 기준으로 유효 전이가 2개 이상인 원본');card('목표 시간 구간 커버리지',d.frame_target?(100*d.frame_covered/d.frame_target).toFixed(1)+'%':'아직 자료 없음','반복 구간을 중복 계산하지 않은 목표 시각의 커버리지');card('유효 물리 전이',fmt(d.valid_transitions),'낙상 전이 포함, 패딩 제외');card('학습에서 노출된 모션',fmt(d.train_sources)+' / '+fmt(d.source_target),'RSI 초기화 카운터 기준');card('리타겟 준비 형상',fmt(d.ready_designs)+' / '+fmt(d.config.train_designs+d.config.eval_designs),'학습 형상과 검증 형상 합계');card('남은 실행 예산',Number(remaining||0).toFixed(1)+'시간','중지해 둔 시간도 포함');document.querySelector('#progress').value=d.target_episodes?d.episodes/d.target_episodes:0;document.querySelector('#updated').textContent='  확인 시각: '+new Date(d.now*1000).toLocaleString('ko-KR');document.querySelector('#charts').innerHTML='';
+chart('누적 학습 진행','시작 후 경과 시간 (시간)',STEP_LABEL,rows.map(r=>[(r.time-(d.clock.started||r.time))/3600,r.step/STEP_SCALE]),'증가하면 실제 정책 학습 전이가 발생한 것입니다. 컴파일 시간에는 증가하지 않습니다.');
+chart('평균 에피소드 보상',STEP_LABEL,'에피소드 누적 보상',metric(rows,['episode/sum_reward','episode/reward']),'완료된 에피소드의 누적 보상입니다. 길이와 모션 구성이 달라지면 단순 비교에 주의하세요.');
+chart('관절 자세 추종 보상',STEP_LABEL,'에피소드 누적 보상',metric(rows,['episode/track_pose']),'목표 관절 자세와의 오차에 따른 보상입니다. 원시 오차와는 다릅니다.');
+chart('관절 속도 추종 보상',STEP_LABEL,'에피소드 누적 보상',metric(rows,['episode/track_vel']),'관절 속도 추종 보상의 가중치는 1.0입니다.');
+chart('발 위치 추종 보상',STEP_LABEL,'에피소드 누적 보상',metric(rows,['episode/track_ee']),'목표 발 위치에 대한 추종 보상입니다.');
+chart('몸통 자세 추종 보상',STEP_LABEL,'에피소드 누적 보상',metric(rows,['episode/track_root_pose']),'몸통 위치와 방향에 대한 추종 보상입니다.');
+chart('몸통 속도 추종 보상',STEP_LABEL,'에피소드 누적 보상',metric(rows,['episode/track_root_vel']),'몸통 이동 속도와 회전 속도에 대한 추종 보상입니다.');
+chart('정책 변화 크기',STEP_LABEL,'행동 분포 차이',metric(rows,['training/kl_mean','episode/kl_mean']),'업데이트 전후 행동 분포의 차이를 나타냅니다. 급격한 증가 여부를 보세요.');
+chart('정책 최적화 손실',STEP_LABEL,'정책 손실',metric(rows,['training/policy_loss','episode/policy_loss']),'PPO가 실제로 출력한 값만 표시합니다. 낮을수록 과업 성능이 좋다는 뜻은 아닙니다.');
+chart('가치 예측 손실',STEP_LABEL,'가치 손실',metric(rows,['training/v_loss','training/value_loss','episode/v_loss']),'미래 보상 예측 오차입니다. 모션 교체 시 일시적으로 증가할 수 있습니다.');
+chart('행동 탐색 관련 손실',STEP_LABEL,'탐색 손실',metric(rows,['training/entropy_loss','episode/entropy_loss']),'학습기가 제공하는 엔트로피 손실입니다. 원시 행동 엔트로피와 부호가 다를 수 있습니다.');
+chart('학습 중 낙상 비율',STEP_LABEL,'완료 에피소드의 낙상률 (%)',metric(rows,['episode/done/fellover']).map(([x,y])=>[x,y*100]),'학습 중 완료된 에피소드의 낙상 종료 비율입니다. 수집 전체 길이 평가와 초기 조건이 다릅니다.');
+chart('학습 중 에피소드 길이',STEP_LABEL,'평균 실행 시간 (초)',metric(rows,['episode/length']).map(([x,y])=>[x,y/30]),'RSI로 중간에서 시작하므로 20초보다 짧아도 성공일 수 있습니다. 낙상률과 함께 확인하세요.');
+chart('학습 처리 속도',STEP_LABEL,'초당 학습 전이',metric(rows,['training/sps']),'각 학습 구간의 실제 처리 속도입니다. 전체 준비 시간은 포함하지 않습니다.');
+let start=d.clock.started||d.now;chart('GPU 메모리 사용','시작 후 경과 시간 (시간)','사용 메모리 (GB)',d.hardware.map(r=>[(r.time-start)/3600,r.gpu_mib/1024]),'화면 및 다른 프로세스 사용량도 포함합니다.');chart('GPU 활용률','시작 후 경과 시간 (시간)','GPU 활용률 (%)',d.hardware.map(r=>[(r.time-start)/3600,r.gpu_util]),'메모리가 예약되어 있어도 활용률은 낮을 수 있습니다.');
+let grouped={};d.summaries.forEach(r=>{let a=grouped[r.design]??{falls:0,episodes:0};a.falls+=r.falls;a.episodes+=r.episodes;grouped[r.design]=a});chart('형상별 실제 낙상률','형상 번호','낙상 비율 (%)',Object.entries(grouped).map(([name,r])=>[Number(name.slice(1)),100*r.falls/r.episodes]),'완료된 시작 조건들을 합산한 낙상률입니다. 50% 초과도 데이터를 보존하고 다음 형상으로 진행합니다.',true);
+let rmse=d.summaries.filter(r=>r.variant===0).map(r=>[Number(r.design.slice(1)),r.joint_rmse_deg]);chart('형상별 관절 추종 오차','형상 번호','관절 오차 중앙값 (도)',rmse,'첫 프레임에서 시작한 모션들의 관절 RMSE 중앙값입니다. 유효 구간에 대한 오차입니다.',true);
+chart('형상별 몸통 위치 오차','형상 번호','몸통 위치 오차 중앙값 (cm)',d.summaries.filter(r=>r.variant===0).map(r=>[Number(r.design.slice(1)),r.root_rmse_m*100]),'실제 위치와 목표 위치의 RMSE 중앙값입니다.',true);
+let ids=new Set(d.summaries.flatMap(r=>r.source_ids));let counts=Array(12).fill(0);d.motions.forEach(r=>{if(ids.has(r.id))counts[r.k-1]++});chart('수집된 동작 개수 구성','한 모션에 포함된 동작 개수','수집 원본 모션 수',counts.map((n,i)=>[i+1,n]),'K=1부터 12까지 실제 원본 모션의 커버리지입니다. 반복 rollout은 중복해서 세지 않습니다.',true);
+for(let [key,title,max,label] of [['speed','실제 몸통 이동 속도 분포',3,'수평 이동 속도 (m/s)'],['height','실제 몸통 높이 분포',.8,'몸통 높이 (m)'],['yaw_rate','실제 몸통 회전 속도 분포',6,'월드 방향 회전 속도 (rad/s)'],['joint_speed','실제 관절 속도 분포',60,'관절 속도 절댓값 (rad/s)'],['action','실제 정책 행동 분포',20,'정규화 행동 출력']]){let hist=Array(24).fill(0);d.summaries.forEach(r=>(r.distributions?.[key]||[]).forEach((n,i)=>hist[i]+=n));chart(title,label,'유효 전이 수',hist.map((n,i)=>[(i+.5)*max/24-(key==='action'?10:0),n]),'실제 저장된 상태의 분포입니다. 표시 범위 밖의 값은 이 그래프에 포함되지 않습니다.',true)}
+let contactCounts=Array(5).fill(0);d.summaries.forEach(r=>(r.distributions?.contact_count||[]).forEach((n,i)=>contactCounts[i]+=n));chart('실제 접지 상태 분포','동시에 접지한 발 개수','유효 전이 수',contactCounts.map((n,i)=>[i,n]),'공중·한 발·여러 발 접지 상태가 얼마나 포함됐는지 확인하세요.',true);chart('상태 변화가 작은 구간 비율','형상 번호','변화가 작은 전이 비율 (%)',d.summaries.filter(r=>Number.isFinite(r.small_change_fraction)).map(r=>[Number(r.design.slice(1)),100*r.small_change_fraction]),'수평속도 3cm/s·방향변화 5도/s·높이속도 2cm/s 미만인 전이 비율입니다. 앉기·서기에서는 정상일 수 있어 자동 실패 판정에 사용하지 않습니다.',true);
+let primitiveCounts=Array(12).fill(0);d.summaries.forEach(r=>(r.primitive_counts||[]).forEach((n,i)=>primitiveCounts[i]+=n));chart('목표 동작별 확보한 물리 전이','목표 동작 종류','유효 전이 수',primitiveCounts.map((n,i)=>[i,n]),'낙상 전 유효 구간에 대응하는 목표 동작 라벨입니다. 해당 동작을 정확히 수행했다는 뜻은 아니므로 실제 속도·회전·높이 분포와 함께 확인하세요.',true,['전진','후진','좌이동','우이동','시계회전','반시계회전','좌회전전진','우회전전진','좌회전후진','우회전후진','앉기','일어나기']);
+let evaldiv=document.querySelector('#eval');evaldiv.textContent=d.evaluations.length?'':'아직 검증 결과 없음';if(d.evaluations.length){let table=document.createElement('table');table.innerHTML='<tr><th>검증 형상</th><th>실행 모션</th><th>낙상률</th><th>관절 오차</th><th>몸통 오차</th></tr>';d.evaluations.forEach(r=>{let tr=document.createElement('tr');[r.design,fmt(r.episodes),(100*r.fall_fraction).toFixed(1)+'%',r.joint_rmse_deg.toFixed(2)+'도',(100*r.root_rmse_m).toFixed(1)+'cm'].forEach(v=>{let td=document.createElement('td');td.textContent=v;tr.append(td)});table.append(tr)});evaldiv.append(table)}
+let labels={hours:'실행 예산 (시간)',train_designs:'학습 형상 수',eval_designs:'검증 형상 수',source_motions:'원본 모션 수',morphologies_per_motion:'모션당 서로 다른 형상 수',rollouts_per_pair:'모션·형상 쌍당 실행 수',resident_designs:'동시 적재 학습 형상',num_envs:'병렬 학습 환경',batch_size:'미니배치 크기',rollout_batch:'병렬 rollout 수',train_transitions:'목표 학습 전이',unroll_length:'수집 구간 길이 (step)',num_minibatches:'미니배치 수',num_updates_per_batch:'데이터 재사용 횟수',learning_rate:'학습률',entropy_cost:'탐색 손실 가중치',metrics_steps:'진행 지표 출력 간격 (전이)',checkpoint_steps:'체크포인트 간격 (전이)',control_hz:'정책 제어 주파수 (Hz)',physics_hz:'물리 계산 주파수 (Hz)',pool_fraction:'JAX 메모리 풀 비율',prepare_workers:'리타겟 작업 수',train_sweeps:'모션 전체 순회 횟수'};let table=document.querySelector('#settings');table.innerHTML='';for(let [k,label] of Object.entries(labels)){let tr=document.createElement('tr');for(let v of [label,d.config[k]??'아직 설정 없음']){let td=document.createElement('td');td.textContent=v;tr.append(td)}table.append(tr)}
+for(let [label,value] of [['정책 신경망 은닉층',(d.resolved.policy_hidden||[]).join(' → ')||'아직 실행 설정 없음'],['가치 신경망 은닉층',(d.resolved.critic_hidden||[]).join(' → ')||'아직 실행 설정 없음'],['미래 목표를 보는 시점 (초)',(d.resolved.env?.obs_time_indices||[]).map(x=>(x/30).toFixed(3)).join(', ')||'아직 실행 설정 없음'],['관측 정보','관절 상태·몸통 속도·기울기·직전 행동·현재와 미래 목표·형상 토큰 13개']]){let tr=document.createElement('tr');for(let v of [label,value]){let td=document.createElement('td');td.textContent=v;tr.append(td)}table.append(tr)}
+let rewardLabels={action_scale:'행동 → 목표 관절각 배율 (rad)',clip_actions:'행동 출력 제한 (최소, 최대)',w_pose:'관절 자세 추종 가중치',w_vel:'관절 속도 추종 가중치',w_ee:'발 위치 추종 가중치',w_root_pose:'몸통 위치·방향 추종 가중치',w_root_vel:'몸통 속도 추종 가중치',k_pose:'관절 자세 오차 민감도',k_vel:'관절 속도 오차 민감도',k_ee:'발 위치 오차 민감도',k_root_pos:'몸통 위치 오차 민감도',k_root_orn:'몸통 방향 오차 민감도',k_root_linvel:'몸통 이동 속도 오차 민감도',k_root_angvel:'몸통 회전 속도 오차 민감도',penalty_action_rate:'행동 변화량 제곱합 패널티',penalty_torque:'토크 제곱합 패널티',penalty_joint_vel:'관절 속도 제곱합 패널티',penalty_joint_acc:'관절 가속도 제곱합 패널티',penalty_joint_pos_limit:'관절 안전 범위 초과 패널티',penalty_termination:'낙상·추종 이탈 종료 패널티',termination_pos_err_threshold:'추종 위치 오차 종료 기준 (m)',termination_orn_err_threshold:'추종 방향 오차 종료 기준 (rad)',termination_pose_consecutive_steps:'추종 오차 지속 종료 기준 (step)',termination_fellover_threshold:'몸통 수직축 기울기 종료 기준'};let rt=document.querySelector('#rewards');rt.innerHTML='';for(let [k,label] of Object.entries(rewardLabels)){let tr=document.createElement('tr');for(let v of [label,d.resolved?.env?.[k]??'아직 실행 설정 없음']){let td=document.createElement('td');td.textContent=v;tr.append(td)}rt.append(tr)}
+let a=d.audit;document.querySelector('#audit').textContent=Object.keys(a).length?'검사한 rollout: '+fmt(a.episodes)+'개\n유효 전이: '+fmt(a.valid_transitions)+'개\n원본 모션 커버리지: '+fmt(a.source_coverage)+' / '+fmt(a.source_target)+'\n실제 모션·형상 쌍: '+fmt(a.unique_pairs)+' / '+fmt(a.target_pairs)+'\n두 시작 조건 확보: '+fmt(a.pairs_with_both_starts)+'쌍\n형식 오류 파일: '+a.invalid_files.length+'개\n누락 원본: '+a.missing_source_ids.length+'개\n목표 커버리지 충족: '+(a.coverage_complete?'예':'아니요'):'아직 최종 검사를 실행하지 않았습니다.';
+}
+async function refresh(){try{render(window.STATIC_SNAPSHOT||await (await fetch('/api')).json())}catch(e){document.querySelector('#notice').textContent='자료를 읽을 수 없습니다. 서버와 실행 폴더를 확인하세요: '+e.message}}refresh();if(!window.STATIC_SNAPSHOT)setInterval(refresh,10000);
+</script></html>'''
+
+def report(out):
+    data=json.dumps(snapshot(out),ensure_ascii=False).replace('<','\\u003c')
+    savepath=out/'report.html';temp=savepath.with_suffix('.tmp');temp.write_text(PAGE.replace('<script>',f'<script>window.STATIC_SNAPSHOT={data};</script><script>',1));temp.replace(savepath)
+
+def monitor(out):
+    last=0
+    while True:
+        row=dict(time=time.time(),disk_free_gb=shutil.disk_usage(out).free/1024**3)
+        try:
+            query=['nvidia-smi','--query-gpu=memory.used,memory.total,utilization.gpu','--format=csv,noheader,nounits']
+            if os.environ.get('CUDA_VISIBLE_DEVICES'):query+=['-i',os.environ['CUDA_VISIBLE_DEVICES']]
+            gpu=subprocess.check_output(query,text=True,timeout=4).splitlines()[0]
+            used,total,util=map(float,gpu.split(','));row.update(gpu_mib=used,gpu_total_mib=total,gpu_util=util)
+        except (OSError,subprocess.SubprocessError,ValueError):pass
+        with (out/'hardware.jsonl').open('a') as f:f.write(json.dumps(row)+'\n')
+        if time.time()-last>60:report(out);last=time.time()
+        time.sleep(5)
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['serve','report','monitor']);p.add_argument('--out',type=Path,required=True);p.add_argument('--port',type=int,default=8765);a=p.parse_args();out=a.out.resolve()
+    if a.command=='report':report(out);print(out/'report.html')
+    elif a.command=='monitor':monitor(out)
+    else:
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path not in ['/', '/api']:self.send_error(404);return
+                data=(json.dumps(snapshot(out),ensure_ascii=False).encode() if self.path=='/api' else PAGE.encode())
+                self.send_response(200);self.send_header('Content-Type','application/json; charset=utf-8' if self.path=='/api' else 'text/html; charset=utf-8');self.send_header('Cache-Control','no-store');self.end_headers();self.wfile.write(data)
+            def log_message(self,*args):pass
+        print(f'대시보드: http://127.0.0.1:{a.port} (SSH 포트 전달로 접속)',flush=True);ThreadingHTTPServer(('127.0.0.1',a.port),Handler).serve_forever()
+
+if __name__=='__main__':main()

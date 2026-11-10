@@ -184,7 +184,7 @@ def execute(out,allow_other):
         report(out)
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','run','retarget','audit','status','preflight']);p.add_argument('--config',type=Path,default=ROOT/'configs/shared_calm_v100_48h.yaml');p.add_argument('--source',type=Path,default=ROOT/'runs/calm_motion_10,000/dataset');p.add_argument('--out',type=Path,default=ROOT/'runs/shared_calm_v100_48h');p.add_argument('--design');p.add_argument('--allow-other-gpu',action='store_true');a=p.parse_args();out=a.out.resolve()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('command',choices=['init','run','retarget','audit','status','preflight']);p.add_argument('--config',type=Path,default=ROOT/'configs/shared_calm_v100_48h.yaml');p.add_argument('--source',type=Path,default=ROOT/'legacy/runs/calm_motion_10,000/dataset');p.add_argument('--out',type=Path,default=ROOT/'legacy/runs/shared_calm_v100_48h');p.add_argument('--design');p.add_argument('--allow-other-gpu',action='store_true');a=p.parse_args();out=a.out.resolve()
     if a.command=='init':
         if (out/'plan.json').exists():raise FileExistsError('Plan exists; use run to resume')
         c=load_config(a.config);out.mkdir(parents=True,exist_ok=True);plan=create_plan(a.source,c);save(out/'plan.json',plan);save(out/'designs.json',{r['design']:r['E'] for r in plan['designs']+plan['eval_designs']});save(out/'state.json',dict(status='prepared',phase='ready'));print(f'준비 완료: 모션 {len(plan["motions"]):,}개, 목표 rollout {plan["target_episodes"]:,}개; {out}')

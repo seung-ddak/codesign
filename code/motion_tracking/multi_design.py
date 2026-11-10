@@ -127,14 +127,16 @@ def make_bank(envs, uniforms, distinct_clips=False):
         # Fixed capacity prevents ragged banks; clip_end keeps padding out of RSI.
         capacity=len(envs[0].clip_start)*601
         for env in envs:
-            for name in ['ref_qpos','ref_qvel','ref_foot','ref_contact']:
+            for name in ['ref_qpos','ref_qvel','ref_foot','ref_contact']+(['ref_latent'] if hasattr(env,'ref_latent') else []):
                 value=np.asarray(getattr(env,name))
                 if len(value)>capacity:raise ValueError('Reference exceeds 20-second 30Hz capacity')
                 setattr(env,name,jnp.asarray(np.pad(value,[(0,capacity-len(value))]+[(0,0)]*(value.ndim-1),mode='edge')))
     bank = {
         "base": models[0],
         "model_fields": {name: jnp.stack([getattr(m, name) for m in models]) for name in changed},
-        "refs": {name: jnp.stack([jnp.asarray(getattr(env, name)) for env in envs]) for name in REFERENCE_ATTRS},
+        # CALM 미세조정 환경은 프레임별 잠재 변수 ref_latent 도 형상마다 바꿔 끼운다 (없으면 기존과 같다).
+        "refs": {name: jnp.stack([jnp.asarray(getattr(env, name)) for env in envs])
+                 for name in REFERENCE_ATTRS + (("ref_latent",) if all(hasattr(e, "ref_latent") for e in envs) else ())},
         "uniforms": jnp.asarray(uniforms, dtype=jnp.float32),
     }
     if bank["uniforms"].shape != (len(envs), 13) or not np.isfinite(uniforms).all() or np.any(np.asarray(uniforms) < 0) or np.any(np.asarray(uniforms) > 1):
@@ -151,10 +153,10 @@ class MultiDesignVmapWrapper(Wrapper):
     @contextlib.contextmanager
     def design_env(self, model, design_id):
         env = self.env.unwrapped
-        old = {name: getattr(env, name) for name in ("mjx_model", *REFERENCE_ATTRS)}
+        old = {name: getattr(env, name) for name in ("mjx_model", *self.bank["refs"])}
         try:
             env.mjx_model = model
-            for name in REFERENCE_ATTRS:
+            for name in self.bank["refs"]:
                 setattr(env, name, self.bank["refs"][name][design_id])
             yield env
         finally:

@@ -18,6 +18,7 @@ def main():
     if not names:raise ValueError('No prepared training morphologies in batch')
     designs={r['design']:r['E'] for r in plan['designs']+plan['eval_designs']};root=out/'references';run=out/'stages'/f'{a.visit:03d}'/'files';run.mkdir(parents=True,exist_ok=True)
     envcfg=OmegaConf.load(CODE/'config/env/a1_track.yaml');envcfg.update(dict(reference_dir=str(root),clips=[],ctrl_dt=1/30,sim_dt=1/240,max_episode_length=600,w_vel=1.,action_reference=c.get('action_reference','home'),termination_pose_consecutive_steps=15,obs_time_indices=[0,1,2,4,5],reset_qpos=0.,reset_qvel=0.,velocity_kick=[0.,0.]))
+    envcfg.penalty_foot_slip=float(c.get('penalty_foot_slip',0.))  # 0 = 끔 (기존과 동일)
     evalcfg=OmegaConf.create(OmegaConf.to_container(envcfg));evalcfg.update(dict(termination_pos_err_threshold=100.,termination_orn_err_threshold=100.,termination_pose_consecutive_steps=600,obs_noise={k:0. for k in envcfg.obs_noise}))
     clips={k:['calm_%05d'%i for i in ids] for k,ids in plan['assignments'].items()}
     model=functools.partial(build_model,choice=plan['topology'],torque_limit=33.5)
@@ -47,14 +48,14 @@ def main():
     def wrap(e,episode_length,action_repeat,randomization_fn,**kw):
         wrapper=CountStarts if e is env else EpisodeDesignReset
         return wrapper(MultiDesignVmapWrapper(e,e.design_bank),episode_length,action_repeat)
-    network=functools.partial(make_fixed_e_ppo_networks,policy_hidden_layer_sizes=(256,256,128),value_hidden_layer_sizes=(256,256,128),activation=jax.nn.elu,state_dependent_std=False,init_noise_std=c.get('init_noise_std',1.),noise_std_type='scalar',distribution_type='normal')
+    network=functools.partial(make_fixed_e_ppo_networks,policy_hidden_layer_sizes=tuple(c.get('hidden',(256,256,128))),value_hidden_layer_sizes=tuple(c.get('hidden',(256,256,128))),activation=jax.nn.elu,state_dependent_std=False,init_noise_std=c.get('init_noise_std',1.),noise_std_type='scalar',distribution_type='normal')
     if c.get('zero_mean_init',False):
         network=functools.partial(network,mean_kernel_init_fn=functools.partial(jax.nn.initializers.constant,0.))
-    cfg=OmegaConf.create(dict(eval_env=OmegaConf.to_container(evalcfg),kp=None,tau_scale=None,torque_limit=33.5,multi_design=True,choice=plan['topology'],train=dict(normalize_observations=True,network_factory={'_target_':'multi_design.make_fixed_e_ppo_networks','_partial_':True,'policy_hidden_layer_sizes':[256,256,128],'value_hidden_layer_sizes':[256,256,128],'activation':{'_target_':'flax.linen.elu','_partial_':True},'state_dependent_std':False,'init_noise_std':c.get('init_noise_std',1.),'noise_std_type':'scalar','distribution_type':'normal'})))
+    cfg=OmegaConf.create(dict(eval_env=OmegaConf.to_container(evalcfg),kp=None,tau_scale=None,torque_limit=33.5,multi_design=True,choice=plan['topology'],train=dict(normalize_observations=True,network_factory={'_target_':'multi_design.make_fixed_e_ppo_networks','_partial_':True,'policy_hidden_layer_sizes':list(c.get('hidden',(256,256,128))),'value_hidden_layer_sizes':list(c.get('hidden',(256,256,128))),'activation':{'_target_':'flax.linen.elu','_partial_':True},'state_dependent_std':False,'init_noise_std':c.get('init_noise_std',1.),'noise_std_type':'scalar','distribution_type':'normal'})))
     if c.get('zero_mean_init',False):
         cfg.train.network_factory.mean_kernel_init_fn={'_target_':'jax.nn.initializers.constant','_partial_':True,'value':0.}
     (run/'config.pkl').write_bytes(pickle.dumps(cfg))
-    save(out/'resolved_training_config.json',dict(env=OmegaConf.to_container(envcfg,resolve=True),eval_env=OmegaConf.to_container(evalcfg,resolve=True),policy_hidden=[256,256,128],critic_hidden=[256,256,128],discounting=.99,gae_lambda=.95,clipping_epsilon=.2,max_grad_norm=1.,torque_limit=33.5))
+    save(out/'resolved_training_config.json',dict(env=OmegaConf.to_container(envcfg,resolve=True),eval_env=OmegaConf.to_container(evalcfg,resolve=True),policy_hidden=list(c.get('hidden',(256,256,128))),critic_hidden=list(c.get('hidden',(256,256,128))),discounting=.99,gae_lambda=.95,clipping_epsilon=.2,max_grad_norm=1.,torque_limit=33.5))
     initial=read(out/'learner.json',{}).get('step',0);last=[initial]
     def progress(step,metrics):
         # Brax's episode logger reports per-worker steps; epoch metrics report global steps.

@@ -1,0 +1,50 @@
+{
+  "registered_at": "2026-11-02T09:35:52.152860+00:00",
+  "base_commit": "57350512c656a2021164452f943dd867d9fb0b2a",
+  "hypothesis": "Appending a deterministic E-derived 1-second home settling snapshot improves held-out morphology prediction, preserving measured initial states and targets. Snapshot is audited, not assumed stationary.",
+  "models": [
+    "s0_A",
+    "E_s0_A",
+    "g_s0_A",
+    "E_g_s0_A"
+  ],
+  "primary_model": "E_g_s0_A",
+  "primary_target": "vx [m/s]",
+  "success": {
+    "gain_vs_B0_min": 0.2,
+    "effect_sign_min": 0.8,
+    "rmse_vs_E_s0_A": "strictly lower"
+  },
+  "diagnostic_model": "g_s0_A uses same thresholds, not primary decision",
+  "original_gate_note": "Previous regression 0.5*movement and sign70% criteria unchanged for original command, separate experiment uses the above predeclared criteria.",
+  "design_split": "sorted designs, DI mod4 held-out; identical to previous regression",
+  "start_split": "within motion start ranks i and i+4, i=0..3",
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "epochs": 2000,
+  "hidden": [
+    256,
+    256
+  ],
+  "horizon_max_steps": 50,
+  "a_steps": 16,
+  "min_alive": 1.0,
+  "kp": 200,
+  "settle_s": 1.0,
+  "resources": "CPU only, BLAS/torch 2 threads, no rendering, caches on /home",
+  "limits": [
+    "PD actions retargeted by morphology, not same-action causal intervention",
+    "16 shapes; 4-fold results and seeds reported",
+    "No new motion generalization or TT/MJX task success tested",
+    "Adding 42 inputs changes first-layer parameter count; g_s0_A provides representation control"
+  ],
+  "sha256": {
+    "code/tt_dynamics/rest_ablation.py": "366e977d058054d6c4af77a9c65d530ae6917405b2d1d632e3c841ddac565a3d",
+    "code/tt_dynamics/regression_gate.py": "4ee9b46f1e7d3e1d99d22da30e37926425d1a2787a142b9355315b341543f09f",
+    "runs/pipeline_v1/regression_rest_features/prepare.py": "3d3c354b071d046e0c05841435957a083dce8ba0132fc1ac54d3907714f3bf94"
+  },
+  "implementation_fix": "Before any completed results: fix nested Path JSON serialization; add per-fold per-seed prediction checkpoints. Data, model, folds and decision thresholds unchanged."
+}

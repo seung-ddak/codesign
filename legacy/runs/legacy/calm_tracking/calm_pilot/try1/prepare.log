@@ -1,0 +1,32 @@
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/calm_pilot.py", line 207, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/calm_pilot.py", line 165, in main
+    result=worker(a.worker,out);save(out/(a.worker+'_result.json'),result);return
+           ^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/calm_pilot.py", line 125, in worker
+    save(out/'selection.json',dict(clips=selected,features=features,selected_indices=chosen,feature_columns=['body_vx','body_vy','speed','yaw_delta','abs_yaw_rate','acceleration'],source_model='Original CALM A1',reference_dt=.02))
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/calm_pilot.py", line 23, in save
+    tmp=path.with_suffix(path.suffix+'.tmp');tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False));tmp.replace(path)
+                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py", line 202, in encode
+    chunks = list(chunks)
+             ^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py", line 432, in _iterencode
+    yield from _iterencode_dict(o, _current_indent_level)
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py", line 406, in _iterencode_dict
+    yield from chunks
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py", line 326, in _iterencode_list
+    yield from chunks
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py", line 326, in _iterencode_list
+    yield from chunks
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py", line 439, in _iterencode
+    o = _default(o)
+        ^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py", line 180, in default
+    raise TypeError(f'Object of type {o.__class__.__name__} '
+TypeError: Object of type float32 is not JSON serializable

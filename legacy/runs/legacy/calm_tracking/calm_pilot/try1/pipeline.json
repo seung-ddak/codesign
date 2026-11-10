@@ -1,0 +1,49 @@
+{
+  "issue": 9,
+  "commit": "49b5bb78dc67a794ec0734cfdffc1b0121c8992e",
+  "events": [
+    {
+      "stage": "collect",
+      "label": "Isaac Gym 10개 수집",
+      "commit": "49b5bb78dc67a794ec0734cfdffc1b0121c8992e",
+      "status": "PASS",
+      "summary": "수집 10개, 10초 완료 10개. 이는 기록 완료이며 완벽한 명령 추종 승인은 아닙니다.",
+      "count": 10,
+      "completed": 10,
+      "comment_url": "https://github.com/seung-ddak/codesign/issues/9#issuecomment-6437338915"
+    },
+    {
+      "stage": "prepare",
+      "label": "기록 검증·대표 5개 선정",
+      "commit": "49b5bb78dc67a794ec0734cfdffc1b0121c8992e",
+      "status": "FAIL",
+      "summary": "Command exit 1; log: runs/calm_pilot_try1/prepare.log\n\n_name__=='__main__':main()\n                            ^^^^^^\n  File \"/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/calm_pilot.py\", line 165, in main\n    result=worker(a.worker,out);save(out/(a.worker+'_result.json'),result);return\n           ^^^^^^^^^^^^^^^^^^^^\n  File \"/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/calm_pilot.py\", line 125, in worker\n    save(out/'selection.json',dict(clips=selected,features=features,selected_indices=chosen,feature_columns=['body_vx','body_vy','speed','yaw_delta','abs_yaw_rate','acceleration'],source_model='Original CALM A1',reference_dt=.02))\n  File \"/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/calm_pilot.py\", line 23, in save\n    tmp=path.with_suffix(path.suffix+'.tmp');tmp.write_text(json.dumps(value,ensure_ascii=False,indent=2,allow_nan=False));tmp.replace(path)\n                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/__init__.py\", line 238, in dumps\n    **kw).encode(obj)\n          ^^^^^^^^^^^\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py\", line 202, in encode\n    chunks = list(chunks)\n             ^^^^^^^^^^^^\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py\", line 432, in _iterencode\n    yield from _iterencode_dict(o, _current_indent_level)\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py\", line 406, in _iterencode_dict\n    yield from chunks\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py\", line 326, in _iterencode_list\n    yield from chunks\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py\", line 326, in _iterencode_list\n    yield from chunks\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py\", line 439, in _iterencode\n    o = _default(o)\n        ^^^^^^^^^^^\n  File \"/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/json/encoder.py\", line 180, in default\n    raise TypeError(f'Object of type {o.__class__.__name__} '\nTypeError: Object of type float32 is not JSON serializable\n",
+      "comment_url": "https://github.com/seung-ddak/codesign/issues/9#issuecomment-6437339506"
+    }
+  ],
+  "criteria": {
+    "self_collision": false,
+    "ground_collision": true,
+    "retarget_foot_error_m": 0.03,
+    "joint_limit_excess_rad": 0.01,
+    "inverse_bad_fraction": 0.1,
+    "ppo_requested_steps": 5242880,
+    "evaluation": "existing eval_motions.PASS; full episode from first frame"
+  },
+  "source_sha256": {
+    "code/motion_tracking/calm_pilot.py": "8465cc1f794a5c776ac4f307b806364700db6cdf8a4c61648c315b2ed13dcb41",
+    "code/motion_tracking/pd_replay.py": "d740db54d475c27063c05d369472f0288fb70f6dd95e7aaa4550f7a660ddf5b7",
+    "code/motion_tracking/track_env.py": "bc19f88eca5b63fd7acfe2b3ef4b797bbc43aacc53873b9d72d0e5d2c98c7e79",
+    "code/motion_tracking/eval_menagerie_calm.py": "5b0467a67a75c72b65e88ccced65735335141ce459a20bec06950fb58e0c9bcf",
+    "code/motion_tracking/train_rl_procedural.py": "535bb58329da892d5c51f8b961d3c3c00f648504670ea6a966594e19b7cacb6d",
+    "code/motion_tracking/eval_motions.py": "bfc27c654245e9459a0043f26d0a3e6b9975356872824784c5af5c104c8b7901"
+  },
+  "running": null,
+  "not_run": [
+    "retarget",
+    "train_one",
+    "evaluate_one",
+    "train_five",
+    "evaluate_five"
+  ]
+}

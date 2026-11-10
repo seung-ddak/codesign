@@ -1,0 +1,170 @@
+{
+ "method": "gradient",
+ "seed": 20000,
+ "samples": 2,
+ "gradient_scale": 1.0,
+ "guidance_audit": {
+  "algorithm": "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X",
+  "rl_correction_norm_per_step": [],
+  "guidance_scale": 1.0,
+  "s_gradient_scale": 1.0,
+  "pose": "delta",
+  "s0_source": "s0_fn(E) rest stance (Mode 2 only)",
+  "windows": 8,
+  "diffusion_steps": 5,
+  "fixed_tt_prediction": false,
+  "e_gradient_norm_per_step": [
+   11.62617301940918,
+   0.05315432325005531,
+   0.03543050214648247,
+   0.022144388407468796,
+   0.01942574977874756
+  ],
+  "s_gradient_norm_per_step": [
+   4.543803691864014,
+   0.22030428051948547,
+   0.2663325071334839,
+   0.2075907438993454,
+   0.1897650808095932
+  ],
+  "a_gradient_norm_per_step": [
+   2.5001564025878906,
+   0.09397335350513458,
+   0.0923616886138916,
+   0.0649697408080101,
+   0.04299788922071457
+  ],
+  "predicted_reward_during_guidance": [
+   -1.95180344581604,
+   -0.39134928584098816,
+   -0.4645369052886963,
+   -0.4345647096633911,
+   -0.4385696053504944
+  ],
+  "e_gradient_nonzero": true,
+  "s_gradient_nonzero": true,
+  "a_gradient_nonzero": true
+ },
+ "horizon": 64,
+ "evaluation_version": 2,
+ "task": {
+  "task": "circle_track",
+  "radius": 1.0,
+  "half_width": 0.3,
+  "center": [
+   0.0,
+   1.0
+  ],
+  "rewards": {
+   "progress": 1.0
+  },
+  "penalties": {
+   "lane": 20.0,
+   "fall": 20.0,
+   "action_rate": 0.05
+  },
+  "min_height_frac": 0.6,
+  "laps_per_rad": 0.15915494309189535
+ },
+ "candidates": [
+  {
+   "candidate": 0,
+   "morphology": [
+    0.5,
+    0.5027469396591187,
+    0.4942176938056946,
+    0.7186419367790222,
+    0.7243523597717285,
+    0.49763309955596924,
+    0.5032156109809875,
+    0.5058973431587219,
+    0.49179309606552124,
+    0.7732766270637512,
+    0.5594505667686462,
+    0.5,
+    0.5
+   ],
+   "pred_vs_mujoco_xy_mean_cm": 20.51148796081543,
+   "pred_vs_mujoco_joint_rmse_deg": 4.677506446838379,
+   "max_seam_action_jump_rad": 0.19393455982208252,
+   "rl_return": -0.7899196743965149,
+   "reward": -0.7899196743965149,
+   "reward_terms": {
+    "r_progress": -0.3630661070346832,
+    "p_lane": 0.0,
+    "p_fall": 0.02130335569381714,
+    "p_action_rate": 0.01572941616177559
+   },
+   "progress": -0.05778376560370099,
+   "progress_unit": "바퀴",
+   "task_success": false,
+   "lane_compliance": 1.0,
+   "gates_passed": null,
+   "gates_total": null,
+   "finish_seconds": null,
+   "initial_valid": true,
+   "initial_contacts": 4,
+   "min_clearance_m": -0.0003583289068566989,
+   "termination_reason": "completed_horizon",
+   "control_steps": 500,
+   "valid_seconds": 10.0,
+   "fell": false,
+   "complete_10s": true,
+   "pole_contacts": [],
+   "final_distance_m": 0.47282543778419495,
+   "forward_m": -0.44284912943840027,
+   "mean_forward_speed_m_s": -0.04428491294384003,
+   "predicted_guidance_score": -0.4061964154243469
+  },
+  {
+   "candidate": 1,
+   "morphology": [
+    0.5,
+    0.5029690265655518,
+    0.48076412081718445,
+    0.5891066789627075,
+    0.557253360748291,
+    0.5000466704368591,
+    0.5033203363418579,
+    0.5019491910934448,
+    0.491390585899353,
+    0.5905989408493042,
+    0.5565124750137329,
+    0.5,
+    0.5
+   ],
+   "pred_vs_mujoco_xy_mean_cm": 10.085926055908203,
+   "pred_vs_mujoco_joint_rmse_deg": 4.991396903991699,
+   "max_seam_action_jump_rad": 0.280460000038147,
+   "rl_return": -0.26686468720436096,
+   "reward": -0.26686468720436096,
+   "reward_terms": {
+    "r_progress": -0.1686192750930786,
+    "p_lane": 0.0,
+    "p_fall": 0.004888012073934078,
+    "p_action_rate": 0.009703611023724079
+   },
+   "progress": -0.026836591131635574,
+   "progress_unit": "바퀴",
+   "task_success": false,
+   "lane_compliance": 1.0,
+   "gates_passed": null,
+   "gates_total": null,
+   "finish_seconds": null,
+   "initial_valid": true,
+   "initial_contacts": 4,
+   "min_clearance_m": -8.472585793680223e-05,
+   "termination_reason": "completed_horizon",
+   "control_steps": 500,
+   "valid_seconds": 10.0,
+   "fell": false,
+   "complete_10s": true,
+   "pole_contacts": [],
+   "final_distance_m": 0.17890526354312897,
+   "forward_m": -0.17584486305713654,
+   "mean_forward_speed_m_s": -0.017584486305713652,
+   "predicted_guidance_score": -0.46576911211013794
+  }
+ ],
+ "npz": "runs/v100_mujoco_10k/task_delta_track_v1/circle/gradient_scale_1/seed_20000.npz"
+}

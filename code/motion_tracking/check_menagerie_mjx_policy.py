@@ -37,13 +37,14 @@ def load_policy(workspace,wheel):
     legs=['FL','FR','RL','RR'];expected=['base','trunk']+[l+'_'+p for l in legs for p in ['hip','thigh_shoulder','thigh','calf','foot']]+['imu_link'];joints=[l+'_'+p+'_joint' for l in legs for p in ['hip','thigh','calf']]
     xml=ET.parse(calm/'assets/urdf/a1_description/urdf/a1.urdf').getroot();limits=np.array([[float(xml.find("joint[@name='%s']/limit"%n).get(k)) for k in ['lower','upper']] for n in joints]);offset=torch.tensor(limits.mean(1),dtype=torch.float32);scale=torch.tensor(.7*np.diff(limits,axis=1)[:,0],dtype=torch.float32)
     @torch.no_grad()
-    def policy(physical,names,command):
+    def policy(physical,names,command,latent=None):
         v=torch.tensor(virtual_body_states(physical,names,expected),dtype=torch.float32)[None]
         obs=ns['compute_humanoid_observations_max'](v[:,:,:3],v[:,:,3:7],v[:,:,7:10],v[:,:,10:13],True,True)
         r=v[:,0];cmd=torch.tensor([[*command[:2],0]],dtype=torch.float32)
         head=iq.quat_rotate(tu.calc_heading_quat_inv(r[:,3:7]),cmd)[:,:2]
         face=iq.quat_rotate_inverse(r[:,3:7],torch.tensor([[math.cos(command[2]),math.sin(command[2]),0]],dtype=torch.float32));up=iq.quat_rotate_inverse(r[:,3:7],torch.tensor([[0.,0,1.]]))
-        z=networks[1]({'obs':norms[1](torch.cat([obs,head,face,up],-1))})[0].clamp(-1,1);z=torch.nn.functional.normalize(z,dim=-1)
+        if latent is None:z=networks[1]({'obs':norms[1](torch.cat([obs,head,face,up],-1))})[0].clamp(-1,1);z=torch.nn.functional.normalize(z,dim=-1)
+        else:z=torch.nn.functional.normalize(torch.as_tensor(np.asarray(latent),dtype=torch.float32)[None],dim=-1)  # fixed LLC latent (e.g. sit)
         action=networks[0].eval_actor(norms[0](obs),z)[0].clamp(-1,1)[0]
         target=(offset+scale*action).numpy();assert np.isfinite(target).all()
         return target

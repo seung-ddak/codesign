@@ -1,0 +1,694 @@
+{
+  "protocol": {
+    "task": "circle",
+    "updates": 1000,
+    "seed": 0,
+    "source": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/pipeline_v1/fast_mode24_v16_twin/evaluation/check_w1/joint_circle_4s/scale_10.npz",
+    "source_sha256": "da34849daff062e3e817ad07f76365bfc7db4a19f8db72ba87448e86b88b2c26",
+    "code_sha256": "2f8d21aca132984091e3797d638675b0eaddbafa9c2f5f8410f43ea8ca5f361b",
+    "train_candidates": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "heldout_candidates": [
+      12,
+      13,
+      14,
+      15
+    ],
+    "backend": "MuJoCo CPU; both guidance and PPO replayed here",
+    "horizon_frames": 200,
+    "ctrl_dt": 0.02,
+    "sim_dt": 0.005,
+    "ppo": {
+      "rollout_steps": 64,
+      "epochs": 4,
+      "minibatches": 4,
+      "gamma": 0.99,
+      "learning_rate": 0.0003,
+      "entropy_coef": 0.001,
+      "hidden": [
+        64,
+        64
+      ]
+    },
+    "reward_version": "dense",
+    "train_reward": "dense speed/progress/lane/stall/stability/action/torque; -20 fall",
+    "eval_reward": "unmodified task_reward; no extra terminal penalty",
+    "observation": "S42 (scaled velocities), E13, previous home-relative target12, time1",
+    "limitation": "single seed pilot; E frozen; S produced by physics; no joint diffusion integration"
+  },
+  "guidance": [
+    {
+      "candidate": 0,
+      "reward": -1.9509366750717163,
+      "survived": false,
+      "steps": 80,
+      "training_return": -22.099808975458405,
+      "progress": -0.0429585554189729,
+      "r_progress": -0.2699165642261505,
+      "p_lane": 0.0,
+      "p_fall": 0.08388279378414154,
+      "p_action_rate": 0.06728370487689972
+    },
+    {
+      "candidate": 1,
+      "reward": -5.117983818054199,
+      "survived": false,
+      "steps": 89,
+      "training_return": -20.770381867368872,
+      "progress": -0.02698378407984281,
+      "r_progress": -0.16954411566257477,
+      "p_lane": 0.0,
+      "p_fall": 0.24734818935394287,
+      "p_action_rate": 0.02951798401772976
+    },
+    {
+      "candidate": 2,
+      "reward": -0.23256966471672058,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.4567422121510964,
+      "progress": -0.011903895588031328,
+      "r_progress": -0.07479438185691833,
+      "p_lane": 0.0,
+      "p_fall": 0.007787578273564577,
+      "p_action_rate": 0.04047409072518349
+    },
+    {
+      "candidate": 3,
+      "reward": -1.5952191352844238,
+      "survived": false,
+      "steps": 51,
+      "training_return": -21.63268938574154,
+      "progress": 0.02566952050270503,
+      "r_progress": 0.1612863540649414,
+      "p_lane": 0.0007564353290945292,
+      "p_fall": 0.08684810996055603,
+      "p_action_rate": 0.0882912203669548
+    },
+    {
+      "candidate": 4,
+      "reward": -0.946402370929718,
+      "survived": false,
+      "steps": 164,
+      "training_return": -22.63397496284758,
+      "progress": -0.041613790778322786,
+      "r_progress": -0.2614671587944031,
+      "p_lane": 0.0,
+      "p_fall": 0.03409653902053833,
+      "p_action_rate": 0.060088787227869034
+    },
+    {
+      "candidate": 5,
+      "reward": -0.6537541151046753,
+      "survived": true,
+      "steps": 199,
+      "training_return": -13.595955242550412,
+      "progress": 0.06472765370745984,
+      "r_progress": 0.4066958427429199,
+      "p_lane": 0.0006811882485635579,
+      "p_fall": 0.05224434286355972,
+      "p_action_rate": 0.03878810256719589
+    },
+    {
+      "candidate": 6,
+      "reward": -0.260113924741745,
+      "survived": true,
+      "steps": 199,
+      "training_return": -8.300628061477658,
+      "progress": -0.006178685172728738,
+      "r_progress": -0.03882182389497757,
+      "p_lane": 0.0,
+      "p_fall": 0.010867469012737274,
+      "p_action_rate": 0.0788545310497284
+    },
+    {
+      "candidate": 7,
+      "reward": -0.16612792015075684,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.925045716657774,
+      "progress": -0.004779364988981512,
+      "r_progress": -0.03002963587641716,
+      "p_lane": 0.0,
+      "p_fall": 0.006685231812298298,
+      "p_action_rate": 0.04787303879857063
+    },
+    {
+      "candidate": 8,
+      "reward": -1.4431281089782715,
+      "survived": false,
+      "steps": 68,
+      "training_return": -20.61818129917616,
+      "progress": 0.07103203214786777,
+      "r_progress": 0.4463074207305908,
+      "p_lane": 0.0,
+      "p_fall": 0.09435683488845825,
+      "p_action_rate": 0.04597609490156174
+    },
+    {
+      "candidate": 9,
+      "reward": -0.3764093518257141,
+      "survived": true,
+      "steps": 199,
+      "training_return": -10.012323682566484,
+      "progress": -0.00638136273577175,
+      "r_progress": -0.04009528458118439,
+      "p_lane": 0.0,
+      "p_fall": 0.016682401299476624,
+      "p_action_rate": 0.05332069471478462
+    },
+    {
+      "candidate": 10,
+      "reward": -0.2531498670578003,
+      "survived": true,
+      "steps": 199,
+      "training_return": -2.396522319668521,
+      "progress": -0.01605580868772014,
+      "r_progress": -0.10088162124156952,
+      "p_lane": 0.0,
+      "p_fall": 0.007516226731240749,
+      "p_action_rate": 0.03887379169464111
+    },
+    {
+      "candidate": 11,
+      "reward": -2.125154733657837,
+      "survived": true,
+      "steps": 199,
+      "training_return": -12.192166355327446,
+      "progress": -0.07881676871351136,
+      "r_progress": -0.4952203631401062,
+      "p_lane": 0.0036750019062310457,
+      "p_fall": 0.07763195782899857,
+      "p_action_rate": 0.07590638846158981
+    },
+    {
+      "candidate": 12,
+      "reward": -1.0741562843322754,
+      "survived": false,
+      "steps": 85,
+      "training_return": -22.66173292539831,
+      "progress": -0.003959171920352417,
+      "r_progress": -0.02487621083855629,
+      "p_lane": 8.320668712258339e-05,
+      "p_fall": 0.052287712693214417,
+      "p_action_rate": 0.03723318502306938
+    },
+    {
+      "candidate": 13,
+      "reward": -2.1214685440063477,
+      "survived": false,
+      "steps": 66,
+      "training_return": -23.353116368555252,
+      "progress": -0.057589925783693416,
+      "r_progress": -0.3618481755256653,
+      "p_lane": 0.0007159087108448148,
+      "p_fall": 0.08704150468111038,
+      "p_action_rate": 0.08944004774093628
+    },
+    {
+      "candidate": 14,
+      "reward": -0.992470383644104,
+      "survived": true,
+      "steps": 199,
+      "training_return": -17.019122773184566,
+      "progress": -0.11040383230388157,
+      "r_progress": -0.6936877369880676,
+      "p_lane": 6.826181197538972e-05,
+      "p_fall": 0.014691496267914772,
+      "p_action_rate": 0.07175018638372421
+    },
+    {
+      "candidate": 15,
+      "reward": -0.24923865497112274,
+      "survived": true,
+      "steps": 199,
+      "training_return": -0.7128923473076539,
+      "progress": 0.011224754226340112,
+      "r_progress": 0.07052721083164215,
+      "p_lane": 0.0,
+      "p_fall": 0.015859447419643402,
+      "p_action_rate": 0.051538191735744476
+    }
+  ],
+  "untrained": [
+    {
+      "candidate": 0,
+      "reward": -0.4826027452945709,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7867688750067696,
+      "progress": 0.00010669698006680248,
+      "r_progress": 0.0006703968974761665,
+      "p_lane": 0.0,
+      "p_fall": 0.024163657799363136,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 1,
+      "reward": -0.8465971350669861,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.8241541835457427,
+      "progress": 1.838841508920169e-05,
+      "r_progress": 0.00011553781951079145,
+      "p_lane": 0.0,
+      "p_fall": 0.0423356331884861,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 2,
+      "reward": -0.007388488855212927,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.741384410995914,
+      "progress": -3.631082595921316e-05,
+      "r_progress": -0.0002281476481584832,
+      "p_lane": 0.0,
+      "p_fall": 0.00035801707417704165,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 3,
+      "reward": -0.012917421758174896,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7133269300213405,
+      "progress": 0.001713390305894722,
+      "r_progress": 0.010765548795461655,
+      "p_lane": 0.0,
+      "p_fall": 0.0011841484811156988,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 4,
+      "reward": -0.30710569024086,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7565633916295913,
+      "progress": 0.0008904347014440964,
+      "r_progress": 0.005594766233116388,
+      "p_lane": 0.0,
+      "p_fall": 0.015635022893548012,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 5,
+      "reward": -0.2946847081184387,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7708503444752774,
+      "progress": -6.624703102996812e-05,
+      "r_progress": -0.00041624237201176584,
+      "p_lane": 0.0,
+      "p_fall": 0.014713422395288944,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 6,
+      "reward": -0.004488455597311258,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.741657036881421,
+      "progress": -7.147783517100644e-05,
+      "r_progress": -0.00044910848373547196,
+      "p_lane": 0.0,
+      "p_fall": 0.00020196735567878932,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 7,
+      "reward": -0.004307192750275135,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7411454256747507,
+      "progress": -4.087017501738577e-05,
+      "r_progress": -0.00025679488317109644,
+      "p_lane": 0.0,
+      "p_fall": 0.0002025198919000104,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 8,
+      "reward": -0.00963587686419487,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.6996332208925853,
+      "progress": 0.002953095134881751,
+      "r_progress": 0.018554843962192535,
+      "p_lane": 0.0,
+      "p_fall": 0.0014095359947532415,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 9,
+      "reward": -0.17498627305030823,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7577061790163262,
+      "progress": -0.00011252711644696216,
+      "r_progress": -0.0007070287247188389,
+      "p_lane": 0.0,
+      "p_fall": 0.008713962510228157,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 10,
+      "reward": -0.004335325676947832,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7409708215558268,
+      "progress": -2.959369509626263e-05,
+      "r_progress": -0.0001859426702139899,
+      "p_lane": 0.0,
+      "p_fall": 0.00020746915834024549,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 11,
+      "reward": -0.028752528131008148,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7548868822271608,
+      "progress": -0.0008452129349774167,
+      "r_progress": -0.005310629494488239,
+      "p_lane": 0.0,
+      "p_fall": 0.0011720949551090598,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 12,
+      "reward": -0.03038555569946766,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7281759471927067,
+      "progress": 0.0008888698944330759,
+      "r_progress": 0.005584934260696173,
+      "p_lane": 0.0,
+      "p_fall": 0.001798524521291256,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 13,
+      "reward": -0.3889675736427307,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7749474197637838,
+      "progress": 0.000264302826249779,
+      "r_progress": 0.0016606636345386505,
+      "p_lane": 0.0,
+      "p_fall": 0.019531412050127983,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 14,
+      "reward": -0.13264372944831848,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7469409280381252,
+      "progress": 0.00019822739760844306,
+      "r_progress": 0.0012454994721338153,
+      "p_lane": 0.0,
+      "p_fall": 0.006694461219012737,
+      "p_action_rate": 0.0
+    },
+    {
+      "candidate": 15,
+      "reward": -0.00402239803224802,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.7412569711052193,
+      "progress": -4.925833433914239e-05,
+      "r_progress": -0.00030949924257583916,
+      "p_lane": 0.0,
+      "p_fall": 0.0001856449234765023,
+      "p_action_rate": 0.0
+    }
+  ],
+  "rl": [
+    {
+      "candidate": 0,
+      "reward": -0.031279146671295166,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.2755456147842241,
+      "progress": 0.014395784570801429,
+      "r_progress": 0.09045138210058212,
+      "p_lane": 0.0,
+      "p_fall": 0.005722245667129755,
+      "p_action_rate": 0.14571239054203033
+    },
+    {
+      "candidate": 1,
+      "reward": 0.08248747885227203,
+      "survived": true,
+      "steps": 199,
+      "training_return": -0.8708680721236775,
+      "progress": 0.03417075339865679,
+      "r_progress": 0.21470117568969727,
+      "p_lane": 0.0,
+      "p_fall": 0.0062760948203504086,
+      "p_action_rate": 0.1338358372449875
+    },
+    {
+      "candidate": 2,
+      "reward": 0.14777253568172455,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.069270645610954,
+      "progress": 0.028789588861062247,
+      "r_progress": 0.18089032173156738,
+      "p_lane": 0.0,
+      "p_fall": 0.00121402891818434,
+      "p_action_rate": 0.17674405872821808
+    },
+    {
+      "candidate": 3,
+      "reward": -0.008429184556007385,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.8860906570530895,
+      "progress": 0.004192673676516938,
+      "r_progress": 0.026343345642089844,
+      "p_lane": 0.0,
+      "p_fall": 0.001627533696591854,
+      "p_action_rate": 0.04443712159991264
+    },
+    {
+      "candidate": 4,
+      "reward": -0.15852254629135132,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.3508828093715353,
+      "progress": 0.013541357550551107,
+      "r_progress": 0.08508285880088806,
+      "p_lane": 0.0,
+      "p_fall": 0.011612597852945328,
+      "p_action_rate": 0.22706888616085052
+    },
+    {
+      "candidate": 5,
+      "reward": -0.058962903916835785,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.5322752480011526,
+      "progress": 0.006992759530226364,
+      "r_progress": 0.04393680393695831,
+      "p_lane": 0.0,
+      "p_fall": 0.005022883880883455,
+      "p_action_rate": 0.048840589821338654
+    },
+    {
+      "candidate": 6,
+      "reward": 0.05844328925013542,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.6678262159442465,
+      "progress": 0.015565814948372309,
+      "r_progress": 0.09780289977788925,
+      "p_lane": 0.0,
+      "p_fall": 0.0016248251777142286,
+      "p_action_rate": 0.13726213574409485
+    },
+    {
+      "candidate": 7,
+      "reward": 0.11325936764478683,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.8324882425183746,
+      "progress": 0.022241007441891735,
+      "r_progress": 0.139744371175766,
+      "p_lane": 0.0,
+      "p_fall": 0.0009870250942185521,
+      "p_action_rate": 0.13489000499248505
+    },
+    {
+      "candidate": 8,
+      "reward": -0.011779960244894028,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.9143894048415842,
+      "progress": 0.004028278375134463,
+      "r_progress": 0.025310419499874115,
+      "p_lane": 0.0,
+      "p_fall": 0.0017552950885146856,
+      "p_action_rate": 0.03968954458832741
+    },
+    {
+      "candidate": 9,
+      "reward": -0.07831685245037079,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.2729812583019442,
+      "progress": 0.01332576784690527,
+      "r_progress": 0.08372826874256134,
+      "p_lane": 0.0,
+      "p_fall": 0.007830112241208553,
+      "p_action_rate": 0.10885736346244812
+    },
+    {
+      "candidate": 10,
+      "reward": 0.07368817180395126,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.966135467021578,
+      "progress": 0.015321681931616857,
+      "r_progress": 0.09626896679401398,
+      "p_lane": 0.0,
+      "p_fall": 0.0009254475589841604,
+      "p_action_rate": 0.08143685013055801
+    },
+    {
+      "candidate": 11,
+      "reward": -0.06124916672706604,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.6467980310786057,
+      "progress": 0.005213218960799741,
+      "r_progress": 0.032755620777606964,
+      "p_lane": 0.0,
+      "p_fall": 0.004501122981309891,
+      "p_action_rate": 0.07964658737182617
+    },
+    {
+      "candidate": 12,
+      "reward": -0.007684826850891113,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.4697443292240193,
+      "progress": 0.011820413126582155,
+      "r_progress": 0.0742698460817337,
+      "p_lane": 0.0,
+      "p_fall": 0.003898127470165491,
+      "p_action_rate": 0.0798424482345581
+    },
+    {
+      "candidate": 13,
+      "reward": 0.05964583158493042,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.3540443391563295,
+      "progress": 0.02121309243092636,
+      "r_progress": 0.133285790681839,
+      "p_lane": 0.0,
+      "p_fall": 0.0031844652257859707,
+      "p_action_rate": 0.19901305437088013
+    },
+    {
+      "candidate": 14,
+      "reward": -0.03694853186607361,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.2921156477956297,
+      "progress": 0.01786526097968384,
+      "r_progress": 0.11225074529647827,
+      "p_lane": 0.0,
+      "p_fall": 0.006885439623147249,
+      "p_action_rate": 0.22980958223342896
+    },
+    {
+      "candidate": 15,
+      "reward": 0.08507414907217026,
+      "survived": true,
+      "steps": 199,
+      "training_return": -1.5800707138052177,
+      "progress": 0.017940260251320117,
+      "r_progress": 0.11272197961807251,
+      "p_lane": 0.0,
+      "p_fall": 0.0010639708489179611,
+      "p_action_rate": 0.1273682564496994
+    }
+  ],
+  "elapsed_seconds": 312.49387919699984,
+  "train": {
+    "guidance": {
+      "reward_median": -0.8000782430171967,
+      "progress_median": -0.009142629161901538,
+      "survived": 7,
+      "candidates": 12
+    },
+    "untrained": {
+      "reward_median": -0.020834974944591522,
+      "progress_median": -3.295226052773789e-05,
+      "survived": 12,
+      "candidates": 12
+    },
+    "rl": {
+      "reward_median": -0.010104572400450706,
+      "progress_median": 0.013968571060676269,
+      "survived": 12,
+      "candidates": 12
+    }
+  },
+  "heldout": {
+    "guidance": {
+      "reward_median": -1.0333133339881897,
+      "progress_median": -0.030774548852022916,
+      "survived": 2,
+      "candidates": 4
+    },
+    "untrained": {
+      "reward_median": -0.08151464257389307,
+      "progress_median": 0.00023126511192911103,
+      "survived": 4,
+      "candidates": 4
+    },
+    "rl": {
+      "reward_median": 0.025980502367019653,
+      "progress_median": 0.01790276061550198,
+      "survived": 4,
+      "candidates": 4
+    }
+  },
+  "all": {
+    "guidance": {
+      "reward_median": -0.969436377286911,
+      "progress_median": -0.009142629161901538,
+      "survived": 9,
+      "candidates": 16
+    },
+    "untrained": {
+      "reward_median": -0.029569041915237904,
+      "progress_median": -5.6026400035304695e-06,
+      "survived": 16,
+      "candidates": 16
+    },
+    "rl": {
+      "reward_median": -0.00805700570344925,
+      "progress_median": 0.014858733251209143,
+      "survived": 16,
+      "candidates": 16
+    }
+  }
+}

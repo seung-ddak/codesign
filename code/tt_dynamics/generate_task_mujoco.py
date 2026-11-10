@@ -5,6 +5,7 @@ Uses the existing joint diffusion sampler and frozen TT checkpoint. No MJX physi
 import argparse
 import json
 import math
+import os
 import sys
 from functools import partial
 from pathlib import Path
@@ -24,9 +25,15 @@ from task_reward import SlalomReward, StraightReward, TrackReward
 from s0_geometry import s0_to_q
 
 FEET = ("FR", "FL", "RR", "RL")
-DT = 0.02
-STEPS = 500
-SUBSTEPS = 4
+# Control/physics rate must match the TT training data. Default 50 Hz / 200 Hz;
+# PPO-tracking data (2026-11-10) uses TT_CONTROL_HZ=30 TT_PHYSICS_HZ=240.
+CONTROL_HZ = int(os.environ.get("TT_CONTROL_HZ", "50"))
+PHYSICS_HZ = int(os.environ.get("TT_PHYSICS_HZ", "200"))
+if PHYSICS_HZ % CONTROL_HZ:
+    raise ValueError("TT_PHYSICS_HZ must be a multiple of TT_CONTROL_HZ")
+DT = 1.0 / CONTROL_HZ
+STEPS = 10 * CONTROL_HZ
+SUBSTEPS = PHYSICS_HZ // CONTROL_HZ
 EVALUATION_VERSION = 2
 TASKS = {"circle": TrackReward, "zigzag": SlalomReward, "straight": StraightReward}
 
@@ -77,7 +84,7 @@ def settled_start(e):
     data.qpos[2] -= float(clear.min())
     data.ctrl[:] = model.keyframe("home").ctrl
     mujoco.mj_forward(model, data)
-    mujoco.mj_step(model, data, nstep=200)  # 1 second settle
+    mujoco.mj_step(model, data, nstep=PHYSICS_HZ)  # 1 second settle
     mujoco.mj_forward(model, data)
     if not np.isfinite(data.qpos).all() or not np.isfinite(data.qvel).all():
         raise ValueError("Nonfinite settled initial state")
@@ -213,17 +220,10 @@ def score_replay(task, actual, valid, meta):
     with torch.no_grad():
         x = torch.as_tensor(actual[None])
         mask = torch.as_tensor(valid[None])
+        # TT 유도와 같은 점수식 하나만 쓴다 (2026-11-10 통일). 넘어짐 이후 시간·폴 근접은 식 안의 감점으로 들어 있다.
         value, components = task(x, mask)
-        # Keep the action penalty's denominator in applied control steps.
-        if "action_rate" in task.penalties:
-            rate = task.p_action_rate(x[:, :-1], mask[:, 1:])
-            value += task.penalties["action_rate"] * (components["p_action_rate"] - rate)
-            components["p_action_rate"] = rate
     score = float(value[0])
     terms = {k: float(v[0]) for k, v in components.items()}
-    if not meta["complete_10s"]:
-        terms["early_termination_penalty"] = 20.0
-        score -= terms["early_termination_penalty"]
 
     xy = actual[valid, :2]
     progress = terms["r_progress"] * task.unit_scale
@@ -238,13 +238,10 @@ def score_replay(task, actual, valid, meta):
             finish_seconds = crossings[-1] * DT
         else:
             next_distance = float(np.linalg.norm(xy[-1] - task.gates[gates_passed]))
-        terms["gates_bonus"] = float(gates_passed)
-        terms["next_gate_distance_penalty"] = min(next_distance, 2.0)
-        terms["physical_collision_penalty"] = task.collision_penalty * len(meta["pole_contacts"])
-        terms["finish_time_penalty"] = 1.0 if finish_seconds is None else finish_seconds / (STEPS * DT)
-        score += terms["gates_bonus"] - (terms["next_gate_distance_penalty"] +
-                                         terms["physical_collision_penalty"] +
-                                         terms["finish_time_penalty"])
+        # 기록용 (점수에는 넣지 않음): 게이트 통과·다음 게이트까지 거리·실제 폴 접촉 수
+        terms["gates_passed"] = float(gates_passed)
+        terms["next_gate_distance_m"] = next_distance
+        terms["pole_contacts"] = float(len(meta["pole_contacts"]))
         lateral = np.abs(xy[:, 1] - task.y_ref(torch.as_tensor(xy[:, 0])).numpy())
     elif isinstance(task, StraightReward):
         lateral = np.abs(xy[:, 1])

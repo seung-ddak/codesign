@@ -1,0 +1,425 @@
+# co-design 연구
+
+답변·연구 작업 시 [사용자 지침](docs/USER_RESPONSE_GUIDELINES.md)을 함께 적용한다.
+
+## 1. 연구 질문
+- 4족 보행 로봇의 기본 동작에서 수집한 다중 형상 dynamics 데이터만으로, 학습하지 않은 복합 task를 수행하는 최적의 로봇 형상 E와 행동 trajectory A를 미래 상태 S까지 고려하여 공동 생성할 수 있는가?
+- 현재 목표는 연구 기여 검토가 아니라 계획한 파이프라인이 실제 작동하는지 확인하는 것이다.
+- Co-design은 E를 먼저 결정하고 A를 따로 만드는 것이 아니라, TT가 노이즈에서 E, S, A를 함께 생성하는 것을 의미한다.
+- 최종 생성 결과는 E, S, A이다. 별도의 PPO 정책 가중치를 생성하는 것은 현재 목표가 아니다.
+
+## 2. 전체 파이프라인
+1. primitive motion datasets의 데이터를 randomization하여 retargeting한다.
+   - A1과 동일한 다리별 무릎 굽힘 방향의 topology 하나만 사용한다.
+   - 기존 reference를 검증하고 사용할 모션만 선택한다.
+2. retargeting한 primitive motion을 추종하는 PPO expert를 학습한다.
+   - 모션별 expert를 학습하고 여러 연속 morphology에서 추종하도록 한다.
+3. transition은 별도 정책 없이 고정된 primitive expert를 이어 붙여 데이터로 확보한다 (2026-10-17 결정).
+   - TT는 dynamics를 배우고 최종 실행은 MJX open-loop이므로 expert hand-off 정책이 필요 없다. 필요한 것은 전환 구간 데이터다.
+   - DeepMimic composite 방식: 10초 sequence 안에서 무작위 시점에 무작위 모션 expert로 넘긴다.
+4. 여러 morphology에서 primitive 및 transition expert를 MJX로 실행한다.
+   - 실제 dynamics rollout의 E, state, action, next-state를 수집한다.
+5. 여러 morphology의 rollout을 통합하여 TT dataset을 생성한다.
+   - 실제 물리 상태와 목표 관절각 action을 사용한다.
+   - 연속된 trajectory와 episode 경계를 유지한다.
+6. TT joint dynamics를 학습한다.
+   - 목표 모델: p(E, S, A given s0, terrain).
+   - one-step, H-step 및 미학습 morphology에서 dynamics 예측을 검증한다.
+7. 학습하지 않은 복합 task reward로 TT joint denoising을 진행한다.
+   - 초기 노이즈에서 E, S, A를 동시에 생성한다.
+   - 모든 denoising이 끝난 뒤 E와 A를 MJX에서 open-loop 실행하고 실제 성공 여부를 확인한다.
+
+## 3. 현재 최초 검증 범위
+- 최초 복합 task는 기둥을 지정된 순서와 방향으로 통과하는 지그재그 장애물 회피(slalom)로 정한다.
+- 앞으로 구성하는 모든 복합 task의 제한 시간은 10초로 한다.
+- task는 목표 위치, 기둥 위치·반경, 통과 순서, 충돌·낙상 패널티, 완주 시간 보상 등으로 정의한다.
+- 최종 reward에는 reference motion tracking 보상을 사용하지 않는다.
+- 기존 reference에 없는 행동이라도 실제 MJX에서 task 조건을 만족하면 허용한다.
+- 초기 실험에서는 primitive/transition 학습 환경에 슬라럼 기둥을 넣지 않는다.
+- 기둥 정보는 최종 reward 계산과 MJX 검증에 사용한다. TT가 기둥 접촉 dynamics까지 학습했다고 가정하지 않는다.
+- 첫 검증의 성공 기준은 생성한 E와 A가 실제 MJX에서 복합 task를 유효하게 수행하는 것이다.
+- 처음에는 open-loop로 검증하고, 실행 중 재계획이나 MJX 결과를 이용한 TT 재학습은 하지 않는다.
+
+## 4. primitive motion datasets
+- A1 URDF와 원본 motion dataset으로 retargeting 가능 여부를 확인한다.
+- 현재 단계에서는 tiltYaw 및 파생 클립, backFlip, howAreYou, rollBack을 제외한다.
+- 점프·계단 관련 모션과 전환은 최초 파이프라인 검증 뒤에 추가한다.
+- 그 외 모션도 retargeting과 PPO tracking에 실패하면 원인을 기록하고 제외한다.
+- 기존 raw ZIP은 29개 CSV로 구성되어 있다. 이것은 TT용 실제 dynamics rollout이 아니라 원본 reference 데이터다.
+
+## 5. morphology, state, action
+- E는 A1과 동일한 topology 내에서 변하는 연속 치수로 구성한다.
+- 링크 치수가 변하면 질량·관성·충돌 형상도 일관되게 변경한다.
+- 우선 기존 design space를 사용한다. 극단적 형상이 나오면 추가 제약을 검토한다.
+- 첫 topology는 `00000011`이다(FK에서 네 다리 무릎 방향이 A1과 일치). 연속 치수 중간값에서 A1/TT 질량은 12.45/13.26 kg, 다리 길이는 0.400/0.375 m다. 새 PPO 학습·평가의 12관절 토크 한계는 A1과 같은 ±33.5 N·m로 설정한다.
+- S는 PPO observation이 아니라 MJX의 실제 물리 state를 사용한다.
+- 기본 state 후보는 root 위치·방향·속도와 12개 관절각·관절속도이다. 발 접촉 정보는 추가로 기록한다.
+- A는 12개 관절의 목표 관절각이다. PPO action scale, PD gain, 토크 한계와 제어 주기를 TT 학습·최종 MJX 실행에서 맞춘다.
+- E는 하나의 trajectory 동안 고정하고 S, A는 시간에 따라 변한다.
+
+## 6. TT 생성 및 MJX 평가
+- TT는 복합 task 전체의 10초 trajectory와 E를 공동 생성한다.
+- 0.02초 간격(50Hz)은 후보이며 아직 확정하지 않았다.
+- Reward guidance는 전체 task의 통과·진행·완주 보상과 충돌·낙상 패널티를 사용한다.
+- 충돌 패널티는 로봇 중심이 아니라 E에 따른 전체 충돌 형상과 기둥의 거리를 고려한다.
+- TT guidance에는 미분 가능한 근사 reward가 필요할 수 있고, MJX 최종 성공 여부는 실제 통과·충돌·낙상으로 판정한다.
+- TT가 생성한 S와 MJX로 실제 실행한 S를 비교한다.
+- 실패하면 원인을 기록하고 진단한다. 기존 TT를 재학습하지 않고 다른 노이즈로 후보를 다시 생성하는 것은 가능하다.
+
+## 7. 확인 및 검증 요소
+- Q11: 실제 primitive/transition rollout 길이와 TT의 10초 학습·생성 horizon 지원 여부 확인.
+- Q16: morphology별 초기 몸체 높이·관절 자세·안정화가 기존 코드에 구현되어 있는지 확인.
+- 기존 checkpoint, retarget 결과, rollout dataset, TT 관련 코드와 로그의 실제 보유 상태는 GitHub 저장소에 접근한 뒤 확인.
+- 목표 관절각 변환, PD gain, 제어 주기, physical state 저장 구조 확인.
+- TT 생성 결과가 MJX에서 넘어지면 E·초기 상태, 예측 S, 실제 S, action 적용 규칙, dynamics 예측 오차, reward guidance 순으로 확인.
+- 10초 joint generation과 학습에 없는 급회전·측면 이동의 실제 dynamics 예측은 실험 검증 대상으로 둔다.
+- 기존 checkpoint·reference·실험 결과는 보존하고, 연구 계획은 임의로 변경하지 않는다.
+
+## 8. 현재 진행 결과
+- 25개 사용 대상 A1 reference를 랜덤화하고, 동일한 `00000011` topology의 연속 형상 4개에서 각각 리타겟했다. 결과와 영상은 `runs/pipeline_v1/retargeting/` 아래 형상별로 저장했다. 수치와 재현 경로는 `runs/pipeline_v1/README.md` 참조.
+- `sitDown__r00`의 CPU PPO 8,192-step 실행으로 checkpoint 저장 경로를 확인했으나 평가 episode가 모두 낙상하여 expert로 사용하지 않는다.
+- GPU가 다시 인식되어 `e000` 단독 `sitDown` PPO 시험 학습 및 CSV·A1 주황색/TT 파란색 비교 영상을 생성했다. 짧은 시험 결과는 낙상으로 통과하지 못했다. `e000`~`e002`의 모델과 reference를 함께 바꾸는 공유 정책 학습 경로를 추가하고 `sitDown` 시험 중이며, `e003`은 미학습 형상 평가용이다.
+- 리타겟 IK가 몸체 높이 목표를 약하게 반영하여 앉기 깊이를 압축하는 문제를 수정하고 4개 형상 × 25개 reference를 재생성했다. 기존 PPO checkpoint와 평가는 이전 reference를 사용했으므로 새 reference 기준 expert 학습은 다시 해야 한다. PPO 환경의 RSI(무작위 클립·프레임 시작, 매 종료 시 새 reset)는 이미 활성화되어 있다.
+- 새 리타겟의 깊은 앉기에서는 비발 형상(종아리 모터·허벅지)이 MuJoCo 바닥을 관통한다. `runs/pipeline_v1/retargeting/collision_audit.csv`에서 100개 중 15개 클립이 5 mm 초과 관통한다. 발 고정 해제 시험은 관통을 해결하지 못했다. 관통 클립은 충돌 제약을 포함해 다시 리타겟하기 전까지 expert 학습에서 사용하지 않는다.
+- `walkBackwardSlow__r00` 공유 PPO expert는 e000~e002 세 학습 형상에서 전체 모션 추종 기준을 통과했고 미학습 e003은 불합격이다. 현재 후보 목록(`runs/pipeline_v1/experts/selection.csv`)에는 fast/slow/walk/trot 구분 없이 네 TT 형상 모두에서 비발 형상 바닥 관통 기록값이 0 mm인 19개 모션을 선정했다. 이 기준만으로 동역학적 추종 가능성이 확인되지는 않는다. 진행 중이던 `walkForwardSlow` 및 `trotBackwardFast` 학습은 중단했고 이번에는 목록만 기록했다.
+- 선정된 19개 모션 expert 학습용으로 평지 전체 형상 충돌을 활성화하고 MJX 계단 충돌은 발만 유지했다. 세 형상 GPU reset/step과 `squat` 12,288-step 소규모 학습·e000 CSV/영상 평가 경로를 확인했다. 장비와 설정은 `runs/pipeline_v1/experts/HARDWARE.md`에 기록하고 `train_selected_experts.sh`로 모션별 순차 학습을 실행한다.
+
+### 8-1. 선정 모션 expert (Issue #2, 2026-10-15)
+- 19개 모션 통과: e000 19/19, e001 16/19, e002 14/19, 미학습 e003 0/19. 체크포인트 19개 모두 GitHub `runs/pipeline_v1/experts/`.
+- 학습 형상 3개로는 미학습 형상에 일반화되지 않는다 → 다형상 수집 시 학습 형상 수가 핵심 변수.
+- 11/19 run이 학습 말기 KL > 1 (최대 1.2e4, entropy → 0). e001·e002 불합격 모션과 겹친다. 원인 미확인.
+
+### 8-2. e000 rollout 수집 (2026-10-17, 계획·조건 `runs/pipeline_v1/ROLLOUT_PLAN.md`)
+- 결론: 전환 정책 없이 19개 expert를 이어 붙인 10초 sequence로 수집한다. 시험(모션 4개, 8 ep) 7/8 완주, 전환 4.9회/ep, 전환 직후 관절 오차 2~6°.
+- 구성: 무작위 모션·프레임 시작 → 1~3 s마다 무작위 다른 모션 (2발 이상 접지 프레임에서만, 진입 = 관절각·접지 최근접 프레임, B reference를 로봇 xy·yaw에 정렬, 클립 끝이면 즉시 전환) → 10 s 또는 낙상까지.
+- 환경: e000, 50 Hz 제어, kick·초기 교란 없음, obs noise 학습값, 결정적 정책, 낙상만 종료. 낙상 구간도 `fell`·`valid`로 표시해 저장.
+- 저장: `rollouts/e000/seq_seed<N>.npz` (qpos·qvel·contact·action·target_q·clip·ref_frame·switched·valid, E) + `_pairs.csv` (pair별 1 s 내 낙상).
+
+### 8-3. 로컬 e000 수집 판정 (2026-10-17)
+- 수집기 수정: 마지막 전환 집계, 제한된 PD 목표 저장, 수치 오류 차단, 날짜 기반 run 선택, 기존 출력 덮어쓰기 방지. 회귀 검사·NPZ 검증 통과.
+- 19 expert smoke 8 ep 중 5 낙상. seed 0은 256 ep 중 106 낙상(41.4%), 150 완주; 유효 104,465 step, 전환 1,208회. `runs/pipeline_v1/rollouts/e000/seq_seed0.npz` 보존.
+- ROLLOUT_PLAN 분기 C에 따라 seed 1~3 중단. 전환 후 1 s 내 낙상 98, 그 외 8; pair 제외 없음. 일반화 검증이나 TT 학습 완료를 뜻하지 않는다.
+
+### 8-4. 진입 프레임 매칭 비교 (e000, seed 0, 256 ep, 2026-10-17)
+- 결론: 매칭 방식은 낙상 원인이 아니다. 전환 후 1 s 내 낙상 = 기존 8.1% / 속도 반영 표 6.3% / 실제 state 매칭 7.0% (seed 1 개, 차이 유의하지 않음).
+- 실제 state 매칭에서도 진입 속도차 median 0.19 m/s 불변 → B 클립에 맞는 속도 프레임이 없다. 낙상 = 모션 간 속도 간극 + expert 견고성 (walkForwardFast 도착 ~42% 고정).
+- 결정 (사용자): 기존 데이터 그대로 사용 (가). 비교 데이터 `rollouts_archive/velmatch/`, `rollouts_archive/livematch/` 보존. 옵션 `--switch-entry live`, `--match-vel-weight` (기본값 = 기존).
+
+### 8-5. TT dynamics 학습 (npz 직접, e000~e002 rollout 1,680 ep, 2026-10-17)
+- 결론: 데이터에는 몸통 dynamics 정답이 충분하다 (1-step MLP 32 step 예측 yaw 4.0°·위치 2.2 cm). TT 는 아직 못 뽑아낸다 → 원인 = TT 학습 (조건 혼합 희석 + 학습량), 데이터 아님.
+- horizon: 500 step 한 번에 = 실패 (1 step 오차가 s0 유지보다 큼). 원본처럼 짧은 window 가 필요 (h8 1 step 3.7°·1 cm). window 이어 붙이기 누적 원인 = 횟수 (stride 1/4/7 비교) → h32 가 관절 최선.
+- 위치 오차의 주원인 = 몸통 yaw·속도 오차 (직진에서 없는 회전 생성). 위치 delta 표현 (C) 은 효과 없음. 조건을 dynamics 만으로 (G2) 하면 yaw 11.0°→5.9°, 위치 13.1→8.6 cm (MLP 와 격차 남음).
+- 원본 TT 확인: 4 족 학습 task = `hardware_gen` 하나 (목표 궤적 → 형상·state·제어, ε 예측, 100 단계). 5 단계는 `ctrl` task 값 (이전 기록 정정). 목표 궤적 조건은 사용자 의도와 달라 쓰지 않는다.
+- 코드 `code/tt_dynamics/` (train_tt.py, rollout_data.py, diag_mlp.py), 지표 `runs/pipeline_v1/tt/<run>/` (checkpoint·sample npz 는 로컬만).
+- G1 (h32_try4, 3 조건, 100k step): 32 step yaw 5.6°·위치 8.4 cm·관절 6.8° = G2 수준 이상 → 희석은 학습량으로 메워진다. 남은 격차: 속도 0.153 vs MLP 0.055 m/s, 회전 모션 yaw 15.2°.
+
+### 8-6. track_try1 진단 A (TT 예측 vs MJX, 32 step window 증분, 2026-10-18)
+- 결론: dynamics 원인 확정. scale 0 회전 window yaw 오차 19.5° vs 직진 5.8° (3.4 배, 기준 2 배). TT 는 회전 Δyaw 13.5° 예측, MJX 실제 3.5°. yaw 방향 일치 55~65%.
+- 직진 window 에서도 MJX 는 window 당 +3.7° 좌편향, TT 는 0.2° 예측. 코드 `code/tt_dynamics/diag_task.py`, 결과 `runs/pipeline_v1/task/track/try1/diag_task.json`.
+
+### 8-7. zigzag_try1 + 형상 비교 (2026-10-18, 원형 대비 보상만 변경: 진폭 0.3 m·주기 2 m·반폭 0.15 m)
+- 결론: 형상 E 가 task 에 반응하지 않는다. 원형 vs 지그재그 평균 E 거리 0.0013 (학습 형상 간 0.95~1.15), 전부 e000 근방. scale 10 예측 2.14 m vs MJX 0.41 m.
+- 원인: s0 가 E 를 결정. s0 를 e001·e002 rollout 에서 가져오면 생성 E 가 각각 e001·e002 로 거리 0.007 이내. 학습 형상 3 개 → E = 3 점 식별.
+- 보고서 `runs/pipeline_v1/report.html` (전 단계), 다음 후보 N1 s0 형상 중립화 / N2 형상 수 확대 / N3 회전 데이터 / N4 재계획.
+
+### 8-8. h32_try5 (+free 조건, s0 도 생성) → track_try2·zigzag_try2 (2026-10-18, try4·try1 대비 mode 3 + `--free-s0` 만 변경)
+- 결론: 기준 (두 task 평균 E 거리 > 0.1) 불통과, 0.037 (scale 10). E 는 e000·e001·e002 로 나뉘지만 후보별 형상은 노이즈가 정한다 (같은 seed → scale·task 무관 같은 형상). 예측-실제 격차는 감소 (지그재그 scale 10: 2.14 vs 0.41 m → 0.81 vs 0.76 m).
+- TT 오차 try4 대비 약 10 % 증가 (32 step yaw 6.2°·위치 9.5 cm·관절 7.2°). scale 0 낙상 8/8 (3~186 step): 생성 s0 가 분포 밖 (높이 0.11~0.37 m vs 데이터 시작 0.28~0.32, 속도 최대 1.4 m/s) — free 조건이 episode 중간 window (낙상 중 포함) 의 시작 state 를 배웠기 때문.
+
+### 8-9. 진단 D1 open-loop 민감도 (2026-10-18, 데이터의 실제 행동을 MJX 에 재생, TT 무관)
+- 결론: open-loop 자체는 주원인 아님 (작은 교란 ±0.01 rad·±1 mm 에서 10 s 낙상 평균 23 %, 기준 50 %). 1 s 시점 위치 차이 0.4~0.7 cm 로 TT 32 step 오차 8.4 cm 보다 10 배 이상 작다 → 생성 실패의 주원인은 TT 예측 오차.
+- 형상 차이: e000 낙상 0 %, e001 33 %, e002 36 % (교란 없는 대조군도 6·16 %). e001·e002 는 10 s open-loop 에서 불안정 → 긴 실행엔 재계획 필요. 코드 `code/tt_dynamics/diag_openloop.py`, 결과 `runs/pipeline_v1/diag/D1_openloop/`.
+
+### 8-10. 진단 D2 데이터 분포 밖 여부 (2026-10-18, 생성 step 의 학습 데이터 최근접 거리)
+- 결론: 새로운 물리 영역 아님. 생성 step 중 데이터 p99 거리 초과 0.07 % (데이터 자신 1 %, 기준 3 %), scale 10 도 0 %. 초과 비율과 예측-실제 차이 상관 −0.09 → TT 가 데이터 범위 안에서 틀린다 (TT 학습 문제, P4·P13).
+- 단, 생성 step 의 최근접 거리 중앙값 0.21~0.32 = 데이터 (0.055) 의 4~6 배 → 데이터가 드문 사이 영역. step 단위 검사라 전이 (s, a → s') 의 오류는 못 본다 → D3. 코드 `code/tt_dynamics/diag_ood.py`, 결과 `runs/pipeline_v1/diag/D2_ood/`.
+
+### 8-11. CGR 코드 대조: free 조건 불일치 수정
+- `report.html`과 코드 대조에서 mode 3의 E 마스크 오류 확인: 학습에서는 정답 E가 주어지고 E loss가 0이지만, `--free-s0` 실행은 E도 숨겼다. try5/try2의 free 공동생성 해석은 재검증 필요.
+- 학습·실행이 `tt_model.condition_masks`를 공유하도록 수정. mode 0/1/2 유지, mode 3의 E·s0 모두 미지. `conditioning_version=2` 기록, 구형 checkpoint의 free 실행은 차단.
+- `h32_freefix_cgr`는 try5와 같은 100k·4조건 설정으로 오류만 바꾸는 비교 실험. 분석과 남은 병목은 `runs/pipeline_v1/ROOT_CAUSE_REVIEW.md`; 형상 3개, 첫 window에서만 E 결정, 초기 상태·dynamics 문제까지 해결됐다는 뜻은 아니다.
+- 결과 (h32_freefix_cgr): 32 step yaw 6.17°·위치 10.4 cm (try5 와 동급). free-s0 원형 scale 0 유효 0.87 → 6.04 s 로 늘었지만 8/8 낙상 → 버그는 주원인 아님.
+
+### 8-12. S 직접 guidance 끄기 → track_try3·zigzag_try3 (2026-10-19, try1 대비 `--no-guide-s` 만 변경, h32_try4·s0 고정·scale 1/3/10)
+- 결론: 판정 B. 생성 S 와 (생성 E·A 로 TT 재예측한 S) 의 불일치 10~11.5 → 7.0~7.6 cm (= seed 흔들림 6.3~7.1 cm) 로 직접 경로 몫 제거 확인. 원형 경로 차 0.36~0.86 → 0.26~0.43 m.
+- 그러나 MJX reward 6 중 5 하락, TT 예측 reward 도 하락: 직접 경로가 S→A 를 끌어주던 통로였고, 남은 ∂R/∂A 는 TT 의 A→S 가 느슨해 (같은 입력 seed 흔들림 6 cm) 약하다. on·off 모두 실제 진행 ≈ 0, E 거리 0.001.
+- 코드 `generate_task.py --no-guide-s`, `diag_consistency.py`. 보고서 7-6. 병합 코드 재실행: TT 생성 비트 동일, MJX 는 GPU 실행 간 미세 차이 (평균 0.002, 낙상 ±1 step) → 후보 1 개 수준 reward 차이는 판정 근거 아님.
+
+### 8-13. 진단 D3 생성 궤적 전이 오차 (2026-10-19, 생성 E·s0·A 를 window 단위로 MJX 재실행)
+- 결론: 생성 궤적의 전이 오차 = 평소 TT 오차의 0.7~1.4 배 (위치), yaw 1~2.6 배. 생성이 특별히 나쁜 게 아니라 TT 의 A→S 정확도 자체가 주원인 (속도 오차 0.172 ≈ 가만히 있음 기준 0.180).
+- 코드 `code/tt_dynamics/diag_transition.py`, 결과 `runs/pipeline_v1/diag/D3_transition/`.
+
+### 8-14. s0 A안: mode 4 (rest-s0) → h32_try6 · track_try4 · zigzag_try4 (`--half-width 0.15`) · track_try4ctrl (2026-10-19)
+- 결론: s0 해제가 E 고정 장벽이었다 (ctrl = try6 + s0 고정 → E std 0.002 로 다시 0.5). 단 생성 E 는 전부 학습 3 점 (e000·e001·e002) 중 하나와 거리 0.01 이내, 형상은 seed 가 정한다.
+- 기준: s0 높이 범위 안 4~5/8 (미달), scale 0 낙상 4/8 (통과), E 거리 0.12 (후보 1 개 탓, 사실상 미달). h32_try6 diag_window 정지 yaw 6.14° (try4 4.51°). scale 10 track R: try1 −0.95, ctrl +0.34, try4 +0.19.
+
+### 8-15. 진단 D4 형상 민감도 (2026-10-19, 같은 s0·A 에 E 만 교체, TT vs MJX Δ)
+- 결론: 판정 B. 높이 Δ 만 맞고 (r 0.47~0.68, 기울기 ≈ 1), 전진·yaw·pitch Δ 는 TT 가 거의 0 (기울기 0.01~0.27). 다른 형상 E 를 넣으면 오차 2 배 (전진 6.2 → 12.4 cm). ckpt try4·try6 동일.
+- 코드 `code/tt_dynamics/diag_shape.py`, 결과 `runs/pipeline_v1/diag/d4/try1{,_ckpt4}/`.
+
+### 8-16. guidance gradient 진단 (2026-10-19, h32_try6, generate_task 첫 window 재현 PASS)
+- 결론: diff_steps 5 에서 ᾱ = [0.899, 0.648, 0.341, 0.094, 0.0001], 첫 step 은 clamp 포화로 무의미. 형상은 k=3 에서 결정 (최종과 7/8 일치), 이후 network 가 학습점 쪽으로 0.1~0.3 당기고 guidance (0.09 → 0.007) 는 그보다 작다.
+- token 당 |∇S| > |∇E| > |∇A| ("A 가 E 를 가림" 기각). guidance = 학습 분포 × exp(R) 이므로 step 을 늘려도 3 점 사이 형상은 안 나온다 → 형상 수 확대 필수. 코드 `diag_grad.py`, 결과 `tt/h32_try6/diag_grad.json`.
+
+### 8-17. 진단 D5 행동 민감도 (2026-10-19, `diag_shape.py --vary A --offset 0.1`, 175 window)
+- 결론: 가설 확인, TT 가 A 를 거의 무시. offset A 에 TT 반응 = MJX 실제 Δ 의 6~10 % (기울기 0.01~0.04), swap A 24~33 % (yaw 상관 0.02). 높이만 0.66.
+- 원인 가설: 데이터 A = π(S) 라 A 가 중복 정보. E 도 같은 구조 (D4). 해결 후보 = 반사실 쌍 데이터 (같은 s0 에 A offset·swap·E swap 을 MJX open-loop 32 step, diag_shape mjx_run 재사용). 결과 `runs/pipeline_v1/diag/d5/try1/`.
+
+### 8-18. 다음 계획: 재계획 실행 (2026-10-19, 사용자 우선순위 = 지금 나온 E 로 복합 작업부터 성공)
+- 원인: `generate_task.py` 는 10 s 를 TT 상상으로 한 번에 생성 후 MJX open-loop 실행 → window 16 개에 TT 오차 누적 (실제 진행 ≈ 0).
+- 계획 `--replan K` (K=16): E 는 첫 생성으로 고정, K step 실행 → MJX 실제 state 를 s0 로 mode 2 + guidance 재생성 반복. 단변수 = track_try4ctrl 대비 실행 방식만. 통과: scale 10 MJX 진행 ≥ TT 예측의 50 %, 낙상 ≤ 2/8. A 통과 → 형상 문제로 / B 미달 → 반사실 데이터 / C 무변화 → 실행기 (expert) 검토.
+- GPU 0 은 HBM_paper2 A14 큐 (10-20 01:30 전후 종료 예상), 실험은 GPU 1 (P620).
+
+### 8-19. action 반사실 A/B 다형상 평가 (2026-10-20)
+- 결론: B는 학습 형상 e000/e001/e002의 held-out episode에서 관절 ΔMAE 6/6, yaw 5/6, 측면 위치 3/3 개선; 전진 위치는 3/3 소폭 악화. 결과 `runs/pipeline_v1/action_ablation/multishape_test_e{000,001,002}.json`.
+- 단, B는 A보다 전체/학습 trajectory가 3배 (전체 1,728/576, train 1,200/400 episode)라 pairing 단독 효과는 분리 불가. 미학습 형상 일반화·복합 task 성공은 미검증. 상세표 `runs/pipeline_v1/action_ablation/README.md`.
+
+### 8-20. D4 다중 형상 민감도 (frozen h32_multishape_B, 2026-10-20)
+- 같은 held-out `qpos/qvel/A`를 e000/e001/e002에 그대로 적용, 추가 학습 없이 32 state·31 control MJX와 TT seed 8개를 평가. 유효 시작 199개 (source e000/e001/e002 = 6/192/1), 공통 초기 접촉까지 일치한 시작은 13개뿐.
+- 판정: TT가 형상 변화에 일부 반응하지만 yaw·joint 변화 slope는 약 −0.024~0.065, 측면도 약함. e002−e000 전진 slope 0.70, 높이는 0.16~0.54로 일부 반응. 전체 요약은 source 불균형이 심해 대표성 제한.
+- 원인/제약: 768개 held-out 후보/source를 audit했으나 초기 충돌·관절 한계·유한성·공통 action 조건을 모두 통과한 시작은 e000-source 6개, e001-source 718개, e002-source 1개뿐. 자세/높이를 보정하지 않는 조건에서 balanced physics-valid 공통 시작이 부족하다. `runs/pipeline_v1/diag/D4_morphology_v3/README.md` 및 JSON·NPZ·figure1~5 참조. 균형 있는 판정 전에는 임의 보정하지 말고 공통 유효 시작 확보 방안을 사용자와 결정한다.
+
+### 8-21. D4 pairwise 재평가 (frozen h32_multishape_B, 2026-10-20)
+- 세 형상 공통 교집합 대신 각 pair를 독립 audit했다. 같은 qpos/qvel/A와 두 형상 모두 유효·초기 4발 접촉 일치 조건으로 e000↔e001 15개(6/9), e000↔e002 21개(7/14), e001↔e002 18개(18/0; source e002는 0개)를 확보. 모든 후보를 검사했고 추가 학습 없음.
+- 결과: 세 pair 모두 yaw TT RMS ≪ MJX (4.38/43.99°, 5.25/26.59°, 7.75/30.75°), yaw slope ≈0.006/−0.0003/−0.057. 관절 slope도 약 0.005~−0.010으로 거의 무반응. 높이는 부분 반응(기울기 0.31~0.47); 전진은 e000↔e002만 slope 0.61, 나머지는 약함/반대. 형상 민감도는 여전히 부족하다는 증거.
+- 제약: 표본은 작고 source 편중, 특히 e001↔e002는 e001-source만 포함하므로 전체 source 분포 일반화는 주장하지 않는다. `runs/pipeline_v1/diag/D4_pairwise_v2/README.md`, pair별 `data.npz`·그림 참조.
+
+### 8-22. 다음 S₀ 생성 진단 및 wide16 expert 재학습 (2026-10-20)
+- 생성 E–S₀의 초기 물리 유효성·접촉·짧은 안정성을 확인하는 실험은 `runs/pipeline_v1/diag/S0_GENERATION_PLAN.md`에 별도로 기록하고 wide16 expert 재학습 이후 진행한다.
+
+### 8-23. Foot-Anchored 연속 형상 파이프라인 구현 (2026-10-22)
+- 실행 문서: `runs/pipeline_v1/foot_anchored_v1/README.md`, 단계 실행기: `code/tt_dynamics/run_foot_anchored_pipeline.sh`.
+- `prepare`: 연속 E별 여러 S₀를 생성하고 4발 접촉·관절 한계·자체 충돌·지면 관통·지지 다각형·짧은 안정화를 검사한 뒤, 동일 E·S₀에서 Orig/Swap/Offset을 MJX로 수집한다. E 단위 train/val/test 분할을 사용한다.
+- `dynamics`: Orig-only와 intervention Mode 1을 같은 정규화로 비교하고, 미학습 E의 D5 및 strict-S₀ 가능성 audit와 height-aligned D4를 기록한다.
+- `joint`: mode 1+4로 E·S₀·S·A 공동 생성을 학습한다. 생성 S₀를 보정 없이 MJX에 넣어 4발 접촉·생존·경로 오차 gate를 통과해야 한다.
+- `guidance`: gate 통과 뒤에만 미학습 zigzag reward guidance를 10초로 평가한다.
+- 기존 wide16에서 관찰된 후반 정책 붕괴에 대응해 낮은 PPO 학습률과 학습 형상 기반 중간 체크포인트 선택을 적용한 재학습은 `runs/pipeline_v1/experts_wide16_v2/README.md` 참조. 기존 결과를 덮어쓰지 않는다.
+
+### 8-24. e_rest_s0 smoke 렌더 + 근본 원인 진단 (2026-10-25, v4 ckpt, zigzag 2 s, 후보 4)
+- 결론: gate 9/9 PASS 이나 scale 0 예측-MJX 경로 차 0.21~0.83 m, MJX R 전부 음수. 렌더 재실행(seed 재현 동일) `runs/pipeline_v1/fast_mode24_v4_e_rest_s0/try1/report.html`.
+- 배제: 실행 parity 정상 (데이터 target_q 재생 오차 0, 0.03 rad 노이즈 2 s 오차 3~5 cm, 낙상 0). zigzag 는 데이터 분포 안 (19 모션). Mode 4 E loss 정상.
+- 발견: home S0 가 데이터 분포 밖 (몸통 z p0~2 %, 관절 최근접 0.34~0.53 rad, 데이터에 관절 정지 0 %), guidance 가 생성 S 에 직접 gradient (S_l2 64 ≫ A_l2 13).
+
+### 8-25. expert warm-up S0 (`--expert-warmup-s0`, 2026-10-25, 8-24 대비 S0 만 변경)
+- 결론: S0 를 분포 안으로 넣어도 scale 0 경로 차 0.18~0.81 m 로 불변 → S0 는 주원인 아님. 8-24 의 "주원인" 판단 철회.
+- 구현: multi-design expert 를 생성 E 위에서 closed-loop 로 걸려 0.5 s 이후 첫 균형 상태 (2발 이상 접지, 발 침투 ≤ 2 mm, 직립) 를 S0 로. reference = E 최근접 학습 형상. gate 기준 불변.
+- try1 (1 s 끝 상태) 은 gate 2 mm 에 걸려 0/8 (데이터 걸음 상태도 30 % 가 2 mm 초과). try2 (균형 순간 선택) 유효 7/8. `runs/pipeline_v1/fast_mode24_v4_warmup_s0_try{1,2}/`.
+
+### 8-26. 교차 재실행 데이터로 joint TT 재학습 (2026-10-25, 8-19 의 A안을 Mode 2/4 에 적용)
+- 결론: 교차 재실행 효과 없음/악화. 후보 16 scale 0 경로 차 중앙값 v5_orig 0.20 m vs v5_paired 0.34 m, 완주 12/16 vs 9/16. 개선은 학습량 (v4 3000 → 20000 step, 평균 0.48 → 0.20 m) 효과.
+- 조건: v5_orig = v4 데이터 (wide16 primitive 16 형상), v5_paired = + `wide16_action_shared` Orig/Swap/Offset. 둘 다 20000 step × batch 32, Mode 2/4. paired 는 유효 step 1.4 배라 단독 효과 분리 불가.
+- v5_orig guidance 효과 있음 (MJX R 중앙값 −1.33 → −0.76, 완주 12 → 14). 예측-MJX R 차 중앙값 1.1~1.3 잔존. `runs/pipeline_v1/fast_mode24_v5_compare/report.html`.
+
+### 8-27. 학습량 60000 step (2026-10-25, v5_orig 대비 step 만 변경) — 통과
+- 결론: 후보 16 scale 0 경로 차 중앙값 0.20 → 0.05 m, 완주 12/16 → 16/16, 예측-MJX R 차 1.27 → 0.05. val loss 0.032 → 0.012. TT 부정확의 주원인 = 학습 부족.
+- 주의: 이동 거리 중앙값 0.41 → 0.25 m (데이터 ~0.35 m) 로 덜 움직이나 상대 오차도 49 → 20 % 로 개선. zigzag progress 는 여전히 ~0 (예측도 ~0).
+- 결과 `runs/pipeline_v1/fast_mode24_v6_steps60k/`, 비교 `runs/pipeline_v1/fast_mode24_v5_compare/report.html`.
+
+### 8-28. 미해결 (2026-10-25)
+- 병목이 TT 정확도 → guidance 로 이동: TT 가 정확해졌지만 guidance 가 전진 동작을 만들지 못함 (예측 progress ~0).
+- reward 점검 (2026-10-25): 구성 문제 아님. 데이터 실제 동작 R = trotForwardSlow +0.68 / walkForwardSlow +0.23 / 정지 −0.03, action_rate 가중 기여 ≤ 0.012 (이전 0.93 은 가중 전 값, 오판 철회). v6 guided 예측 progress +0.03 → guidance 세기 부족이 후보. 다음 = v6 고정 scale 0/1/3/10 sweep.
+
+### 8-29. v6 guidance scale sweep 0/1/3/10 (2026-10-25, 후보 16, scale 만 변경) — 통과 scale 없음
+- 결론: scale ↑ 에 TT 예측 progress −0.11 → +0.23 m, MJX 실제 −0.07 → +0.07 m (기준 +0.15 미달). 경로 차 0.05 → 0.11 m, 완주 전부 16/16. guidance 가 TT 부정확 영역으로 미는 갈래.
+- MJX fall 기여 guidance 시 0.08 → 0.13~0.20, TT 예측 fall 0.01~0.03 은 놓침. 영상 = 별도 후보 4 렌더 run `render_c4_scales/`.
+- 다음 (미리 정한 분기) = `--no-guide-s` (A·E 에만 guidance) scale 10. 결과 `runs/pipeline_v1/fast_mode24_v6_steps60k/report.html`.
+
+### 8-30. no-guide-s scale 10 + 10 s open-loop (2026-10-25, v6)
+- no-guide-s (후보 16): 예측-실제 재일치 (경로 차 0.11 → 0.05 m) 이나 progress 소멸 (예측 +0.03, MJX −0.02 m). A·E 만 guidance 하면 약함.
+- 10 s open-loop (후보 8): scale 0 완주 6/8, 경로 차 2 s 0.05 → 5 s 0.32 → 10 s 1.27 m 누적. S guidance scale 10 은 예측 +0.78 vs MJX −0.35 m, 완주 1/8.
+- 결론: 10 s 병목 = open-loop 오차 누적. 추천 = scale 증가 보류, window 단위 MJX 재계획 (`--replan`, 8-18 계획) 구현 후 그 조건에서 scale 비교. 사용자 결정 대기.
+- 10 s 단계에서는 window 단위 MJX 재계획 (8-18) 필요.
+
+### 8-31. co-design 검사 (2026-10-25, v6, scale 10, 4 s, 재계획 취소) — TT 가 E 를 무시
+- 결론: E 는 MJX R 을 크게 바꾸나 (η² 0.86 / 0.92, p<0.001) TT 예측 R 은 E 무관 (η² 0.20 / 0.15, p 0.70 / 0.91). 형상 평균 예측-MJX 순위 상관 +0.42 / +0.01.
+- joint 생성 E 의 MJX R 중앙값 = 학습 형상 16 개 중 zigzag 25 / circle 81 백분위. 4 s 경로 차 0.2~0.3 m.
+- 조건: 고정 E 16 형상 (e003 제외) × seed 4 vs joint 후보 16, zigzag·circle. `runs/pipeline_v1/fast_mode24_v6_steps60k/codesign_check/report.html`. 다음 = 사용자 결정.
+
+### 8-32. E 반사실 데이터 → v7 (2026-10-26, 사용자 결정 = 1번, v6 대비 데이터 추가만)
+- 데이터: 원본 형상 16 × episode 32 의 target_q 100 step 을 형상 16 개 각각의 home 안착 S0 = g(E) 에서 open-loop 실행 (8,192 rollout). qpos 공유 안 함 (Foot-Anchored 실패 회피). `code/tt_dynamics/collect_e_swap.py` → `runs/pipeline_v1/e_swap/full/`.
+- smoke (원본 e000·e008 × 8, 대상 e000·e008·e016): 같은 형상 재실행 전진 상관 0.96 (원본 재현), 형상 간 yaw 차 최대 ~90°, 낙상 4/48.
+- 통과 기준: co-design 검사 TT 예측 R 의 E η² p < 0.05 · 형상 평균 예측-MJX 순위 상관 > 0.6 · 2 s scale 0 경로 차 < 0.15 m. 분기 A 통과 → guidance / B 민감도↑·경로 차 악화 → 비율 조정 / C 무변화 → E 입력 구조 점검. 실행 `runs/pipeline_v1/fast_mode24_v7_eswap.sh` (tmux v7_eswap).
+
+### 보고서 형식 선호 (2026-10-22)
+- 이후 실험 보고서는 `runs/pipeline_v1/final/report.html`의 시각적 HTML 구성(요약, 탐색, 결과 표, 그래프, 해석과 한계)을 기본으로 사용한다. Markdown 보고서 대신 브라우저에서 볼 수 있는 `report.html`을 생성한다.
+- Mode 2·4 FAST 학습 보고서: `runs/pipeline_v1/fast_mode24_v4/report.html`. 기존 `REPORT.md`는 사용자 요청으로 삭제했다.
+
+### 8-33. E 주입 강화 → v8 (2026-10-31, 사용자 결정 = 전 층 주입 + E 가리기, v7 대비 구조만 변경)
+- 결과: A·B 게이트 4건 전부 실패 (최저 p 0.14, 최고 순위상관 +0.49, 2초 경로오차 0.22→0.12 m). MJX η² 0.71~0.88 유지.
+- 원인: E 교체 일치도가 평균은 높이 0.91~0.93이나 움직임은 −0.04~+0.09. E 영향 2배는 크기만 키움. 기존 "≈0" 측정은 생성 궤적 기준으로 정정.
+- 다음: E 주입 추가 개선 중단, 형상 추가로 10좌표의 빈 방향 채움 (현재 16형상은 독립 7방향). report `runs/pipeline_v1/fast_mode24_v8_film/report.html`.
+
+### 8-34. 형상 확대 → v9 (2026-10-31, 사용자 결정 = 측정 실험 진행, v8 A 대비 학습 형상만 16→48)
+- 결과: 사전 기준 전부 실패. 시험 형상 8개의 움직임 일치도 높이 0.01→0.01, 기울기 0.00→0.05, 속도 0.15→0.13. 2초 경로오차 0.12→0.25 m. 평균 높이 오차만 0.107→0.095.
+- 원인: 행동을 고정해도 높이·기울기·속도 움직임 오차 ≈ 움직임 크기 (방향·위치는 약 70%), 틀린 A 도 소폭만 나빠짐. E 이전에 A→몸통 관계가 약함 (행동 고정은 임시 측정). v8 일치도 측정은 A 생성 궤적이라 결함.
+- 다음: 형상 추가 중단, 같은 데이터에 Mode 1 추가 진단. report `runs/pipeline_v1/fast_mode24_v9_e_coverage/report.html`.
+
+### 8-35. rollout 수집을 PD 제어기로 변경 (2026-10-31 사용자 결정; 11-01 수집·비교 완료)
+- 결정: 형상마다 리타겟팅 레퍼런스 관절각을 PD 목표로 MJX 에서 실행해 상태·행동·다음 상태를 수집한다. PPO 정책은 수집에 쓰지 않는다.
+- 이유 (사용자 판단): PPO 행동은 레퍼런스 추종으로 보정된 값이라 형상 고유 차이가 줄어든다. 사실: PPO 데이터도 실제 MJX 물리이고, 보정되는 것은 행동이다.
+- 흐름: 모션·리타겟팅 있음 → PPO rollout 은 실제 물리 → 추종 확인에 TT 불필요 → PD 재생은 상위 추종 정책 없이 실행 가능, 관절 PD 피드백은 유지 → 당시 PD rollout 수집 실험은 없음 (CALM PD 평가는 평가용, e_swap 은 PPO 행동 재생).
+
+### 다른 PC 이어받기 (2026-10-31, 브랜치 cleanup/shared-ppo)
+- 복원: 기존 portability 묶음을 푼 뒤 `transformer-transformer/` 에서 `patch -p1 < ../codesign/portability/tt_local.patch`. 묶음은 재생성하지 않음 (이 서버에 external/a1-calm-main 이 없어 재생성하면 CALM 이 빠짐).
+- v9 수집 데이터 포함 (학습 형상 32 × 행동 128, 시험 형상 8 × 행동 512). 학습 도중 저장 기능이 없어 체크포인트는 없음. 다른 PC 에서 run.sh 를 돌리면 수집을 건너뛰고 학습을 0 step 부터 시작 (약 45 분).
+- 재실행: `bash ../scripts/tmux_run.sh v9_coverage "bash runs/pipeline_v1/fast_mode24_v9_e_coverage/run.sh"`.
+
+### v9 형상 확대 학습·실제 평가 (2026-11-01)
+- 결론: 미학습 E의 움직임 개선과 두 Task Co-Design Gate 모두 미달. 높이·기울기·속도 일치도 변화 +0.028/+0.108/−0.089.
+- 60k 학습 완료. 2초 경로 차 중앙값 v8 12.2 → v9 18.2 cm; 4초 공동 생성 생존 zigzag 8/16, circle 4/16. 형상 평균 보상 순위 상관 −0.18/−0.60.
+- 동일 516쌍·8 seed·v8 오차 단위로 비교. 실제 평가 후보 176개, 절대 경로 영상 32개. 보고서 `runs/pipeline_v1/fast_mode24_v9_e_coverage/report.html`; 형상수·데이터양 동시 변경이므로 원인 분리는 미검증.
+
+### PD rollout 기반 TT 비교 (2026-11-01)
+- PD 수집 검증: 16형상, 2,432 episode, 유효 제어 238,226 step, 낙상 139 episode. 데이터는 실제 MJX 결과이며 PPO도 실제 물리 데이터라는 점은 유지한다.
+- PD-only TT 60k 학습 완료. v8과 같은 FiLM·h32·batch32·Mode2/4·diffusion5·minmax·DDIM·seed0. 기존 516쌍·8 seed·v8 단위 평가와 PD 미학습 시작점 평가를 분리했다.
+- PD 검증 움직임 상관(높이/기울기/속도): v8 0.123/0.635/0.182 → PD 0.339/0.784/0.369. 기존 시험 형상 E 효과 개선 기준은 미달. PD 자체 예측 개선과 기존 분포 일반화는 구분한다.
+- 실제 MJX 176후보 완료. 2초 경로 차 중앙값 12.2→9.6cm, 4초 공동 생성 생존 zigzag 16/16·circle 15/16. 형상 보상 순위 상관 0.159/0.053으로 Gate 둘 다 미달. 공동 생성 진행 중앙값은 -0.361m/-0.072바퀴이며 생존을 Task 성공으로 해석하지 않는다.
+- 보고서 runs/pipeline_v1/fast_mode24_v10_pd_reference/report.html (영상32개). 수집 방식·데이터 양·분포의 인과 효과는 분리하지 않았고 10초 평가는 미실행. GPU 최대 약2.1GiB, RAM 여유 최소13.4GiB로 자원 문제 없이 완료.
+
+### 8-36. PD 데이터 후진 결함 진단 → kp 단변수 수정 테스트 (2026-11-01, v10 저장 궤적·데이터로 진단)
+- 결론: PD 수집 데이터에서 전진 모션이 후진 (e000 trotForwardSlow 레퍼런스 +0.399 / PPO +0.404 / PD −0.435 m/s, 19모션 중 PD 전진은 Fast 2개). TT 는 이를 그대로 학습 (scale 0 MJX dx −0.26 m/2 s, 예측 부호 일치 14/16) → 고정 E 64후보 중 55개 후진의 1차 원인. 점검 `code/tt_dynamics/check_pd_drift.py`.
+- 원인: PD 정상상태 추종 오차 (처짐). 목표 = 레퍼런스 (차 0.000) 인데 실제 관절 − 레퍼런스 0.114 rad (calf·thigh 0.12~0.19, hip 0.05), 몸통 z 0.296 → 0.255 m. PPO 는 목표를 0.111 rad 틀어 실제를 0.017 rad 로 맞춤 (PPO "보정" 의 실체). 지연 (k=1~5 오차 불감) · 토크 포화 (0 %) 아님.
+- 이상 없음: reward 부호 (+x, 자체 점검), features/rebase/unbase 프레임, target_q 적용·clip 규칙 (수집 = 실행), 관절 순서 (낙상 5/128).
+- 재해석: v10 의 E 효과 ≈ 0 · 순위 상관 0.159/0.053 · "A 가 병목" 은 후진 데이터 위 결과 → kp 수정 후 전부 재측정 대상.
+- 테스트 (사용자 결정 2026-11-01): e000 만, kp 60/100/200 (기본 30, kd 0.5 고정, 다른 조건 동일) 로 PD 재수집 → 19모션 전진 속도 표 (`runs/pipeline_v1/pd_kp_test/drift_table.txt`). 통과 = 레퍼런스 |dx/s|>0.1 모션 부호 전부 일치 + |Δv| < 0.1 m/s. A 통과 → 16형상 재수집 (수집·실행 동일 kp) → v10 조건 재학습·재평가 / B 부호 유지 → 레퍼런스가 이 형상에서 물리 불일치, PPO 데이터로 복귀 / C 진동·낙상 증가 → kd 함께 조정 검토.
+- 결과 (e000, kp 60/100/200, 낙상 0/0/1 of 152): 전진 부호는 고침 — trotForwardSlow −0.435 → +0.008/+0.169/+0.377 (ref +0.401), walkForwardSlow −0.325 → −0.135/+0.095/+0.130 (ref +0.147), 몸통 z 0.256 → 0.289 (ref 0.296). 부호 불일치 kp100·200 = 0. 기준 |Δv|<0.1 통과 모션 5 → 3/6/10 of 19 (PPO 19/19) → 부분 통과.
+- 잔존: 후진 편향이 처짐과 별개로 남음. 측면·회전 (ref ≈ 0) 이 kp200 에서도 −0.1~−0.38 (trotRightFast −0.376 vs +0.033), 후진 모션은 ref 보다 25~30 % 빠름 (walkBackwardFast −1.07 vs −0.84). z 는 복원됐으므로 원인은 처짐 아님 — 발 접지 타이밍·마찰·kd 0.5 (추정, 미검증).
+- 분기 판정: A (전진 부호) 통과 + B 잔존 (측면·회전) → 16형상 재수집 전에 잔존 편향 원인 1개 더 분리 필요. 사용자 결정 대기. 표 `runs/pipeline_v1/pd_kp_test/drift_table.txt`.
+
+### 8-37. v11 = PD kp200 16형상 재수집 → v10 동일 파이프라인 (2026-11-01, 사용자 결정 = 8-36 분기 A, 단변수 kp 30→200, 실행 MJX 도 kp 200)
+- 결론: 게이트 미달, v10 대비 개선 없음. 공동 생성 진행 중앙값 zigzag −0.361 → −0.51 m, circle −0.072 → −0.033바퀴. 생존 zigzag 16 → 11/16, circle 15 → 12/16. 순위 상관 계산 불가 (고정 E 유효 60/64, 낙상 형상 평균 NaN). 516쌍 E 효과 일치도 높이/기울기/속도 v10 −0.059/−0.036/+0.096 → −0.036/+0.007/−0.005 (≈0 유지).
+- 바뀐 것: 데이터는 전진 부호 정상 (16형상 부호 불일치 0, 낙상 139 → 93/2432). 고정 E 4초 MJX dx 중앙값 zigzag −0.388 → −0.094 m, 양수 후보 9 → 21/64; circle 10 → 21/64. 즉 전진이 일부 나오지만 낙상이 2 → 14/64, 3 → 23/64 로 급증 — 생성 A 가 kp200 의 빠른 응답에서 불안정 (추정).
+- 해석: 데이터 후진 결함은 A 실패의 원인 중 하나였지만 전부가 아님. 고친 뒤에도 TT 예측 dx (+0.79) 와 MJX (−0.09) 의 괴리는 그대로라 "TT 가 A→S 를 모른다" 가 남은 병목. 학습 47.7 분 (v10 9 분, 이 PC CPU 2코어 고정 영향 추정).
+- 이 PC 이식 수정: v9 체크포인트 절대 경로 → `e_sensitivity.local_path`; build_report 영상 수 assert 완화 (낙상 후보 영상 없음). report `runs/pipeline_v1/fast_mode24_v11_pd_kp200/report.html`, 데이터 `runs/pipeline_v1/pd_rollouts_kp200/`. 다음 = 사용자 결정 (잔존 후진 편향·kd / PPO 복귀 / Mode 1 진단 중).
+
+### 8-38. v12 = v11 + Mode 1 학습 (2026-11-01, 사용자 결정, 단변수 = --modes 2 4 → 1 2 4, 가중 20/40/40 = v7 balanced_mode1 과 동일)
+- 목적: "TT 가 A→S 를 모른다" 가 모델 한계인지 측정 방식 (Mode 2 에 A 고정) 의 영향인지 분리. 데이터·kp 200·평가 전부 v11 과 동일.
+- 측정: (1) train_tt 내장 Mode-1 dynamics 진단 `tt_joint/eval_dynamics*.json` (2) v11 동일 516쌍·native 평가 (3) MJX 176후보. 통과 기준: 틀린 A 추가 오차 (속도) v11 0.0011 → 0.01 이상 + TT 예측 dx 와 MJX dx 부호 일치 ≥ 50 % + 고정 E 낙상 ≤ v11 (14/23). 분기: A 통과 → Mode 1 유지 + Mode 1 조건 guidance 설계 / B A→S 개선되나 생성 불변 → 생성·guidance 쪽 문제 / C 불변 → 데이터 (A 다양성) 문제, PPO·변형 A 검토.
+- 과거 겹침: v7 후속 balanced_mode1 (PPO+E-swap 데이터) 는 경로 차 0.39 → 0.27 m, 진행 개선 없음, 성공 0 %. PD 데이터·kp200 조합은 처음.
+- 결과 (v12 vs v11, 사실): 기준 1 미달 — Mode 1 조건 직접 측정 (`measure_given_a.py --pin-mode 1` 신설, `evaluation/given_a_held_mode1.json`) 틀린 A 추가 오차 속도 0.0011 → 0.0041 (기준 0.01), 높이 0.009 → 0.027, 기울기 0.019 → 0.033. 올바른 A 속도 오차 0.073 중 A 의존분 6 %. 기준 2 부분 통과 — 고정 E 예측·MJX dx 부호 일치 zigzag 25 → 36/64 (56 %), circle 21 → 35/64 (55 %); 공동 생성은 6/16·5/16 미달. 기준 3 혼재 — 고정 E 낙상 zigzag 14 → 17, circle 23 → 17; 공동 생성 생존 11 → 7/16, 12 → 10/16 악화.
+- 처음 나온 것: 고정 E 4초 MJX dx 중앙값이 양수 (zigzag −0.094 → +0.118 m, circle −0.231 → +0.045). 공동 생성은 여전히 음수지만 개선 (−0.51 → −0.286 m, −0.033 → −0.045바퀴). 순위 상관은 낙상 NaN 으로 계산 불가 (v11 과 같음). E 효과 일치도 ≈ 0 유지 (틀린 E 추가 오차 ≤ 0.001, Mode 1 조건에서도).
+- 판정: 분기 B (A→S 는 개선, 생성은 부분 개선·낙상 증가). 측정 방식 의심은 일부 사실 (v11 을 Mode 1 조건으로 재면 위치 RMSE 0.074 vs v12 0.047). 남은 병목 2 개 분리됨: (1) A→S 가 여전히 약함 (속도 의존 6 %) (2) E→S 는 0. 학습 48 분. report `runs/pipeline_v1/fast_mode24_v12_pd_kp200_mode1/report.html` (v11 대비 표는 comparison.json·given_a_held_mode1.json). 다음 = 사용자 결정.
+
+### 8-39. 1 번 측정: PD kp200 데이터에 E→몸통 신호가 있는가 (2026-11-02, 사용자 결정, 학습 없음)
+- 결론: 분기 A (신호 있음 + 구조적). 같은 (모션, 시작) group 안 16 형상 간 vx std 0.077 m/s = 움직임 크기의 29 % (yaw_rate 103 %, z 15 %), 형상 순위가 시작 프레임 간 일관 (Spearman vx 0.55, 교호작용 중 E×motion 69 %), E 13 좌표 ridge LODO R² vx 0.36 (1 s 0.45) / z 0.95 / yaw_rate ≈0. 가장 느린 형상 e014·e016 과 가장 빠른 e015 는 전 모션 공통 (평균 vx −0.217 vs −0.099).
+- 해석: E 효과는 데이터에 있고 TT 2 s 위치 오차 (v12 7~13 cm) 와 같은 자릿수 (2 s × 0.077 ≈ 15 cm) 라 "배울 것이 없다" 는 기각. TT 가 E→몸통 (D4·v8·v12 ≈0) 을 못 배우는 건 데이터가 아니라 모델/학습 목표 쪽. yaw_rate 는 E 효과가 크지만 좌표 선형으론 설명 안 됨 (비선형 또는 형상 16 개 부족).
+- 조건: 지평 = group 별 16 형상 공통 valid 길이 (상한 2 s, 중앙값 1.76 s, clip 끝 때문), 낙상 group 제외 (112/152). 코드 `code/tt_dynamics/measure_e_signal.py`, report `runs/pipeline_v1/e_signal/report.html`. 다음 = 사용자 결정 (2 번 순수 회귀 dynamics 통과 시험).
+
+### 8-40. 2 번 통과 시험: 순수 회귀 dynamics 가 E→몸통 속도를 배우는가 (2026-11-02, 사용자 결정, 8-39 후속)
+- 결론: 사전 기준 분기 C (미통과). 안 본 형상 4-fold 에서 MLP(E, s0, A) vx RMSE 0.111 m/s (|vx| 의 41 %, 기준 1 통과) 이나 group 평균 B0 (0.098) 보다 나쁨 (gain −14 %, 기준 ≥ +20 %), E 효과 부호 일치 66 % (기준 70 %). z 만 통과 (gain +58 %, 부호 100 %). yaw_rate 전부 미달.
+- 사후 분석 (사실): 신호는 있으나 과소결정. group 별 ridge(E 13 → y − B0) 의 vx gain 이 학습 형상 수에 비례 — 15 형상 LODO +31 %, 12 형상 +11 %, 8 형상 +13 % (부호 일치 70 %, 효과 상관 0.50). E 효과를 모션 공통으로 가정하면 0 (η² E 주효과 0.01, 8-39 와 일치). 안 본 시작 프레임 fold 는 vx RMSE 86 % — 19 모션으론 A→S 도 일반화 안 됨.
+- 해석: 13 차원 E 를 16 형상으로 (그것도 모션마다 다른 효과를) 배우는 건 어떤 모델이든 불가. TT 가 E 를 무시한 1차 원인 후보 = 형상 수 (16) ≪ E 차원 (13) × 모션 의존성. 8-34 v9 (48 형상) 실패와 겹치지만 v9 는 생성 궤적 기준 측정이라 직접 비교 불가. 코드 `code/tt_dynamics/regression_gate.py` (+ `measure_e_signal_lib.py` 공용), report `runs/pipeline_v1/regression_gate/report.html`. 다음 = 사용자 결정.
+
+### 8-41. 2 번 시험을 v9 48 형상 데이터로 재실행 (2026-11-02, 사용자 결정, 8-40 후속)
+- 결론: 형상 수보다 **데이터 형식** 이 결정적. v9 e_swap 데이터 (home 안착 S0 = g(E) 에서 PPO A 100 step open-loop) 에선 안 본 형상의 E 효과가 학습됨 — 24 형상 (학습 18): M_E vx B0 대비 gain +30 %, 부호 일치 87 %, 효과 상관 0.76; 32 형상 (학습 24): +22 % / 83 % / 0.74. PD 16 형상 (8-40) 은 −11 % / 66 % / 0.43. 단 사전 기준 1 (RMSE < 0.5|vx|) 은 e_swap 에서 미달 (0.151 vs |vx| 0.172; B0 자체가 |vx| 의 1.24 배라 기준이 부적합) → 코드상 판정은 세 세트 모두 C.
+- 핵심 사실: e_swap 에선 **E 토큰 없는 M_noE 가 M_E 와 같거나 더 좋음** (24d +39 %, 32d +24 %). e_swap 의 s0 = 형상별 안착 자세라 s0 가 E 를 담고 있음. PD 데이터는 s0 = 리타겟 레퍼런스 프레임 (관절 공간에서 형상 무관) 이라 s0 로 E 를 알 수 없음 → 사용자 가설 (스폰 자세) 이 E→S 학습 가능성에 실제로 작용. 형상 수 효과도 있음 (group 별 ridge gain 12→18→24 학습 형상: +11 / +18 / +22 %) 이나 형식 효과보다 작음.
+- 그 외: yaw_rate 는 어느 데이터·모델도 B0 이하 (학습 불가). 안 본 A 열 fold vx RMSE/|vx| = 24d 0.17 (A 383 개) / 32d 0.40 (A 104 개) / PD start 0.86 → A 다양성에 비례. MLP 폭주 수정 (fold 내 분산 ≈0 입력 표준화 하한). 세 run 모두 6 분. report `runs/pipeline_v1/regression_gate{,_v9_24d,_v9_32d}/report.html`. 다음 = 사용자 결정.
+
+### 8-42. 다음 계획: PD 데이터에 안착 자세 g(E) 를 "읽을 수 있는 E 표현" 으로 추가 (2026-11-02, 8-41 결론, 사용자 승인 전 계획)
+- 근거: 8-41 에서 안 본 형상의 E 효과는 E 13 좌표가 아니라 안착 자세 s0 로 학습됨 (e_swap M_noE +39 %, PD −11 %). PD 데이터는 s0 = 리타겟 레퍼런스라 형상 정보 없음. 재수집만으로 TT 가 좋아진다는 보장은 없음 (v7·v8 은 안착 데이터로도 실패).
+- 1 단계 (학습 없음, 회귀 시험): 형상 16 개 안착 자세 g(E) = `generate_task.rest_s0_of` (home keyframe + 1 s settle) 를 계산해 PD 데이터 입력의 s0 자리에 넣고 `regression_gate.py` 재실행. 통과 = M_noE(g(E), A) vx gain ≥ +20 %, 부호 ≥ 80 % (e_swap 수준). 통과 → 2 단계, 미통과 → PD 를 안착 자세 출발로 재수집 (16 형상 × 19 모션, `collect_pd_rollouts.py` 에 rest 시작 옵션).
+- 2 단계: TT 입력 E 토큰을 [E 13 | g(E) 42] 로 확장 (또는 g(E) 로 대체) 하고 v12 조건 그대로 재학습, Mode 1 조건 E 교체 일치도 (8-38 기준 ≈0) 가 e_swap 회귀 수준으로 오르는지 확인. 회전 (yaw_rate) 은 어느 데이터에서도 학습 불가라 이 계획 범위 밖.
+- **정정 (2026-11-02, 8-43 측정):** "PD s0 = 관절 공간에서 형상 무관" 은 틀림. 레퍼런스 모션은 형상마다 따로 리타겟돼 PD 행동 (target_q) 과 시작 관절각이 형상별로 다름 (hip·knee 평균 0.11~0.25 rad). PD 에서 회귀가 실패한 결과는 유효하나 원인은 미확정. 이 계획의 전제가 약해져 8-43 을 우선 후보로 둠.
+
+### 8-43. TT 모델 쪽 원인 측정 + 다음 계획: 학습 목표 수정 후 재학습 (2026-11-02, 사용자 승인 전 계획)
+- 결론 (사실, post-hoc 측정): TT 가 E 를 못 쓰는 이유 후보 = 학습 점수 (loss) 에서 몸통 전진이 차지하는 몫이 1 % 미만. TT 는 0.64 s 조각의 숫자 54 개 × 32 step 을 잡음에서 복원하는 문제를 푸는데, 점수는 54 개를 똑같은 무게로 더함. 접지 0/1 이 minmax 정규화로 ±1 이 되어 흔들림이 가장 커서 점수의 68 % 를 차지함. 행동 11 %, 관절각 10 %, 몸통 14 채널 8 % (전진 거리 0.4 %, 전진 속도 0.7 %), 관절속도 3 %. PD kp200 16 형상 × 148 group 으로 계산.
+- 형상 E 가 바꾸는 몫 (사실): 같은 모션·같은 시작에서 형상만 바꾸면 0.64 s 뒤 전진 거리가 평균 4.9 cm 차이 (전체 이동 20 cm). 점수 기준 전진 거리의 E 몫 0.02 %, 전진 속도 0.05 %. 높이는 E 가 91 % 를 정하므로 TT 가 높이만 E 대로 맞춘 v8 결과와 일치. 같은 e_swap 데이터로 목표를 "1 s 뒤 몸통 결과 5 개" 로 좁힌 회귀는 E 효과를 배움 (8-41) → 데이터가 아니라 목표 차이.
+- 추정: 조건 (A·E) 영향이 점수에서 작으면 평균 움직임 (s0 유지) 을 내놓는 게 손해가 없어 TT 가 A·E 를 무시함 (Mode 1 A 의존 6 %, 8-38 과 일치). E 주입 경로 (v8 FiLM) 는 바꿔도 효과 없었으므로 경로가 아니라 목표가 문제. 미검증.
+- 계획 (단변수, 하나씩, 사용자 결정): (1) loss 채널 가중 — 접지 4 채널 축소 또는 몸통 14 채널 확대 (`train_tt.py` wx 1 줄). (2) 접지 정규화 ±1 → ±0.3. (3) 보조 loss — 창 끝 몸통 결과 (전진·회전·높이) 를 8-41 회귀처럼 별도 항으로 추가. (4) 창 32→100 step, 디퓨전 5→더 많이 (용량 쪽, 목표 수정 아님).
+- 사전 기준 (v12 Mode 1 평가 동일): 틀린 A 추가 오차 (속도) 0.0041 → ≥ 0.01, E 교체 시 예측 전진 변화 부호 일치 ≥ 70 %, 낙상 ≤ v12 (7/16·10/16). 통과 → 원인 확정 + 공동 생성 재평가. 미통과 → 디퓨전 step·창 길이 후보로. 학습 1 회 ≈ 50 분 (v12 기준). 어느 것을 먼저 할지 사용자 결정.
+
+
+### 8-44. PD에 home 1초 상태 g(E)를 추가하는 통제 회귀 실험 (2026-11-02, 사용자 실행 승인, 8-42 수정 검증)
+- [사실] 실제 초기 상태 s0·정답 궤적을 보존하고 입력만 비교: s0+A / E+s0+A / g(E)+s0+A / E+g(E)+s0+A. PD kp200 동일 16형상, 낙상 그룹 제외 112그룹·1792샘플, 기존 4-fold 분할·MLP 256×2·2000step·seed 0/1/2. home 1초 상태는 기존 generate_task.rest_s0_of의 CPU MuJoCo 계산을 그대로 사용함.
+- [사실] 사전 기준 미달. 안 본 형상 vx RMSE 기존 E 0.10886 → E+g(E) 0.11829 m/s (+8.7% 악화), 형상 효과 부호 일치 66.7 → 63.6%. B0(학습 형상 그룹 평균) 대비 오차 감소 목표 +20%에 대해 실제 -20.9%; 부호 목표 80%도 미달. g(E)만 형상 표현으로 사용해도 0.12684 m/s로 기존 E보다 나쁨. 형상 분할 4개·개별 seed 3개 모두 E+g(E)가 기존 E보다 악화됨.
+- [판단] 현재 데이터·모델·1초 상태 표현에서는 TT 입력 확장을 지지하지 않음. 회귀 실패를 안착 출발 재수집의 성공 근거로 해석하지 않으며 TT 재학습·재수집은 실행하지 않음.
+- [한계] e008의 1초 상태는 발 접촉 0개로, 모든 형상의 평형·정지를 보장한 표현은 아님. 이를 이유로 형상을 제외하지 않았음. PD A는 형상별 리타겟되어 동일 A 형상 교체의 인과 실험은 아님. 새 모션 일반화·낙상 예측·10초 MJX 성공은 미검증.
+- [사실] 안 본 시작 프레임 보조 평가도 완료. 저장 경로 직렬화 오류를 수정해 재실행했으며 실험 실패로 집계하지 않음. 완료 실행 15.8분, 관련 검증14개 통과. RAM 여유 최소17.6GiB, root 여유4.79GiB, 결과2.6MiB; 데이터·캐시·결과는 /home 사용. report `runs/pipeline_v1/regression_rest_features/report.html`, 전체 지표·분할·seed·예측·사전 조건·해시 포함.
+
+[사실] 같은 모션의 안 본 시작 프레임 보조 평가에서는 vx 오차 0.2330 → 0.2267 m/s로 2.7% 감소했음. 안 본 형상 주 평가의 실패 판정은 유지함.
+
+### 8-45. 실제 출발 상태 × 행동 출처 2×2 MJX 비교 (2026-11-02, 사용자 실행 승인)
+- [사실] 16형상 × 19모션 × 4구간 × 4조건 =4864회, 1초, kp200 실제 MJX GPU 수집 완료. e000 레퍼런스/PPO의 같은 모션·구간 행동을 모든 형상·두 초기 상태에 동일하게 재생. 실제 출발은 형상별 레퍼런스 vs home1초 상태이며 행동 출처 사이 초기 qpos/qvel 일치 검증함. 원본 PPO 행동은 kp30에서 생성됐음.
+- [사실] 생존: 레퍼런스 출발/레퍼런스 행동1017/1216(83.6%), 레퍼런스/PPO483(39.7%), home/레퍼런스929(76.4%), home/PPO388(31.9%). 네 조건·모든16형상의 공통 생존 그룹0/76. 사전 최소24그룹·8모션 미달. 조건별 전체16형상 생존 그룹도3/0/0/0개. 회귀 학습을 실행하지 않았으며 E/A 학습의 우열은 판정 불가. 사전 기준은 유지함.
+- [사실, post-hoc] 재생 코드 확인을 위해 e000의 같은76개 PPO 행동을 원본 실제 시작 상태·kp30에서 실행하면76/76 생존, 원본 관절각 RMSE0.00001842rad·마지막 XY 오차 중앙값0.00001060m로 복원됨. 같은 실제 상태·행동에서 kp만200으로 바꾸면37/76 생존. e000의 레퍼런스/home 출발도 kp30에서는76/76 생존. 별도 사후 조건 파일을 실행 전 저장함.
+- [판단] 이번 PPO 행동의 많은 낙상은 형상 학습 실패로 볼 수 없음. e000에서는 생성 이득(kp30)과 재생 이득(kp200)의 불일치가 안정성을 크게 낮췄음. 다른15형상의 kp30 비교는 미검증이며, 초기 상태와 행동 출처 중 무엇이 형상 예측을 개선하는지는 결론내릴 수 없음. TT 재학습·10초 task 실행 없음.
+- [사실] 주 수집110초, 결과45MiB, GPU 전체 사용 관측 최대1647MiB·RAM 여유 최소15.6GiB, /home 저장. 관련 코드 검증17개 통과, 전체 데이터 유한성·동일 행동·동일 실제 초기 상태·valid/fell·입력/궤적 해시 확인. 최종 report `runs/pipeline_v1/factorial_init_action/report.html`, 재현·사후 검증은 같은 폴더 README.md. 주 실험과 사후 분석을 구분함.
+
+### TT 항목별 손실 비율 수정 준비 (2026-11-02, 사용자 요청; 원격 ba9d68f 계획 참고)
+- [사실] 원격의 학습 목표 비중 측정·수정 계획과 PD 초기 상태도 형상별로 다르다는 정정을 확인함. 원격 접지68% 기록은 실제 학습 손실 점유율로 재검증하지 않았음.
+- [구현] 행동12·관절각12·관절속도12·몸통14 항목별20%, 접지4·형상E13 항목별10%. 각 그룹의 유효·미지 값 노이즈 예측 MSE를 평균낸 뒤 비율을 곱함. 이미 조건으로 주어진 행동/E는 손실0, 나머지로 재분배하지 않음. 실제 비중은 오차에 따라 달라져 학습/검증 로그에 그룹별 가중 항·실제 분율을 기록함. Mode1/2/4 표본 비율20/40/40은 유지함.
+- [사실] 관련 검증14개·실제 작은 모델 GPU1step 통과, 그룹 항의 합과 전체 손실·체크포인트 저장 확인. 전체60000step 학습은 미실행. `runs/pipeline_v1/fast_mode24_v13_group_loss/`에 v12 동일 데이터·구조·학습 설정과 새 가중치, 실행 코드·검증 기록을 준비함. `--loss-group-weights` 생략 시 과거 목적식을 유지함. 가중 val_loss는 이전 숫자와 직접 비교하지 않음.
+
+### TT 비중 요청 정정: 고정 계수가 아니라 실제 합산 손실 비율 (2026-11-02)
+- [정정] 사용자는 가중 계수가 아니라 실제 손실 기여율20/20/20/20/10/10을 요청했음. v13 설정을 `--loss-balance actual`로 수정함. 현재 그룹 오차의 역수로 계수를 조절하고 계수 계산에서는 역전파를 차단해 학습 신호를 유지함. 조건으로 주어진 항목과 정확히 오차0인 항목은0, 매우 작은 오차의 역수 확대는1e-12 분모 하한으로 제한함. 이는 실제 스칼라 합산 손실 비율이며 파라미터 업데이트 기여율을 고정하는 것은 아님.
+- [사실] 자동 검증17개 통과. 실제 작은 TT의 GPU1step에서 학습·검증 모두 action/q/qdot/body/contact/E 분율 .2/.2/.2/.2/.1/.1을 확인함. 가중 합이 거의 상수이므로 학습 진행은 raw_loss/val_raw_loss와 항목별 raw_group_mse/val_raw_group_mse를 사용함. 검증 기록과 README·conditions 갱신. 전체60000step 학습은 미실행.
+
+### v13 실제 손실 기여율 학습 완료 (2026-11-02, 사용자 학습·커밋·푸시·이슈 알림 승인)
+- [사실] 60000step 완료, 9.35분. 학습/검증300기록 실제 기여율20/20/20/20/10/10 일치. 조정 전 val_raw_loss0.11416→0.01454(최저0.014535 at58800step, 최종checkpoint60000). 전체 파라미터·예측 유한성, 데이터/구현해시, 그룹합 검증 통과. 관련 코드검증34개 통과.
+- [사실] 같은8개검증episode 기본Mode1진단은 v12 대비 악화: 관절2.503→2.922도, 위치7.353→11.254cm. 고정s0비교관절11.796도·위치23.376cm보다는 작지만 성능개선으로 판정하지 않음. 형상교체/틀린행동/새task·10초MJX 평가는 미실행.
+- [사실] GPU전체사용 관측최대2126MiB, RAM여유최소16.56GiB. 최종결과·체크포인트·전체로그·예측·재현설정·보고서는 runs/pipeline_v1/fast_mode24_v13_group_loss/. 관련이전진단도 함께보존하며 캐시/가상환경/자격증명은 제외. 기존외부복원묶음11개검증및외부수정포함확인. GitHub완료알림대상이슈는#2이며 커밋링크·진단결과를 포함하도록 승인됨.
+
+### 8-46. v13 을 8-43 사전 기준으로 평가 (2026-11-02, 사용자 "진행할 수 있는 거 진행", 학습 없음)
+- 결과 [사실]: 미달 (3 중 1 통과). 기준 1 틀린 A 추가 오차(속도) 0.0038 (v12 0.0041, 기준 0.01) 미달 · 기준 2 E 교체 부호 일치 zigzag 0.72 / circle 0.62 (v12 0.82 / 0.61, 기준 0.7) 미달 · 기준 3 공동 생성 생존 10/16 · 12/16 (v12 7 · 10) 통과. 공동 생성 진행 중앙값 zigzag −0.387 m (v12 −0.286) 후진 유지.
+- 뜻 [추정]: 접지 손실 몫 68 % → 10 % 로 깎아도 A→S·E→S 민감도 불변 → "손실 비중이 병목" (8-43) 은 역수 가중 방식으로는 지지 안 됨. 고정 계수 (v14)·정규화 축소 (v15) 까지 보고 닫음.
+- 도구: `runs/pipeline_v1/eval_v12parity/run_eval.py <run>` = v12 run_comparison 의 train 이후 단계 + `--pin-mode 1` 측정 + gate.json. v12 데이터로 8-38 수치 (36/64, 35/64, 낙상 17) 재현 확인. report `fast_mode24_v13_group_loss/report.html`, `gate.json`.
+
+### 8-47. 8-45 2×2 MJX 를 kp30 으로 재실행 (2026-11-02, 단변수 kp 200 → 30)
+- 결과 [사실]: 낙상 급감 (ref/ref 55, ref/PPO 96, home/ref 14, home/PPO 42 / 각 1216; kp200 PPO 조건 생존 32~40 % → 92 % 이상) → 8-45 의 낙상 원인 = 이득 불일치 확정. 그러나 4 조건·16 형상 공통 생존 그룹 5/76 (기준 24) → 주 판정 또 불가.
+- 보조 (조건별 생존 그룹, 사실): ref/ref 44 그룹 E gain −14 % 부호 0.67 · ref/PPO 10 그룹 +18 % / 0.85 · home/ref 67 그룹 +1 % / 0.65 · home/PPO 45 그룹 −20 % / 0.82. 전부 20 %/80 % 미달, 그룹 수가 달라 조건 간 비교 불가.
+- 뜻 [추정]: "16 형상 × 4 조건 전부 생존" 교집합 요구가 생존 95 % 에서도 비므로 설계가 질문 (출발 상태 vs 행동 출처) 에 안 맞음. 폴더 `factorial_init_action_kp30/` (prepare.py kp 한 줄만 변경), report 동봉.
+
+### 8-48. v14 / v15 = 8-43 (1)(2) 단변수 학습 (2026-11-02 시작, tmux tt_843_chain, 결과 대기)
+- v14 `fast_mode24_v14_coef_contact_down`: v12 + `--loss-balance coefficients`, 기존 채널 합 (12/12/12/14/4, E≈0.4) 에서 접지 4 → 1 만 축소한 고정 계수 (0.1653/0.1653/0.1653/0.1928/0.0138/0.2975).
+- v15 `fast_mode24_v15_contact_norm03`: v12 + `train_tt.py --contact-range 0.3` (신설 플래그, 기본 1.0 = 기존; minmax 뒤 sd[38:42] /= range 한 줄). 2 step 스모크로 sd 확인. 이 수정으로 v13 conditions 의 train_tt.py 해시는 현재 파일과 불일치 (동작 변화 없음).
+- 평가는 둘 다 8-46 도구·사전 기준 동일. 체인 `runs/pipeline_v1/chain_20261102.sh`.
+
+### 8-49. 설계: 개입 변화량 손실 (Δ-loss) A/B (2026-11-02, 사용자 결정 = v14/v15 중단 → 변화량 손실부터. 설계만, 실행은 사용자 승인 후)
+- 문제: TT 는 같은 s0·A 에서 E 를 바꾸거나(D4, 8-31) 같은 s0·E 에서 A 를 바꿔도(D5, 8-17) 예측 변화가 실제의 6~10 % 임. 같은 e_swap 데이터로 MLP(1 s 결과 목표)는 E 효과를 배움(8-41) → 데이터가 아니라 학습 목표. v13 비중 조정은 무효(8-46).
+- 단변수: 기존 diffusion loss 는 그대로 두고 쌍 손실 한 항만 추가. 쌍 (i, j) 를 같은 minibatch 에 넣고 Mode 1 강제, 같은 k·같은 noise 로 x0_hat = (x_t − √(1−ab)·eps_hat)/√ab 를 구해 L_Δ = mean‖(x0_hat_j − x0_hat_i) − (x0_j − x0_i)‖² (몸통 14 채널, 정규화 공간). E 쌍 = 같은 A 에서 E·g(E) 만 다름, A 쌍 = 같은 s0·E 에서 A 만 다름. total = L_diff + λ·(L_ΔE + L_ΔA), λ = 1 (1 회). 재구성 가중치 조정으로 대체 금지 (v13 교훈).
+- 데이터 (전부 kp30 세계, 혼합 금지): E 쌍 = `e_swap/full` 512 원본 group × 16 대상 (61,440 쌍, 100 step, 같은 target_q 확인). A 쌍 = `action_pairs/` e000·e001·e002 192 group × orig/swap/offset (1,728 쌍, 32 step) → `collect_action_pairs.py` 로 16 형상 확장 (수집 시간 측정 후 결정). 학습 본체 = v7 과 같은 wide16_action + e_swap 13,056 ep. PD kp200 데이터는 넣지 않음.
+- 대조군 (twin): 같은 데이터·modes 1/2/4 (20/40/40)·seed·60k step 에서 λ = 0. v12 (kp200) 와는 직접 비교하지 않음. 평가 실행 kp 30.
+- 사전 기준 (held-out: 기존 시험 형상 8개 516쌍 + source group 분할 val): (1) Mode 1 틀린 A 추가 오차(속도) ≥ twin × 2 이고 ≥ 0.01 (2) 516쌍 E 교체 예측 변화 부호 일치 ≥ 70 % (MLP 는 83~87 %) (3) held-out 쌍에서 Δ 설명 비율 R²_Δ = 1 − MSE_Δ/Var(Δ) > 0 (twin 예상 ≈ 0) (4) 퇴보 금지: 516쌍 moving RMSE ≤ twin × 1.1, 공동 생성 생존 ≥ twin.
+- 분기: A (1·2·3 통과) → λ 조정 1 회 + 공동 생성·10 s task 재평가, 실험 4 (MJX CEM 상한) 병행 / B (3 만 통과) → Δ 는 배우나 생성에 안 실림 → Mode 1 guidance 경로 점검 / C (3 미통과) → 표현·구조 문제 → TT 는 prior 로 두고 별도 dynamics 모델 검토.
+- 구현 지점: `train_tt.py` loss_on 에 쌍 branch (플래그 `--delta-weight`, `--pair-index`), `rollout_data` 에 쌍 표 (source_group_keys + group_id/variant), 단위 테스트 1 개 (완벽 예측 시 L_Δ = 0, 기울기 존재). 평가는 `eval_v12parity` 에 R²_Δ 측정 추가, 실행 kp 30. 예산: 수집 ≤ 30 분 + 학습 2 × 48 분 + 평가 2 × 35 분 ≈ 4 h.
+- 과거 겹침: 8-17 D5 가 "반사실 쌍 데이터" 를 해결 후보로 적었고 8-32 가 쌍 데이터를 모았으나 손실 없이 데이터만 추가(v7) → 실패. 이번은 같은 데이터에 손실을 바꾸는 것. 유사 선행: OnlineWM (반사실 분기 쌍으로 diffusion 미세조정), 개입 민감도 지표 (action sensitivity ratio / counterfactual divergence), CAER (행동 관련 토큰 재가중 = v13 계열).
+- 파이프라인 경고: 학습 목표 변경 → 기존 모델 보존, 별도 폴더 `fast_mode24_v16_delta_loss/{twin,delta}` 로 A/B. guidance·추론 방식은 그대로.
+- 실행 (2026-11-02 17:21~): A 쌍 16 형상 수집 완료 (`action_pairs_wide16/`, 192 group/형상, 실패 0). 17:44 twin 학습 직후 IndexError 중단 = action_pairs npz 의 `source_design` 이 스칼라인데 `intervention_pairs` 가 e_swap 으로 오인 → `rollout_data.is_e_swap` (ndim==1) 헬퍼로 train_tt/e_sensitivity 포함 3 곳 수정. 17:52 `chain_v16.sh` 재시작 (쌍 train E 55,440 / A 8,496, val 6,000 / 720), 결과 폴더 `fast_mode24_v16_{twin,delta}/`, 종료 예정 ≈21:30.
+
+### v13 전체 task 로컬 검증 완료 (2026-11-03, HEAD5b760b804 기준 별도실행)
+- [사실] 지그재그/원형, v13 고정E16×4·공동생성16의4/10초 + v12 10초공동생성16, unguided2초16을 완료. 후보368·실제실행346·초기물리제외22. 새영상61개. 기존v12 4초원본 해시와 생성/보상/물리코드동일확인, 원격8-46의 다른실행기록을 덮어쓰지 않음.
+- [사실] v13 2초생존16/16·경로차중앙값0.0711m. 4초공동생존zigzag9/16,circle12/16,진행-0.1648m/-0.02499바퀴. 10초공동생존5/16,8/16,진행-0.7541m/-0.03390바퀴. v12 10초공동생존8/16,4/16,진행-0.07636m/-0.05593바퀴. 10초생존+정방향은v13 zigzag0/16,circle2/16. 생존을성공으로판정하지않음.
+- [판정] 기존4초gate둘다미달. 전체16형상순위는유한보상없는1형상때문계산불가. 유한15형상보조상관zigzag0.171,circle-0.429로낮음. 원격8-46 A/E민감도평가는이번로컬작업에서재실행하지않음.
+- [사실] 11단계완료,36.1분. GPU전체사용관측최대2346MiB,RAM여유최소12.82GiB,root여유최소4.79GiB. 모든원본·조건해시와유효물리/예측유한성확인. report runs/pipeline_v1/fast_mode24_v13_group_loss/evaluation_tasks/report.html. 4초와10초는별도지평계획이므로동일prefix연장비교가아님.
+
+
+### v16 로컬 A/B 완료 (2026-11-03, 원격 99555a830의 8-49 승인 실행)
+- [판정] 추가 변화량 손실 λ1 설정은 사전 기준 미달. 5개 중 변화량 R²·기존 Mode2 움직임 오차 유지 2개만 통과. 설정 변경·재학습 없이 twin/delta 각60,000step와 각11단계 평가를 완료함.
+- [사실] kp30·48파일·22,272episode를 두 모델에 공통 사용. 구조·학습seed0·기본batch32·조건비율20/40/40·정규화·검증분할이 같음. 보조쌍 난수를 분리했고 300기록 모두 기본조건/출처 누적카운터가 일치함. 학습은 twin10.7분, delta25.4분, 평가는17.4/17.9분.
+- [사실] 틀린행동 속도 추가오차 0.00716→0.00863 (목표≥0.01433, 미달). 같은행동516쌍 전진변화 부호 73.45%→68.60% (목표70%, 미달). 별도생성 몸통변화량 R² E0.0540→0.0793 / A0.2848→0.3117 (각>0, 통과; 대조군도 이미양수).
+- [사실] 기존Mode2 오차비 높이0.938/기울기0.937/속도0.979로 사전퇴보방지 기준은 통과. 별도Mode1(행동을 알려주고상태예측) 오차비는1.583/1.710/1.553로 악화함(post-hoc). 두조건을혼동하지않음.
+- [사실] 실제4초 공동생존 zigzag3/16→8/16, circle9/16→7/16로 두과제유지기준 미달. 진행중앙값은 -0.1587m→-0.2004m / -0.00896바퀴→-0.04463바퀴. 생존증가를성공으로판정하지않음. 사전분기B에따라생성경로만점검했고10초확장·λ조정·CEM은실행하지않음.
+- [구현 검증] 동일행동516쌍부호를직접계산하도록기존의다른생성A task평균부호와구분했고,평가쌍잡음공유의청크경계오류를수정함. 모두평가전기록(protocol.json)후고정했음. 학습/데이터/평가해시·모델값·유효예측/실행수치검증통과, 관련테스트26개통과. 실제352후보실행,영상64개. GPU관측최대4227MiB,RAM여유최소12.54GiB,root여유최소4.80GiB,/home여유최소390.92GiB.
+- [추정/한계] 추가손실은Mode1에서학습하고공동생성은Mode4+Mode2를사용함. 이것이원인인지는미검증. 형상쌍은형상+초기상태가함께달라지고추가Mode1감독/계산량도늘어나므로순수형상인과/손실형태만의효과는확정하지않음. 하나의학습seed. 기존v13로컬검증결과는보존했음.
+- 비교보고서 runs/pipeline_v1/v16_local_execution/report.html, 원본조건/해시/재현명령/생성경로점검은같은폴더. 체크포인트·실행영상은 fast_mode24_v16_{twin,delta}/에보존.
+
+### CALM 정책을 TT 형상에 그대로 적용한 수집 파일럿 (2026-11-10, 사용자 결정, 학습 없음)
+- 결론: A1 CALM (HLC+LLC, 학습 없음) 은 TT 에서 잘 버티지만 (10 초 생존 475/512 = 93 %, 같은 형상 PD 데이터 38 %) 모션 방향을 잘 따르지 못한다 (1 초 이동 방향 코사인 0.28, PD 0.46). 평균 −0.74 m 후진 (레퍼런스 +0.61 m).
+- 형상 의존이 크다: 짧은 몸통 형상 7개 중 6개는 코사인 0.45 이상 (최고 0.86), 기본 형상 e0000 과 긴 몸통·긴 앞 허벅지·짧은 뒤 허벅지 형상은 음수 (후진). 같은 실행 코드를 A1 MuJoCo 에 돌리면 A1 원본과 비슷하게 움직임 → 실행 코드 문제 아님. 관측 기준점·링크 좌표축 동일, 관절 감쇠·발 마찰은 영향 없음. TT 는 종아리 0.175 m (A1 0.20)·몸통 2.7 kg (A1 4.7)·다리 쪽이 무거움.
+- 조건: 16 형상 (e0000 + E 공간 farthest-point) × 32 모션 (10 초, 형상별 PD 세트에서 2 개) · 30 Hz 제어 · 600 Hz 물리 · CALM PD kp40/kd1.5 · 토크 33.5 · 넘어짐 기준 PD 와 동일. PD 속도 오차는 넘어지기 전 구간만 비교. 코드 `runs/calm_tt_policy_pilot/try1/code/` (code/ 에서 삭제, 2026-11-10), 결과 `runs/calm_tt_policy_pilot/try1/` (report.html, https://claude.ai/artifact/CXypWocuFuySQAU3XhtfTj). 다음 = 사용자 결정.
+
+### 추종 잘 된 구간만으로 TT 재학습 h64_delta_track (2026-11-10, 사용자 결정 = 원인 확인 2번)
+- 판정: 사전 기준 미달 → 데이터 추종 품질은 회전 학습 정체의 원인 아님. 1 초 회전 상관 (넘어지지 않음) 0.436 → 0.414, 전진 0.618 → 0.480, 예측 기울기 감소 (회전 0.38 → 0.28).
+- 생성 행동 MuJoCo 10 초 생존은 증가 (넘어지지 않음 75 → 91/100, 넘어짐 62 → 86/100). 세 task 18 후보 모두 10 초 생존, 과제 성공 0, 진행량 9 개 모두 음수. 데이터 24 % 로 감소 (양·품질 효과 섞임), seed 1.
+- 결과 `codesign/runs/v100_mujoco_10k/h64_delta_track/` (task 평가 `task_v1/`), report + trim 메쉬 영상 9 개 `videos/` (track 메쉬 영상 미렌더: 이 PC OSMesa·EGL 불가), https://claude.ai/artifact/2fUVkyiXHGajwqBN4CzWGv. 다음 = 사용자 결정.
+
+### PPO 모션 트래킹 try3 진행 결정 (2026-11-10, 사용자 결정)
+- 결론: 형상 20 × 모션 10,000, 동시 환경 1,024, 트래킹 보상 = Peng 2020 (가중치 ×10), 발 미끄러짐 감점 -2.5 (OmniH2O 비율) 로 학습 중. 2,680 만 step 에 에피소드 길이 228 step (7.6 초), 보상 +16.3. try2 (미끄러짐 -10) 는 "빨리 끝내기" 를 배워 중지.
+- 근거 데이터: e0000 PPO 데이터 미끄러짐 0.17 m/s (레퍼런스 0.001), v7 전문가 0.058 m/s · 5 초 위치 오차 1.6 cm. e0000 TT 는 예측 전진 상관 0.85 이지만 크기 60 %, task 생성 행동에서는 상관 0.06.
+- 보류: CALM 을 TT 에 적용·미세조정 (JAX 이식·검증 완료, runs/calm_tt_mjx/try1/). 결과 `runs/ppo_tracking/try3/`, 수렴하면 converged.json 기록만 (다음 단계는 사용자 결정).
+
+### 연구 과정 요약 + PPO 정책 합격 기준 (2026-11-10, 사용자 확정)
+- 과정: (1) PPO 모션 트래킹 (try3, 형상 20 × A1 CALM 모션 10,000) → (2) 합격한 정책으로 CPU MuJoCo 30 Hz rollout 수집 → (3) TT (DiT) 를 디노이징 100 단계로 일반 diffusion 손실 학습, TT 고정 → (4) task 생성 시 디노이징 유도를 reward gradient 또는 RL (잔차 PPO) 로 → task 수행 형상·행동 → CPU MuJoCo 실제 평가.
+- 형상 효과: 모션들은 같은 기본 동작을 다른 조합으로 이은 것이라, 형상 20 개 공유 정책 데이터로 학습 가능하다고 판단 (사용자). TT 학습 뒤 형상 민감도 검사로 확인.
+- 정책 합격 기준: 물리적으로 가능한 레퍼런스 95.3 % (try3/analysis/feasible_motions.json) 에서, 외란 없이 10 초 생존 ≥ 90 %, 관절 RMSE ≤ 5°, 몸통 위치 RMSE ≤ 3 cm. 레퍼런스 점검: 토크 상위 1 % 한계 초과 0.05 %, 외력 필요 프레임 5 % 초과 3.5 %, 발 위치 오차 10 mm 초과 3 %.
+- MJX ↔ CPU MuJoCo: CALM 512 에피소드로 통계 일치 확인 (생존 93.2 / 92.8 %, 방향 코사인 0.285 / 0.278) → 학습은 MJX, 수집·평가는 CPU MuJoCo.

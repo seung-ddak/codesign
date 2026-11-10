@@ -99,9 +99,9 @@ def main():
     from pd_replay import build_model
     from track_env import TrackMjxEnv
 
-    RETARGET = ROOT / "runs/pipeline_v1/retargeting"
+    RETARGET = ROOT / "legacy/runs/pipeline_v1/retargeting"
     ALL_DESIGNS = [k for k in json.loads((RETARGET / "designs.json").read_text()) if k.startswith("e") and k != "e003"]
-    with open(ROOT / "runs/pipeline_v1/experts/selection.csv") as f:
+    with open(ROOT / "legacy/runs/pipeline_v1/experts/selection.csv") as f:
         ALL_MOTIONS = [row["motion"] for row in csv.DictReader(f)]
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -110,7 +110,7 @@ def main():
     parser.add_argument("--motions", nargs="+", default=ALL_MOTIONS)
     parser.add_argument("--starts", type=int, default=8, help="모션당 시작 프레임 수 (전체 구간 균등 간격)")
     parser.add_argument("--min-steps", type=int, default=32, help="시작 후 남아야 하는 reference 길이")
-    parser.add_argument("--expert-config", type=Path, default=ROOT / "runs/pipeline_v1/experts_wide16/walkForwardSlow__r00")
+    parser.add_argument("--expert-config", type=Path, default=ROOT / "legacy/runs/pipeline_v1/experts_wide16/walkForwardSlow__r00")
     parser.add_argument("--notify-issue", type=int, help="수집이 모두 끝나면 기존 GitHub 이슈에 멘션 댓글 전송")
     parser.add_argument("--kp", type=float, help="position actuator kp 교체 (remind 8-36 정상상태 처짐 점검). 기본 = expert config / build_model 기본값")
     args = parser.parse_args()

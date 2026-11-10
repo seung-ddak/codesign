@@ -1,0 +1,762 @@
+model:
+  backbone:
+    _target_: t2.model.core.DiT
+    hidden_dim: 256
+    depth: 8
+    num_heads: 4
+    mlp_ratio: 4
+    attn_dropout: 0.0
+    add_zero_attn: false
+  _convert_: all
+  _target_: t2.model.t2.T2
+  pos_embs:
+    time:
+      _target_: t2.model.encoding.OffsettedEmbedding
+      embedding:
+        _target_: torch.nn.Embedding
+        num_embeddings: 2002
+        embedding_dim: 256
+      offset: 1
+    link:
+      _target_: t2.model.encoding.OffsettedEmbedding
+      embedding:
+        _target_: torch.nn.Embedding
+        num_embeddings: 79
+        embedding_dim: 256
+      offset: 1
+    dyna_joint:
+      _target_: torch.nn.Embedding
+      num_embeddings: 62
+      embedding_dim: 256
+    fixed_joint:
+      _target_: torch.nn.Embedding
+      num_embeddings: 100
+      embedding_dim: 256
+    actuator:
+      _target_: torch.nn.Embedding
+      num_embeddings: 19
+      embedding_dim: 256
+    track_link:
+      _target_: t2.model.encoding.OffsettedEmbedding
+      embedding:
+        _target_: torch.nn.Embedding
+        num_embeddings: 2
+        embedding_dim: 256
+      offset: 1
+    order:
+      _target_: torch.nn.Embedding
+      num_embeddings: 2
+      embedding_dim: 256
+    free_link:
+      _target_: t2.model.encoding.OffsettedEmbedding
+      embedding:
+        _target_: torch.nn.Embedding
+        num_embeddings: 2
+        embedding_dim: 256
+      offset: 1
+  tasks:
+    hardware_gen:
+      adapters:
+        hardware_goal:
+          _target_: t2.model.modality.ModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - time/id
+            - track_link/id
+            name: target_pose
+            pad_value: 0.0
+            max_seq_len: 8
+            attrs:
+              pos: 3
+              rotmat: 9
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 0.0
+          attr_encoders: {}
+          attr_decoders: {}
+          hidden_dim: 256
+          only_use_mask_for_padding: false
+          loss_fn:
+            _target_: torch.nn.functional.huber_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+        link:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - id
+            name: link
+            pad_value: -1.0
+            max_seq_len: 78
+            attrs:
+              geom_type: 3
+              geom_size: 3
+              mass: 1
+              ipos: 3
+              imat: 9
+              diaginertia: 3
+              friction: 3
+              contact_dim: 3
+              rgba: 4
+              track_link/id: 2
+              free_link/id: 1
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders:
+            contact_dim:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 3
+            geom_type:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 3
+            free_link/id:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 1
+              offset: 1
+            track_link/id:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 2
+              offset: 1
+            diaginertia:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.0001
+            mass:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.0001
+          attr_decoders:
+            contact_dim:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 3
+            geom_type:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 3
+            free_link/id:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 1
+              offset: -1
+            track_link/id:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 2
+              offset: -1
+            imat:
+              _target_: t2.model.utils.process_rotmat
+              _partial_: true
+            diaginertia:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.0001
+            mass:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.0001
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        dyna_joint:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - id
+            - order/id
+            name: dyna_joint
+            pad_value: -1.0
+            max_seq_len: 62
+            attrs:
+              type: 2
+              range: 2
+              armature: 1
+              damping: 1
+              frictionloss: 1
+              stiffness: 1
+              spring_ref: 1
+              qpos0_ref: 1
+              pos: 3
+              rotmat: 9
+              link/id: 7
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders:
+            link/id:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 7
+              offset: 1
+            type:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 2
+            armature:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.001
+            damping:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.001
+            stiffness:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.001
+            frictionloss:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.001
+          attr_decoders:
+            link/id:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 7
+              offset: -1
+            type:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 2
+            pos:
+              _target_: t2.model.utils.clamp_zero
+              _partial_: true
+            rotmat:
+              _target_: t2.model.utils.process_rotmat
+              _partial_: true
+            armature:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.001
+            damping:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.001
+            stiffness:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.001
+            frictionloss:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.001
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        fixed_joint:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - id
+            - order/id
+            name: fixed_joint
+            pad_value: -1.0
+            max_seq_len: 100
+            attrs:
+              pos: 3
+              rotmat: 9
+              link/id: 7
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders:
+            link/id:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 7
+              offset: 1
+          attr_decoders:
+            link/id:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 7
+              offset: -1
+            pos:
+              _target_: t2.model.utils.clamp_zero
+              _partial_: true
+            rotmat:
+              _target_: t2.model.utils.process_rotmat
+              _partial_: true
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        actuator:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - id
+            name: actuator
+            pad_value: -1.0
+            max_seq_len: 19
+            attrs:
+              ctrl_range: 2
+              force_range: 4
+              kp: 1
+              kv: 1
+              gear_ratio: 1
+              type: 1
+              dyna_joint/id: 6
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders:
+            dyna_joint/id:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 6
+            type:
+              _target_: t2.model.encoding.BinaryEncoding
+              num_bits: 1
+            kp:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.001
+            kv:
+              _target_: t2.model.encoding.LogEncoding
+              offset: 0.001
+            force_range:
+              _target_: t2.model.encoding.SignedLogEncoding
+              offset: 0.01
+          attr_decoders:
+            dyna_joint/id:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 6
+            type:
+              _target_: t2.model.encoding.BinaryDecoding
+              num_bits: 1
+            kp:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.001
+            kv:
+              _target_: t2.model.encoding.LogDecoding
+              offset: 0.001
+            force_range:
+              _target_: t2.model.encoding.SignedLogDecoding
+              offset: 0.01
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        track_link_obs:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - time/id
+            - track_link/id
+            name: track_link_obs
+            pad_value: 0.0
+            max_seq_len: 8
+            attrs:
+              pos: 3
+              rotmat: 9
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders: {}
+          attr_decoders: {}
+          hidden_dim: 256
+          only_use_mask_for_padding: false
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        dyna_joint_obs:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - time/id
+            - dyna_joint/id
+            name: dyna_joint_obs
+            pad_value: -1.0
+            max_seq_len: 248
+            attrs:
+              qpos: 1
+              qvel: 1
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders: {}
+          attr_decoders: {}
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        actuator_obs:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - time/id
+            - actuator/id
+            name: actuator_obs
+            pad_value: -1.0
+            max_seq_len: 152
+            attrs:
+              velocity: 1
+              force: 1
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders: {}
+          attr_decoders: {}
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        ctrl:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - actuator/id
+            - time/id
+            name: ctrl
+            pad_value: -1.0
+            max_seq_len: 152
+            attrs:
+              target_qpos: 1
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders: {}
+          attr_decoders: {}
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+        free_link_obs:
+          _target_: t2.model.modality.DiffusionModalityAdapter
+          modality:
+            _target_: t2.model.modality.Modality
+            id_attrs:
+            - time/id
+            - free_link/id
+            name: free_link_obs
+            pad_value: 0.0
+            max_seq_len: 8
+            attrs:
+              pos: 3
+              rotmat: 9
+            attr_norms:
+              _target_: torch.nn.ModuleDict
+          loss_weight: 1.0
+          attr_encoders: {}
+          attr_decoders: {}
+          hidden_dim: 256
+          only_use_mask_for_padding: true
+          loss_fn:
+            _target_: torch.nn.functional.mse_loss
+            reduction: none
+            _partial_: true
+          weight_loss_evenly_by_batch: true
+          input_noise_std: 0.0
+          attrs_noise_probs: {}
+          dont_noise_timesteps: null
+          default_diffuse_prob: 1.0
+      noise_scheduler:
+        _target_: diffusers.schedulers.scheduling_ddim.DDIMScheduler
+        num_train_timesteps: 100
+        beta_schedule: squaredcos_cap_v2
+        clip_sample: true
+        prediction_type: epsilon
+      _target_: t2.model.task.task.MultiModalDiffusionTask
+      timestep_mode: condition
+      num_eval_seeds: 3
+      num_inference_steps: 100
+      hidden_dim: 256
+      use_flash_attn: true
+datasets:
+  clean:
+    dataset:
+      timestep_sampler:
+        _target_: t2.data.dataset.RandomTimestepSampler
+        num_rollout_steps: 8
+      _target_: t2.data.dataset.T2Dataset
+      path: unused_native_shards
+      group_seq_lens:
+        dyna_joint: 62
+        free_link: 1
+        fixed_joint: 100
+        link: 78
+        actuator: 19
+        track_link: 1
+        free_link_obs: 1
+        dyna_joint_obs: 31
+        actuator_obs: 19
+        rollout_steps: 8
+        ctrl: 19
+        target_pose: 1
+        track_link_obs: 1
+      hardware_groups:
+      - actuator
+      - dyna_joint
+      - fixed_joint
+      - link
+      rollout_groups:
+      - ctrl
+      - track_link_obs
+      - dyna_joint_obs
+      - free_link_obs
+      - actuator_obs
+      - target_pose
+      load_into_memory: false
+      min_episode_length: 100
+      group_time_offsets: {}
+      fast_launch: false
+      use_cached_indices: true
+      filter_episode_seeds: null
+      filter_hardware_seeds: null
+    tasks:
+    - hardware_gen
+    batch_process_fn:
+      _target_: t2.train.augment.ComposeAugmentation
+      augmentations:
+      - _target_: t2.train.augment.AddPositionId
+        pos_seq_lens:
+          dyna_joint:
+          - 31
+          - 0
+          - 1
+          - 2
+          fixed_joint:
+          - 50
+          - 0
+          - 1
+          - 2
+          link:
+          - 78
+          - 0
+          - 1
+          - 1
+          actuator:
+          - 19
+          - 0
+          - 1
+          - 1
+          track_link_obs/track_link:
+          - 1
+          - 0
+          - 8
+          - 1
+          dyna_joint_obs/dyna_joint:
+          - 31
+          - 0
+          - 8
+          - 1
+          free_link_obs/free_link:
+          - 1
+          - 0
+          - 8
+          - 1
+          actuator_obs/actuator:
+          - 19
+          - 0
+          - 8
+          - 1
+          ctrl/actuator:
+          - 19
+          - 0
+          - 8
+          - 1
+          target_pose/track_link:
+          - 1
+          - 0
+          - 8
+          - 1
+      - _target_: t2.train.augment.AddJointOrderAugmentation
+      - _target_: t2.train.augment.TransformAugmentation
+        pos_aug_magnitude:
+        - 0.3
+        - 0.3
+        - 0.0
+        orn_aug_magnitude:
+        - 0.0
+        - 0.0
+        - 0.5
+        affected_pose_fields:
+        - target_pose
+        - free_link_obs
+        - track_link_obs
+hardware_dataset_path: unused_native_shards
+hardware_pos_seq_lens:
+  dyna_joint:
+  - 31
+  - 0
+  - 1
+  - 2
+  fixed_joint:
+  - 50
+  - 0
+  - 1
+  - 2
+  link:
+  - 78
+  - 0
+  - 1
+  - 1
+  actuator:
+  - 19
+  - 0
+  - 1
+  - 1
+  track_link_obs/track_link:
+  - 1
+  - 0
+  - 8
+  - 1
+  dyna_joint_obs/dyna_joint:
+  - 31
+  - 0
+  - 8
+  - 1
+  free_link_obs/free_link:
+  - 1
+  - 0
+  - 8
+  - 1
+  actuator_obs/actuator:
+  - 19
+  - 0
+  - 8
+  - 1
+  ctrl/actuator:
+  - 19
+  - 0
+  - 8
+  - 1
+  target_pose/track_link:
+  - 1
+  - 0
+  - 8
+  - 1
+seq_len:
+  dyna_joint: 62
+  free_link: 1
+  fixed_joint: 100
+  link: 78
+  actuator: 19
+  track_link: 1
+  free_link_obs: 1
+  dyna_joint_obs: 31
+  actuator_obs: 19
+  rollout_steps: 8
+  ctrl: 19
+  target_pose: 1
+  track_link_obs: 1
+ctrl_seq_len:
+  dyna_joint: 62
+  free_link: 1
+  fixed_joint: 100
+  link: 78
+  actuator: 19
+  track_link: 1
+  free_link_obs: 1
+  dyna_joint_obs: 31
+  actuator_obs: 19
+  rollout_steps: 8
+  ctrl: 19
+  target_pose: 1
+  track_link_obs: 1
+dims:
+  dyna_joint_id_bits: 6
+  fixed_joint_id_bits: 7
+  link_id_bits: 7
+  free_link_id_bits: 1
+  track_link_id_bits: 2
+  actuator_id_bits: 6
+  contact_dim_bits: 3
+  geom_type_bits: 3
+  dyna_joint_type_bits: 2
+  actuator_type_bits: 1
+seed: 0
+use_flash_attn: false
+_convert_: all
+device: cuda
+wandb:
+  tags: []
+  config_exclude_keys: null
+optimizer:
+  _target_: torch.optim.AdamW
+  lr: 0.0001
+  weight_decay: 0
+lr_scheduler:
+  _target_: transformers.get_scheduler
+  name: cosine
+  num_warmup_steps: 500
+accelerator:
+  _target_: accelerate.Accelerator
+  gradient_accumulation_steps: 1
+  mixed_precision: bf16
+  log_with: wandb
+ema:
+  _target_: diffusers.training_utils.EMAModel
+  power: 0.75
+  update_after_step: 0
+train:
+  _convert_: all
+  num_epochs: 20
+  rollout_every_n_epochs: 1
+  eval_every_n_epochs: 1
+  run_val: false
+  batch_size: 1024
+  val_batch_size: 1
+  learning_rate: 0.0001
+  max_grad_norm: 1.0
+  ckpt_every_n_epochs: 1
+  load_ckpt_path: null
+  log_stats_every_n_steps: 10
+  num_batches_per_epoch: 1024
+  num_eval_batches_per_epoch: 32
+  eval_batch_size: 1024
+  normalization_clip: null
+dataloader:
+  _target_: torch.utils.data.DataLoader
+  num_workers: 16
+  pin_memory: false
+  drop_last: true
+  persistent_workers: false
+  shuffle: false
+evals: {}

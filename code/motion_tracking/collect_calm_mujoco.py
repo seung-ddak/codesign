@@ -306,8 +306,8 @@ def train(out, *, steps, batch, python):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("command", choices=("init", "run", "audit", "status", "train"))
-    p.add_argument("--out", type=Path, default=ROOT / "runs/v100_mujoco_10k")
-    p.add_argument("--source", type=Path, default=ROOT / "runs/calm_motion_10,000/dataset")
+    p.add_argument("--out", type=Path, default=ROOT / "legacy/runs/v100_mujoco_10k")
+    p.add_argument("--source", type=Path, default=ROOT / "legacy/runs/calm_motion_10,000/dataset")
     p.add_argument("--workers", type=int, default=8)
     p.add_argument("--limit-designs", type=int, default=0, help="Pilot only; 0 means all 200 training designs")
     p.add_argument("--include-heldout", action="store_true")

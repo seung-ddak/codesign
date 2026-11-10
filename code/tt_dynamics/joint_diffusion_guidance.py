@@ -28,13 +28,38 @@ def _windows(episode_states, horizon):
     return [(i, min(horizon, episode_states - i)) for i in starts]
 
 
+def integrate_delta(w, start):
+    """Delta-pose window [B,H,X] (dx, dy in previous heading frame; dyaw in
+    channel 3) -> episode-frame pose, starting from start [B,X]. Differentiable."""
+    yaw0 = torch.atan2(start[:, 4], start[:, 3])
+    zero = torch.zeros_like(w[:, :1, 0])
+    yaw = yaw0[:, None] + torch.cat([zero, torch.cumsum(w[:, 1:, 3], 1)], 1)
+    c, s = torch.cos(yaw[:, :-1]), torch.sin(yaw[:, :-1])
+    dx, dy = w[:, 1:, 0], w[:, 1:, 1]
+    px = start[:, None, 0] + torch.cat([zero, torch.cumsum(c * dx - s * dy, 1)], 1)
+    py = start[:, None, 1] + torch.cat([zero, torch.cumsum(s * dx + c * dy, 1)], 1)
+    return torch.cat([px[..., None], py[..., None], w[..., 2:3],
+                      torch.cos(yaw)[..., None], torch.sin(yaw)[..., None], w[..., 5:]], -1)
+
+
+def _known_s0(cur, cur_d):
+    """Window start token: heading-aligned frame (abs) or last step delta (delta)."""
+    s = cur.clone()
+    if cur_d is None:
+        s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0
+    else:
+        s[:, 0], s[:, 1], s[:, 3], s[:, 4] = cur_d[:, 0], cur_d[:, 1], cur_d[:, 2], 0
+    return s
+
+
 def joint_diffusion_full_reward(
     net, reward, *,
     n, episode_states, horizon, state_dim, action_dim, e_dim,
     mu, sd, beta, abar, emu=0.5, esd=0.5,
     guidance_scale=1.0, clip=1.0, seed=0, no_guide_s=False, s_gradient_scale=1.0,
     e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12), s0_fn=None,
-    denoising_policy=None, fixed_prediction_cache=None
+    denoising_policy=None, fixed_prediction_cache=None, pose="abs",
+    fixed_e=None, init_state=None, init_delta=None
 ):
     """Return (trajectory[B,episode_states,S+A], E[B,e_dim], audit).
 
@@ -46,7 +71,16 @@ def joint_diffusion_full_reward(
     s0_fn (optional): physical E [B,e_dim] -> S0 [B,state_dim]. When given,
     S0 is NOT generated: the Mode-4 pass only denoises E, S0 = s0_fn(E) is
     recomputed at every step, and every window runs Mode 2 (E + S0 known).
+
+    MPC 다시 계획용 (2026-11-10): fixed_e (물리 E [B,e_dim]) 를 주면 E 는 생성하지 않고 고정한다.
+    init_state ([B,state_dim], 실제 상태 특징) 를 주면 그 상태에서 시작한다 (모든 창 Mode 2).
+    init_delta ([B,3], delta 자세에서 직전 step 의 몸통 기준 이동·회전) 는 delta 자세의 첫 변화량이다.
     """
+    if (fixed_e is None) != (init_state is None):
+        raise ValueError("MPC replanning needs both fixed_e and init_state")
+    if pose not in ("abs", "delta"):
+        raise ValueError("pose must be 'abs' or 'delta'")
+    delta = pose == "delta"
     if n < 1 or horizon < 2 or episode_states < 2 or guidance_scale < 0:
         raise ValueError("invalid sampler sizes or reward guidance")
     if denoising_policy is not None and guidance_scale != 0:
@@ -89,17 +123,22 @@ def joint_diffusion_full_reward(
     def normalized_e(en):
         return (physical_e(en) - emu) / esd
 
+    fixed_en = None if fixed_e is None else (torch.as_tensor(fixed_e, device=dev, dtype=dtype) - emu) / esd
+
     def decode(xts, et, k):
         """One differentiable joint score pass for all coupled windows."""
         cur = torch.zeros((n, xdim), dtype=dtype, device=dev)
-        cur[:, :state_dim] = initial_x
+        cur[:, :state_dim] = initial_x if init_state is None else torch.as_tensor(init_state, device=dev, dtype=dtype)
         predictions, epsilon_x, x0_parts, masks = [], [], [], []
         first_epsilon = None
         first_e0 = None
         sqrt_ab = abar[k].sqrt()
         sqrt_nm = (1 - abar[k]).sqrt()
         kk = torch.full((n,), float(k), dtype=dtype, device=dev)
-        if s0_fn is not None:
+        if fixed_en is not None:
+            first_e0 = normalized_e(fixed_en)
+            first_epsilon = torch.zeros_like(et)
+        elif s0_fn is not None:
             # Mode 4 pass on window 0 only supplies the E prior (epsilon).
             mask0 = (torch.arange(horizon, device=dev) < windows[0][1]).expand(n, horizon)
             kx4, ke4 = condition_masks(known_mode4, mask0)
@@ -108,14 +147,18 @@ def joint_diffusion_full_reward(
             _, first_epsilon = net(torch.where(kx4 > 0, known4, xts[0]), et, kx4, ke4, kk, ~mask0)
             first_e0 = normalized_e(((et - sqrt_nm * first_epsilon) / sqrt_ab).clamp(-clip, clip))
             cur[:, :state_dim] = s0_fn(physical_e(first_e0).detach())
+        # Delta pose: the episode's first step has zero change (as in training).
+        cur_d = torch.zeros((n, 3), dtype=dtype, device=dev) if delta else None
+        if delta and init_delta is not None:
+            cur_d = torch.as_tensor(init_delta, device=dev, dtype=dtype)
         for i, ((t0, w), xt) in enumerate(zip(windows, xts)):
             mask = (torch.arange(horizon, device=dev) < w).expand(n, horizon)
-            s = cur.clone()
-            # Every window begins in its own heading-aligned frame.
-            s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0
+            # Every window begins in its own heading-aligned frame (abs) or
+            # with the previous window's last predicted change (delta).
+            s = _known_s0(cur, cur_d)
             x_known = torch.zeros_like(xt)
             x_known[:, 0] = (s - mu) / sd
-            gen_e = i == 0 and s0_fn is None
+            gen_e = i == 0 and s0_fn is None and fixed_en is None
             mode = known_mode4 if gen_e else known_mode2
             kx, ke = condition_masks(mode, mask)
             input_e = et if gen_e else first_e0
@@ -129,7 +172,10 @@ def joint_diffusion_full_reward(
                 first_e0 = normalized_e(first_e0)
             xhat = ((xt - sqrt_nm * ex) / sqrt_ab).clamp(-clip, clip)
             xhat = torch.where(kx > 0, x_known, xhat)
-            ep = unbase(xhat * sd + mu, cur)
+            pw = xhat * sd + mu
+            ep = integrate_delta(pw, cur) if delta else unbase(pw, cur)
+            if delta:
+                cur_d = pw[:, w - 1, [0, 1, 3]]
             # Windows overlap exactly at their boundary state. Only the
             # final window contributes its endpoint to the full trajectory.
             pred_slice = ep[:, :w] if i == len(windows) - 1 else ep[:, :w - 1]
@@ -220,7 +266,7 @@ def joint_diffusion_full_reward(
                 adjusted_eps = (xt - ab.sqrt() * x0) / sqrt_nm
                 next_x = prev.sqrt() * x0 + (1 - prev).sqrt() * adjusted_eps
                 new_x.append(next_x.detach())
-        e = new_e.detach()
+        e = new_e.detach() if fixed_en is None else fixed_en
         xs = new_x
 
     # Final geometry-invariant boundary projection of all already-denoised
@@ -228,18 +274,26 @@ def joint_diffusion_full_reward(
     with torch.no_grad():
         ef = physical_e(e)
         cur = torch.zeros((n, xdim), dtype=dtype, device=dev)
-        cur[:, :state_dim] = initial_x if s0_fn is None else s0_fn(ef)
+        if init_state is not None:
+            cur[:, :state_dim] = torch.as_tensor(init_state, device=dev, dtype=dtype)
+        else:
+            cur[:, :state_dim] = initial_x if s0_fn is None else s0_fn(ef)
         frames = []
+        cur_d = torch.zeros((n, 3), dtype=dtype, device=dev) if delta else None
+        if delta and init_delta is not None:
+            cur_d = torch.as_tensor(init_delta, device=dev, dtype=dtype)
         for i, ((_, w), xt) in enumerate(zip(windows, xs)):
             mask = (torch.arange(horizon, device=dev) < w).expand(n, horizon)
-            mode = known_mode4 if i == 0 and s0_fn is None else known_mode2
+            mode = known_mode4 if i == 0 and s0_fn is None and fixed_en is None else known_mode2
             kx, _ = condition_masks(mode, mask)
-            s = cur.clone()
-            s[:, 0:2], s[:, 3], s[:, 4] = 0, 1, 0
+            s = _known_s0(cur, cur_d)
             known = torch.zeros_like(xt)
             known[:, 0] = (s - mu) / sd
             aligned = torch.where(kx > 0, known, xt)
-            ep = unbase(aligned * sd + mu, cur)
+            pw = aligned * sd + mu
+            ep = integrate_delta(pw, cur) if delta else unbase(pw, cur)
+            if delta:
+                cur_d = pw[:, w - 1, [0, 1, 3]]
             frames.append(ep[:, :w] if i == len(windows) - 1 else ep[:, :w - 1])
             cur = ep[:, w - 1].clone()
         final_traj = torch.cat(frames, dim=1)
@@ -249,6 +303,7 @@ def joint_diffusion_full_reward(
         "rl_correction_norm_per_step": correction_norms,
         "guidance_scale": float(guidance_scale),
         "s_gradient_scale": float(effective_s_scale),
+        "pose": pose,
         "s0_source": "generated (Mode 4)" if s0_fn is None else "s0_fn(E) rest stance (Mode 2 only)",
         "windows": len(windows),
         "diffusion_steps": 1 if fixed_prediction_cache is not None else len(beta),

@@ -83,7 +83,7 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
                      morphology, pred, physical, mask, row, fps, width, height):
     """Replay and render a physical robot with trajectory inset, 10s runtime."""
     import mujoco
-    from generate_task_mujoco import STEPS, TASKS, make_physics, replay
+    from generate_task_mujoco import DT, STEPS, TASKS, make_physics, replay
     from tt_video_overlay import image_with_overlay
 
     trace = []
@@ -103,22 +103,19 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
         raise ValueError("Cannot render a candidate without physical transitions")
 
     model = make_physics(morphology, reward)
-    backend = "wireframe" if os.environ.get("MUJOCO_GL") == "disable" else os.environ.get("MUJOCO_GL")
+    backend = os.environ.get("MUJOCO_GL")
     data = mujoco.MjData(model)
     renderer = None
     camera = None
-    if backend == "wireframe":
-        from tt_wireframe_render import draw_kinematic_frame
-    else:
-        model.vis.global_.offwidth = max(model.vis.global_.offwidth, width)
-        model.vis.global_.offheight = max(model.vis.global_.offheight, height)
-        renderer = mujoco.Renderer(model, height=height, width=width)
-        camera = mujoco.MjvCamera()
-        camera.type = mujoco.mjtCamera.mjCAMERA_FREE
-        camera.azimuth = 145.0
-        camera.elevation = -24.0
-        camera.distance = 2.7
-    stride = 50 // fps
+    model.vis.global_.offwidth = max(model.vis.global_.offwidth, width)
+    model.vis.global_.offheight = max(model.vis.global_.offheight, height)
+    renderer = mujoco.Renderer(model, height=height, width=width)
+    camera = mujoco.MjvCamera()
+    camera.type = mujoco.mjtCamera.mjCAMERA_FREE
+    camera.azimuth = 145.0
+    camera.elevation = -24.0
+    camera.distance = 2.7
+    stride = max(1, round(STEPS / 10 / fps))
     fall_frame = count - 1 if not metadata["complete_10s"] else None
     actual_xy = physical[:count, :2].astype(float)
     predicted_xy = pred[:, :2].astype(float)
@@ -132,19 +129,14 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
             physical_frame = min(sample, count-1)
             data.qpos[:] = trace[physical_frame]
             mujoco.mj_forward(model, data)
-            if backend == "wireframe":
-                rgb = draw_kinematic_frame(model, data, width=width, height=height,
-                                           poles=descriptor.get("poles", []),
-                                           pole_height=descriptor.get("pole_height", 0.82))
-            else:
-                camera.lookat[:] = data.qpos[:3] + np.array([0.,0.,0.08])
-                renderer.update_scene(data, camera=camera)
-                rgb = renderer.render().copy()
+            camera.lookat[:] = data.qpos[:3] + np.array([0.,0.,0.08])
+            renderer.update_scene(data, camera=camera)
+            rgb = renderer.render().copy()
             annotated = image_with_overlay(
                 rgb, task=task, task_spec=descriptor,
                 physical_xy=actual_xy, predicted_xy=predicted_xy,
                 frame=physical_frame, fps=fps, candidate=candidate, method=method,
-                fall_step=fall_frame, display_time=sample*0.02,
+                fall_step=fall_frame, display_time=sample*DT,
                 termination_reason=metadata["termination_reason"])
             yield np.asarray(annotated, dtype=np.uint8)
 
@@ -154,7 +146,7 @@ def render_candidate(video_path, *, task, descriptor, method, candidate,
         if renderer is not None:
             renderer.close()
     return {"fps":fps, "width":width, "height":height, "backend":backend,
-            "seconds":10.0, "valid_seconds":float(metadata.get("valid_seconds",count*0.02)),
+            "seconds":10.0, "valid_seconds":float(metadata.get("valid_seconds",count*DT)),
             "fell": metadata["fell"], "termination_reason": metadata["termination_reason"],
             "replay_consistency_checked": True}
 
@@ -164,8 +156,8 @@ def main():
     p.add_argument("--out", type=Path, required=True,
                    help="Existing task benchmark root containing seed_*.json and .npz")
     p.add_argument("--selection", choices=("best", "all"), default="best")
-    p.add_argument("--backend", choices=("auto", "osmesa", "egl", "wireframe"), default="auto",
-                   help="auto selects OSMesa mesh if available, else CPU 3D wireframe; wireframe needs no OpenGL")
+    p.add_argument("--backend", choices=("auto", "osmesa", "egl"), default="auto",
+                   help="auto selects OSMesa mesh if available, else GPU EGL")
     p.add_argument("--egl-device", type=int, default=1,
                    help="EGL device index (only with --backend egl); GPU0 may be busy")
     p.add_argument("--fps", choices=(10,25,50), type=int, default=25)
@@ -193,12 +185,12 @@ def main():
                 env=dict(os.environ, MUJOCO_GL="osmesa", PYOPENGL_PLATFORM="osmesa",
                          CUDA_VISIBLE_DEVICES=""),
                 capture_output=True, timeout=20)
-            backend = "osmesa" if probe.returncode == 0 else "wireframe"
+            backend = "osmesa" if probe.returncode == 0 else "egl"
         except (OSError, subprocess.TimeoutExpired):
-            backend = "wireframe"
+            backend = "egl"
         print(f"CPU video backend auto-selected: {backend}", flush=True)
-    os.environ["MUJOCO_GL"] = "disable" if backend == "wireframe" else backend
-    if backend in ("osmesa", "wireframe"):
+    os.environ["MUJOCO_GL"] = backend
+    if backend == "osmesa":
         # Explicitly avoid using the V100 (which runs an unrelated UNet).
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
     if backend == "osmesa":
@@ -211,8 +203,7 @@ def main():
     except (ImportError, OSError, AttributeError) as exc:
         raise RuntimeError(
             f"MuJoCo failed to initialize backend={backend}: {exc}. "
-            "Use --backend wireframe for CPU-only FK video without OpenGL, "
-            "or install libosmesa6 then use --backend osmesa for mesh rendering."
+            "Install libosmesa6 (--backend osmesa) or use a working GPU EGL (--backend egl)."
         ) from exc
 
     job_files = sorted(args.out.glob("*/gradient_scale_*/seed_*.json"))
@@ -242,7 +233,7 @@ def main():
             if index not in selected:
                 row["video_status"] = "not_selected"
                 continue
-            suffix = "" if backend == "wireframe" else f"_{backend}"
+            suffix = f"_{backend}"
             name = f"{result_path.stem}_candidate_{index}{suffix}.mp4"
             video_path = result_path.parent / "videos" / name
             video_path.parent.mkdir(parents=True, exist_ok=True)

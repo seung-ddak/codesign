@@ -6,6 +6,7 @@ traj = 토큰 [B,T,54] (episode 시작 기준, rollout_data 의 S 42 + A 12) 와
 """
 
 import math
+import os
 
 import numpy as np
 import torch
@@ -19,8 +20,11 @@ class TrackReward:
     def __init__(self, radius=1.0, half_width=0.3, min_height_frac=0.6, rewards=None, penalties=None):
         self.radius, self.half_width, self.min_height_frac = radius, half_width, min_height_frac
         self.center = (0.0, radius)
-        self.rewards = rewards if rewards is not None else {"progress": 1.0}
-        self.penalties = penalties if penalties is not None else {"lane": 20.0, "fall": 20.0, "action_rate": 0.05}
+        # TT_REWARD_PROFILE=v2 (2026-11-10): 진행 ×10 (1 m 당 10, 원형은 반지름 1 m 라 1 rad = 1 m),
+        # 기울기·높이 감점 ×2 (실제 넘어짐은 생존 감점 ×20 이 맡는다). 기본 (v1) 은 이전과 같다.
+        v2 = os.environ.get("TT_REWARD_PROFILE", "v1") == "v2"
+        self.rewards = rewards if rewards is not None else {"progress": 10.0 if v2 else 1.0}
+        self.penalties = penalties if penalties is not None else {"lane": 20.0, "fall": 2.0 if v2 else 20.0, "action_rate": 0.05, "survival": 20.0}
 
     # ---- 보상 ----
     def r_progress(self, x, m):
@@ -48,6 +52,19 @@ class TrackReward:
         gravity_invalid = (magnitude - 1).square()
         low = torch.relu(self.min_height_frac * x[:, :1, Z] - x[..., Z]) ** 2
         return ((tilt + gravity_invalid + low) * m).sum(1) / m.sum(1).clamp(min=1)
+
+    def p_survival(self, x, m):
+        """10 초 중 넘어진 뒤 남은 시간 비율 (0 = 끝까지 생존, 1 = 바로 넘어짐).
+
+        넘어짐 판정은 실제 MuJoCo 채점과 같다: 직립도 (몸통 위쪽 축의 수직 성분) <= 0.5 또는 몸통 높이 <= 0.07 m.
+        TT 유도에서 미분되도록 경계를 sigmoid 로 부드럽게 하고, 한 번 넘어지면 이후는 모두 넘어진 것으로 센다.
+        실제 실행은 넘어지면 기록이 끝나므로 기록이 없는 step (m = False) 도 넘어진 것으로 센다.
+        """
+        gravity = x[..., GRAV]
+        upright = -gravity[..., 2] / torch.linalg.vector_norm(gravity, dim=-1).clamp_min(1e-6)
+        fallen = torch.maximum(torch.sigmoid((0.5 - upright) / 0.02), torch.sigmoid((0.07 - x[..., Z]) / 0.005))
+        alive = torch.cumprod((1 - fallen) * m.to(x.dtype), dim=1)
+        return 1 - alive.mean(1)
 
     def p_action_rate(self, x, m):
         """연속 step 목표 관절각 변화² 의 평균 (rad²)."""
@@ -116,9 +133,9 @@ class ZigzagReward(TrackReward):
 
 
 class StraightReward(TrackReward):
-    """Forward progress in a straight corridor, with the same stability and action regularizers."""
+    """최대 속도 직진: 통로 안에서 10 초 동안 +x 로 최대한 빨리 간다. 진행 점수 = 전진 거리 (m), 표시 = 10 초 평균 속도 (m/s)."""
 
-    unit, unit_scale = "m", 1.0
+    unit, unit_scale = "m/s", 0.1
 
     def __init__(self, half_width=0.15, **kw):
         super().__init__(half_width=half_width, **kw)
@@ -171,8 +188,11 @@ class SlalomReward(ZigzagReward):
     pole_height = 0.82
     collision_penalty = 20.0
 
+    body_clearance = 0.15  # 몸통 중심에서 폴 표면까지 이보다 가까우면 충돌로 본다 (몸통 반폭 근사)
+
     def __init__(self):
         super().__init__(half_width=0.22)
+        self.penalties = dict(self.penalties, pole=self.collision_penalty)
         self.poles = [(x, 0.0) for x in (1.0, 2.3, 3.6, 4.9)]
         self.gates = []
         for index, (x, _) in enumerate(self.poles):
@@ -198,6 +218,13 @@ class SlalomReward(ZigzagReward):
         weight = torch.exp(-(lateral / self.half_width).square())
         return ((dx.clamp_min(0) * weight + dx.clamp_max(0)) *
                 (m[:, 1:] & m[:, :-1])).sum(1)
+
+    def p_pole(self, x, m):
+        """폴마다 가장 가까이 간 순간의 충돌 정도 (0~1) 의 합. 몸통 중심이 폴 표면에서 body_clearance 안이면 1 에 가깝다."""
+        poles = x.new_tensor(self.poles)
+        dist = (x[..., None, POS] - poles).norm(dim=-1) - self.pole_radius
+        hit = torch.sigmoid((self.body_clearance - dist) / 0.02) * m[..., None].to(x.dtype)
+        return hit.amax(1).sum(-1)
 
     def describe(self):
         return dict(task="pole_slalom", poles=self.poles, gates=self.gates,

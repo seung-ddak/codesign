@@ -1,0 +1,385 @@
+{
+  "method": "gradient",
+  "seed": 20000,
+  "samples": 4,
+  "gradient_scale": 1.0,
+  "guidance_audit": {
+    "algorithm": "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X",
+    "rl_correction_norm_per_step": [],
+    "guidance_scale": 1.0,
+    "s_gradient_scale": 1.0,
+    "pose": "delta",
+    "s0_source": "s0_fn(E) rest stance (Mode 2 only)",
+    "windows": 8,
+    "diffusion_steps": 5,
+    "fixed_tt_prediction": false,
+    "e_gradient_norm_per_step": [
+      322.6214599609375,
+      1.641183853149414,
+      0.27099937200546265,
+      0.042610831558704376,
+      0.015131420455873013
+    ],
+    "s_gradient_norm_per_step": [
+      166.60252380371094,
+      14.057343482971191,
+      16.69522476196289,
+      6.554348468780518,
+      4.243425369262695
+    ],
+    "a_gradient_norm_per_step": [
+      84.45370483398438,
+      4.625966548919678,
+      4.772315502166748,
+      1.4630374908447266,
+      0.8065127730369568
+    ],
+    "predicted_reward_during_guidance": [
+      -32.03605651855469,
+      -12.964487075805664,
+      -11.725666999816895,
+      -6.935129165649414,
+      -4.775136470794678
+    ],
+    "e_gradient_nonzero": true,
+    "s_gradient_nonzero": true,
+    "a_gradient_nonzero": true
+  },
+  "horizon": 64,
+  "evaluation_version": 2,
+  "task": {
+    "task": "pole_slalom",
+    "poles": [
+      [
+        1.0,
+        0.0
+      ],
+      [
+        2.3,
+        0.0
+      ],
+      [
+        3.6,
+        0.0
+      ],
+      [
+        4.9,
+        0.0
+      ]
+    ],
+    "gates": [
+      [
+        0.7,
+        0.42
+      ],
+      [
+        1.2,
+        0.42
+      ],
+      [
+        1.9999999999999998,
+        -0.42
+      ],
+      [
+        2.5,
+        -0.42
+      ],
+      [
+        3.3000000000000003,
+        0.42
+      ],
+      [
+        3.8000000000000003,
+        0.42
+      ],
+      [
+        4.6000000000000005,
+        -0.42
+      ],
+      [
+        5.1000000000000005,
+        -0.42
+      ],
+      [
+        6.0,
+        0.0
+      ]
+    ],
+    "route": [
+      [
+        0.0,
+        0.0
+      ],
+      [
+        0.7,
+        0.42
+      ],
+      [
+        1.2,
+        0.42
+      ],
+      [
+        1.9999999999999998,
+        -0.42
+      ],
+      [
+        2.5,
+        -0.42
+      ],
+      [
+        3.3000000000000003,
+        0.42
+      ],
+      [
+        3.8000000000000003,
+        0.42
+      ],
+      [
+        4.6000000000000005,
+        -0.42
+      ],
+      [
+        5.1000000000000005,
+        -0.42
+      ],
+      [
+        6.0,
+        0.0
+      ]
+    ],
+    "half_width": 0.22,
+    "pole_radius": 0.06,
+    "pole_height": 0.82,
+    "collision_penalty_per_pole": 20.0,
+    "rewards": {
+      "progress": 10.0
+    },
+    "penalties": {
+      "lane": 20.0,
+      "fall": 2.0,
+      "action_rate": 0.05,
+      "survival": 20.0,
+      "pole": 20.0
+    },
+    "unit": "m"
+  },
+  "candidates": [
+    {
+      "candidate": 0,
+      "morphology": [
+        0.5,
+        0.4971264600753784,
+        0.4985829293727875,
+        0.49957913160324097,
+        0.5038884282112122,
+        0.5030148029327393,
+        0.5028430223464966,
+        0.4982653260231018,
+        0.4977073073387146,
+        0.5034734010696411,
+        0.4969272017478943,
+        0.5,
+        0.5
+      ],
+      "pred_vs_mujoco_xy_mean_cm": 29.569610595703125,
+      "pred_vs_mujoco_joint_rmse_deg": 4.328813076019287,
+      "max_seam_action_jump_rad": 0.7273995876312256,
+      "rl_return": -1.4278010129928589,
+      "reward": -1.4278010129928589,
+      "reward_terms": {
+        "r_progress": -0.14063742756843567,
+        "p_lane": 3.538029247351915e-08,
+        "p_fall": 0.006259885150939226,
+        "p_action_rate": 0.17812635004520416,
+        "p_survival": 0.0,
+        "p_pole": 5.91608309125194e-17,
+        "gates_passed": 0.0,
+        "next_gate_distance_m": 0.9648141452826854,
+        "pole_contacts": 0.0
+      },
+      "progress": -0.028853535652160645,
+      "progress_unit": "m",
+      "task_success": false,
+      "lane_compliance": 0.9920159680638723,
+      "gates_passed": 0,
+      "gates_total": 9,
+      "finish_seconds": null,
+      "initial_valid": true,
+      "initial_contacts": 4,
+      "min_clearance_m": 8.476687737086347e-06,
+      "termination_reason": "completed_horizon",
+      "control_steps": 500,
+      "valid_seconds": 10.0,
+      "fell": false,
+      "complete_10s": true,
+      "pole_contacts": [],
+      "final_distance_m": 0.21412290632724762,
+      "forward_m": -0.028853535652160645,
+      "mean_forward_speed_m_s": -0.0028853535652160643,
+      "predicted_guidance_score": 3.8885903358459473
+    },
+    {
+      "candidate": 1,
+      "morphology": [
+        0.5,
+        0.48935458064079285,
+        0.4945719242095947,
+        0.5044810175895691,
+        0.4948059916496277,
+        0.4965314567089081,
+        0.5055958032608032,
+        0.50135737657547,
+        0.4967988133430481,
+        0.5066847205162048,
+        0.5008262395858765,
+        0.5,
+        0.5
+      ],
+      "pred_vs_mujoco_xy_mean_cm": 70.12850189208984,
+      "pred_vs_mujoco_joint_rmse_deg": 4.527739524841309,
+      "max_seam_action_jump_rad": 0.6166489720344543,
+      "rl_return": -1.640881061553955,
+      "reward": -1.640881061553955,
+      "reward_terms": {
+        "r_progress": -0.16147705912590027,
+        "p_lane": 0.0,
+        "p_fall": 0.005895954556763172,
+        "p_action_rate": 0.28637003898620605,
+        "p_survival": 0.0,
+        "p_pole": 2.8105885149207243e-15,
+        "gates_passed": 0.0,
+        "next_gate_distance_m": 0.989946243847475,
+        "pole_contacts": 0.0
+      },
+      "progress": -0.07945284247398376,
+      "progress_unit": "m",
+      "task_success": false,
+      "lane_compliance": 1.0,
+      "gates_passed": 0,
+      "gates_total": 9,
+      "finish_seconds": null,
+      "initial_valid": true,
+      "initial_contacts": 4,
+      "min_clearance_m": 7.687540260915143e-06,
+      "termination_reason": "completed_horizon",
+      "control_steps": 500,
+      "valid_seconds": 10.0,
+      "fell": false,
+      "complete_10s": true,
+      "pole_contacts": [],
+      "final_distance_m": 0.206205815076828,
+      "forward_m": -0.07945284247398376,
+      "mean_forward_speed_m_s": -0.007945284247398376,
+      "predicted_guidance_score": -14.328360557556152
+    },
+    {
+      "candidate": 2,
+      "morphology": [
+        0.5,
+        0.503049910068512,
+        0.4997645914554596,
+        0.509751558303833,
+        0.49917393922805786,
+        0.5006032586097717,
+        0.4974897801876068,
+        0.4977007210254669,
+        0.498783677816391,
+        0.49907973408699036,
+        0.49850812554359436,
+        0.5,
+        0.5
+      ],
+      "pred_vs_mujoco_xy_mean_cm": 30.90658187866211,
+      "pred_vs_mujoco_joint_rmse_deg": 4.715500831604004,
+      "max_seam_action_jump_rad": 0.5638247728347778,
+      "rl_return": -0.454559326171875,
+      "reward": -0.454559326171875,
+      "reward_terms": {
+        "r_progress": -0.04318249970674515,
+        "p_lane": 3.5736866266233847e-05,
+        "p_fall": 0.006003205664455891,
+        "p_action_rate": 0.20026364922523499,
+        "p_survival": 0.0,
+        "p_pole": 1.348906236546283e-14,
+        "gates_passed": 0.0,
+        "next_gate_distance_m": 0.8427853757991046,
+        "pole_contacts": 0.0
+      },
+      "progress": 0.0935765728354454,
+      "progress_unit": "m",
+      "task_success": false,
+      "lane_compliance": 0.9600798403193613,
+      "gates_passed": 0,
+      "gates_total": 9,
+      "finish_seconds": null,
+      "initial_valid": true,
+      "initial_contacts": 4,
+      "min_clearance_m": 9.523579311377511e-06,
+      "termination_reason": "completed_horizon",
+      "control_steps": 500,
+      "valid_seconds": 10.0,
+      "fell": false,
+      "complete_10s": true,
+      "pole_contacts": [],
+      "final_distance_m": 0.18992064893245697,
+      "forward_m": 0.0935765728354454,
+      "mean_forward_speed_m_s": 0.00935765728354454,
+      "predicted_guidance_score": -6.168758869171143
+    },
+    {
+      "candidate": 3,
+      "morphology": [
+        0.5,
+        0.4888972342014313,
+        0.49886953830718994,
+        0.503663182258606,
+        0.49717187881469727,
+        0.49739453196525574,
+        0.5000289082527161,
+        0.5024499297142029,
+        0.50185227394104,
+        0.5020785331726074,
+        0.49971091747283936,
+        0.5,
+        0.5
+      ],
+      "pred_vs_mujoco_xy_mean_cm": 76.38581085205078,
+      "pred_vs_mujoco_joint_rmse_deg": 5.658125400543213,
+      "max_seam_action_jump_rad": 0.6925933957099915,
+      "rl_return": -0.9753601551055908,
+      "reward": -0.9753601551055908,
+      "reward_terms": {
+        "r_progress": -0.09299107640981674,
+        "p_lane": 0.0008892116020433605,
+        "p_fall": 0.007060277741402388,
+        "p_action_rate": 0.2708715796470642,
+        "p_survival": 0.0,
+        "p_pole": 5.0126129025329647e-08,
+        "gates_passed": 0.0,
+        "next_gate_distance_m": 0.6019024673139647,
+        "pole_contacts": 0.0
+      },
+      "progress": 0.25678446888923645,
+      "progress_unit": "m",
+      "task_success": false,
+      "lane_compliance": 0.6467065868263473,
+      "gates_passed": 0,
+      "gates_total": 9,
+      "finish_seconds": null,
+      "initial_valid": true,
+      "initial_contacts": 4,
+      "min_clearance_m": 9.910385966458574e-06,
+      "termination_reason": "completed_horizon",
+      "control_steps": 500,
+      "valid_seconds": 10.0,
+      "fell": false,
+      "complete_10s": true,
+      "pole_contacts": [],
+      "final_distance_m": 0.2571011781692505,
+      "forward_m": 0.25678446888923645,
+      "mean_forward_speed_m_s": 0.025678446888923644,
+      "predicted_guidance_score": -0.33249008655548096
+    }
+  ],
+  "npz": "/home/cgr-ugrad-2026/quad_ws/codesign/runs/calm_dynamics_1000x100/tt_try1/task_v2/zigzag/gradient_scale_1/seed_20000.npz"
+}

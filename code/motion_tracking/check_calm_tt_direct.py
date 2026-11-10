@@ -14,7 +14,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE = ROOT.parent
-DEFAULT_WHEEL = ROOT / "runs/menagerie_calm_check/try4/runtime/rl_games-1.1.4-py3-none-any.whl"
+DEFAULT_WHEEL = ROOT / "legacy/runs/menagerie_calm_check/try4/runtime/rl_games-1.1.4-py3-none-any.whl"
 LEGS = ("FL", "FR", "RL", "RR")
 TT_LEG = {"FL": "left_leg", "FR": "right_leg", "RL": "left_leg_1", "RR": "right_leg_1"}
 CALM_BODIES = ["base", "trunk"] + [

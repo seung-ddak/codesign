@@ -1,0 +1,357 @@
+"""Build factual Markdown/HTML reports from completed TT task benchmark outputs.
+
+No invented values: absent runs appear explicitly as not evaluated. Every
+statistic is computed from saved candidate-level physical MuJoCo replay data.
+"""
+import base64
+import html
+import json
+import math
+from collections import Counter, defaultdict
+from pathlib import Path
+
+import numpy as np
+
+from tt_video_overlay import reference_lines, slalom_markers
+
+
+TASK_NAMES = {"circle": "원형 트랙", "zigzag": "지그재그 트랙",
+              "straight": "최고속도 직진"}
+TASK_ORDER = ("circle", "zigzag", "straight")
+
+
+def _number(x, digits=3):
+    if x is None or not math.isfinite(float(x)):
+        return "—"
+    return f"{x:.{digits}f}"
+
+
+def _gradient_name(path):
+    if path.parent.name.startswith("gradient_scale_"):
+        return f"Gradient (scale={path.parent.name.removeprefix('gradient_scale_')})"
+    if path.parent.name == "rl_ppo":
+        return "RL (episodic PPO)"
+    return path.parent.name
+
+
+def is_mp4(path):
+    """Recognize MP4 container headers, including files emitted by older runs."""
+    if not path.is_file() or path.stat().st_size <= 256:
+        return False
+    with path.open("rb") as stream:
+        return stream.read(8)[4:] == b"ftyp"
+
+
+def video_for_candidate(root, result_path, candidate):
+    """Find the candidate MP4 and explain why it is absent."""
+    root = Path(root).resolve()
+    result_path = Path(result_path)
+    recorded = candidate.get("video_path")
+    inferred = result_path.parent / "videos" / (
+        f"{result_path.stem}_candidate_{candidate['candidate']}.mp4")
+    possible = ([root / recorded] if recorded else []) + [inferred]
+    unusable_file = False
+    for path in possible:
+        path = path.resolve()
+        if not path.is_relative_to(root):
+            continue
+        if is_mp4(path):
+            return path.relative_to(root).as_posix(), "recorded"
+        unusable_file |= path.exists()
+    if unusable_file:
+        return None, "MP4 파일이 손상되었거나 비어 있음"
+    status = candidate.get("video_status")
+    if status == "render_failed":
+        return None, "영상 생성 실패 · " + candidate["video_error"]
+    if candidate.get("initial_valid") is False or candidate.get("control_steps") == 0:
+        reason = candidate.get("invalid_reason") or candidate.get("termination_reason")
+        return None, "재생할 물리 스텝 없음" + (f" · {reason}" if reason else "")
+    if status == "not_selected":
+        return None, "녹화 대상에서 제외됨"
+    return None, "MP4가 아직 생성되지 않음"
+
+
+def video_anchor(path):
+    return "video-" + path
+
+
+def video_player(root, path, title):
+    """Embed the MP4 once so the HTML alone plays in a browser."""
+    safe_path = html.escape(path, quote=True)
+    anchor = html.escape(video_anchor(path), quote=True)
+    encoded = base64.b64encode((root / path).read_bytes()).decode("ascii")
+    return (
+        '<div class="video-entry" id="' + anchor + '"><p><strong>'
+        + html.escape(title) + '</strong></p>'
+        '<video controls playsinline preload="none" '
+        'style="display:block;width:100%;max-width:720px;background:#0b1420">'
+        '<source src="data:video/mp4;base64,' + encoded + '" type="video/mp4">'
+        '이 브라우저에서 MP4를 재생할 수 없습니다.</video>'
+        '<p><a href="' + safe_path + '">원본 MP4 열기</a></p></div>'
+    )
+
+
+def _trajectory_svg(task, npz_path, candidate, task_spec):
+    with np.load(npz_path) as z:
+        mask = z["valid"][candidate].astype(bool)
+        actual = z["mujoco"][candidate, mask, :2]
+    if not len(actual):
+        return '<p>초기 상태 무효: 표시할 실제 궤적이 없음</p>'
+    lines = reference_lines(task, task_spec, actual)
+    poles, gates = slalom_markers(task_spec)
+    series = [actual] + lines + poles + gates
+    pts = np.concatenate(series)
+    minimum = pts.min(0) - .35
+    maximum = pts.max(0) + .35
+    width, height, margin = 540, 360, 18
+    span = np.maximum(maximum - minimum, 1e-6)
+    scale = min((width-2*margin)/span[0], (height-2*margin)/span[1])
+    def convert(p):
+        x = margin + (p[:, 0] - minimum[0]) * scale
+        y = height - margin - (p[:, 1] - minimum[1]) * scale
+        return " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(x, y))
+    els = []
+    for i, line in enumerate(lines):
+        color = "#999" if i else "#64748b"
+        els.append(f'<polyline fill="none" stroke="{color}" stroke-width="1.5"'
+                   f' stroke-dasharray="{"" if i == 0 else "5 5"}" points="{convert(line)}"/>')
+    for gate in gates:
+        els.append(f'<polyline fill="none" stroke="#3a5c94" stroke-width="2" points="{convert(gate)}"/>')
+    for pole in poles:
+        els.append(f'<polygon fill="#ac2732" points="{convert(pole)}"/>')
+    els.append(f'<polyline fill="none" stroke="#167a62" stroke-width="2.5" '
+               f'points="{convert(actual)}"/>')
+    els.append('<text x="12" y="24" fill="#167a62" font-size="14">'
+               '실제 MuJoCo 궤적 (초록색)</text>')
+    return (f'<svg role="img" aria-label="Task 실제 궤적" '
+            f'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" '
+            f'style="width:100%;max-width:640px;background:#f8fafc;border-radius:10px">'
+            + "".join(els) + "</svg>")
+
+
+def _morphology_svg(e):
+    """Compare normalized morphology entries, not inferred physical lengths."""
+    bar_width, gap, base = 24, 14, 125
+    elements = []
+    for i, v in enumerate(e):
+        v = float(np.clip(v, 0, 1))
+        x = 24 + i*(bar_width+gap)
+        h = v*92
+        fill = "#9ca3af" if i in (0, 11, 12) else "#0f766e"
+        elements.append(f'<rect x="{x}" y="{base-h:.1f}" width="{bar_width}" height="{h:.1f}" fill="{fill}"/>')
+        elements.append(f'<text x="{x+bar_width/2}" y="142" text-anchor="middle" font-size="10" fill="#334155">E{i}</text>')
+        elements.append(f'<text x="{x+bar_width/2}" y="{base-h-4:.1f}" text-anchor="middle" font-size="9">{v:.2f}</text>')
+    return ('<svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="정규화된 형상 E 비교" '
+            'viewBox="0 0 540 155" style="width:100%;max-width:640px">'
+            + "".join(elements) + '</svg><p><small>형상 E는 정규화값이며, 회색 E0·E11·E12는 비활성 고정 좌표</small></p>')
+
+
+def collect(root):
+    data = defaultdict(lambda: defaultdict(list))
+    for path in sorted(Path(root).glob("*/**/seed_*.json")):
+        if path.parent.name not in ("rl_ppo",) and not path.parent.name.startswith("gradient_scale_"):
+            continue
+        task = path.relative_to(root).parts[0]
+        if task not in TASK_ORDER:
+            continue
+        result = json.loads(path.read_text(encoding="utf-8"))
+        npz_path = path.with_suffix(".npz")
+        if not npz_path.is_file():
+            raise FileNotFoundError(f"Missing physical rollout archive for {path}: {npz_path}")
+        data[task][_gradient_name(path)].append((path, result, npz_path))
+    return data
+
+
+def build_report(root):
+    root = Path(root)
+    groups = collect(root)
+    markdown = ["# TT Reward Gradient vs PPO: 세 Task 비교 보고서", "",
+                "## 실험 방법", "",
+                "기존 TT의 파라미터를 동결한 상태에서 E·S·A를 생성하고, "
+                "각 후보를 10초 동안 **CPU MuJoCo**에서 오픈루프로 실행하여 점수를 계산했다. "
+                "Gradient는 추론 중 미분 가능한 예측 보상을 사용하며, "
+                "RL은 에피소드 단위 Gaussian residual-noise 정책을 실제 MuJoCo 보상으로 PPO 학습한다. "
+                "RL은 보행 제어 PPO나 매 프레임 폐루프 제어가 아니다.", "",
+                "**중요:** 이 보고서의 숫자는 실제 replay 결과만 집계한다. "
+                "낙상 시 기존 코드와 동일하게 보상에서 20을 감점하며 "
+                "초기 상태 무효 후보는 평균 보상에서 제외한다. 완주율의 분모는 모든 후보이다.", ""]
+    report = {"tasks": {}, "interpretation": "physical MuJoCo replay; frozen TT; no training-completion claims"}
+    sections = []
+    video_gallery = {}
+    video_audit = []
+    for task in TASK_ORDER:
+        task_groups = groups.get(task, {})
+        markdown.extend([f"## {TASK_NAMES[task]}", ""])
+        sections.append(f"<h2>{html.escape(TASK_NAMES[task])}</h2>")
+        if not task_groups:
+            markdown.extend(["아직 실제 평가 결과 없음.", ""])
+            sections.append("<p>아직 실제 MuJoCo 평가 결과 없음</p>")
+            report["tasks"][task] = {"status": "not_evaluated"}
+            continue
+        rows_md = ["| 방식 | 후보 | 초기 유효 | 10초 생존 | 과제 성공 | 평균 실현 보상 | 최고 보상 | 최고 진행량 | XY 예측 오차(cm) | 관절 예측 오차(°) |",
+                   "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+        rows_html = ["<table><thead><tr><th>방식</th><th>후보</th><th>초기 유효</th><th>10초 생존</th><th>과제 성공</th>"
+                     "<th>평균 실현 보상</th><th>최고 보상</th><th>최고 진행량</th>"
+                     "<th>XY 예측오차(cm)</th><th>관절 예측오차(°)</th></tr></thead><tbody>"]
+        stats = {}
+        visuals = []
+        for method, runs in sorted(task_groups.items()):
+            candidates = [c for _, run, _ in runs for c in run["candidates"]]
+            valid = [c for c in candidates if c.get("reward") is not None]
+            versions = sorted({run.get("evaluation_version", 1) for _, run, _ in runs})
+            if len(versions) != 1:
+                raise ValueError(f"Mixed evaluator versions for {task} / {method}")
+            legacy = versions[0] < 2
+            reevaluated = any("source_candidate_file" in run for _, run, _ in runs)
+            completes = sum(bool(c.get("complete_10s")) for c in candidates)
+            successes = None if legacy else sum(bool(c["task_success"]) for c in candidates)
+            initial_valid = sum(bool(c.get("initial_valid", c.get("reward") is not None))
+                                for c in candidates)
+            rewards = [float(c["reward"]) for c in valid]
+            progress = [float(c["progress"]) for c in valid if c.get("progress") is not None]
+            xy_errors = [float(c["pred_vs_mujoco_xy_mean_cm"]) for c in valid
+                         if c.get("pred_vs_mujoco_xy_mean_cm") is not None]
+            q_errors = [float(c["pred_vs_mujoco_joint_rmse_deg"]) for c in valid
+                        if c.get("pred_vs_mujoco_joint_rmse_deg") is not None]
+            st = dict(candidates=len(candidates), initial_valid=initial_valid,
+                      evaluation_version=versions[0], archived_candidates_replayed=reevaluated,
+                      task_successes=successes,
+                      task_success_rate=None if legacy else successes/max(1, len(candidates)),
+                      terminations=dict(Counter(c.get("termination_reason", "legacy_unknown")
+                                                for c in candidates)),
+                      completed_10s=completes, completion_rate=completes/max(1, len(candidates)),
+                      mean_valid_reward=sum(rewards)/len(rewards) if rewards else None,
+                      best_reward=max(rewards) if rewards else None,
+                      best_progress=max(progress) if progress else None,
+                      mean_xy_prediction_error_cm=sum(xy_errors)/len(xy_errors) if xy_errors else None,
+                      mean_joint_prediction_rmse_deg=sum(q_errors)/len(q_errors) if q_errors else None)
+            stats[method] = st
+            label = method + (" [legacy]" if legacy else " [재평가]" if reevaluated else "")
+            summary = (label, len(candidates), initial_valid, completes,
+                       "—" if successes is None else successes,
+                       _number(st["mean_valid_reward"]), _number(st["best_reward"]),
+                       _number(st["best_progress"]), _number(st["mean_xy_prediction_error_cm"]),
+                       _number(st["mean_joint_prediction_rmse_deg"]))
+            rows_md.append("| " + " | ".join(map(str, summary)) + " |")
+            rows_html.append("<tr>" + "".join("<td>"+html.escape(str(x))+"</td>" for x in summary) + "</tr>")
+            if valid:
+                best_file = None
+                best = None
+                descriptor = None
+                for _, run, path in runs:
+                    for candidate in run["candidates"]:
+                        if candidate.get("reward") is not None and (
+                                best is None or candidate["reward"] > best["reward"]):
+                            best, best_file, descriptor = candidate, path, run["task"]
+                if best_file is not None:
+                    svg = _trajectory_svg(task, best_file, best["candidate"], descriptor)
+                    morph = ", ".join(_number(float(x), 3) for x in best["morphology"])
+                    video, video_status = video_for_candidate(
+                        root, best_file.with_suffix(".json"), best)
+                    video_tag = (f'<p><a href="#{html.escape(video_anchor(video), quote=True)}">영상 재생 위치로 이동</a></p>'
+                                 if video else
+                                 '<p><strong>영상 미표시:</strong> '
+                                 + html.escape(video_status) + '</p>')
+                    slalom_details = ""
+                    if best.get("gates_total") is not None:
+                        slalom_details = (f"<p>게이트 {best['gates_passed']}/{best['gates_total']} "
+                                          f"· 접촉한 폴 {len(best['pole_contacts'])}개 "
+                                          f"· 결승선 {_number(best.get('finish_seconds'))}초</p>")
+                    visuals.append("<h3>"+html.escape(method)+" — 최고 보상 후보</h3>"
+                                   +video_tag+svg+_morphology_svg(best["morphology"])+slalom_details+
+                                   "<p>실제 보상 "+_number(best["reward"])+
+                                   " · 유효 시간 "+_number(best.get("valid_seconds",0))+
+                                   "초 · E=["+html.escape(morph)+"]</p>")
+                    if video:
+                        markdown.append(f"**{method} 실제 MuJoCo 동작 영상:** [MP4]({video})")
+                    markdown.append(f"**{method} 최고 후보 E:** [{morph}]; "
+                                    f"보상 {_number(best['reward'])}; "
+                                    f"유효 시간 {_number(best.get('valid_seconds',0))}초.")
+        markdown.extend(rows_md+[""])
+        for method, st in stats.items():
+            detail = ", ".join(f"{reason} {count}개" for reason, count in st["terminations"].items())
+            markdown.append(f"- {method} 종료 사유 · {detail}")
+            sections.append(f"<p>{html.escape(method)} 종료 사유 · {html.escape(detail)}</p>")
+        markdown.append("")
+        rows_html.append("</tbody></table>")
+        sections.append("".join(rows_html)+"".join(visuals))
+        # Discover actual MP4 files on disk rather than trusting JSON fields.
+        video_links = []
+        for method, runs in sorted(task_groups.items()):
+            for result_path, run, _ in runs:
+                for candidate in run["candidates"]:
+                    path, status = video_for_candidate(root, result_path, candidate)
+                    video_audit.append(dict(task=task, method=method,
+                                            candidate=candidate["candidate"],
+                                            video_path=path, status=status))
+                    if path:
+                        video_links.append((method, candidate["candidate"], path))
+                        if path not in video_gallery:
+                            title = f"{TASK_NAMES[task]} · {method} · {result_path.stem} · 후보 {candidate['candidate']}"
+                            video_gallery[path] = video_player(root, path, title)
+                    else:
+                        label = f"{method} · {result_path.stem} · 후보 {candidate['candidate']}"
+                        sections.append(f"<p>{html.escape(label)} · {html.escape(status)}</p>")
+        markdown.append("### 녹화된 MP4")
+        if video_links:
+            markdown.extend(f"- {method} · 후보 {i}: [MP4]({path})"
+                            for method, i, path in video_links)
+            sections.append("<h3>MP4 링크</h3><ul>"+
+                            "".join("<li>"+html.escape(method)+" · 후보 "+str(i)+
+                                    " · <a href='"+html.escape(path, quote=True)+
+                                    "'>MP4 직접 열기</a></li>"
+                                    for method, i, path in video_links)+"</ul>")
+        else:
+            markdown.append("- 발견된 영상 없음: 영상 렌더링이 완료되었는지 확인")
+            sections.append("<p><strong>해당 Task의 MP4가 없습니다.</strong> "
+                            "영상 녹화 명령 실행 여부와 출력 로그를 확인하세요.</p>")
+        markdown.append("")
+        report["tasks"][task] = {"status": "evaluated", "methods": stats}
+    markdown.extend(["## 판정 기준", "",
+                     "운동학적 일관성만으로 성공을 선언하지 않는다. "
+                     "10초 생존과 과제별 성공을 분리한다. legacy 행은 이전 평가기의 시간 판정을 표시한다. "
+                     "후보 수가 작거나 RL 평가 Seed가 적으면 차이를 통계적으로 확정하지 않는다.", "",
+                     "## 실험 한계", "",
+                     "RL은 에피소드 보상을 사용한 저차원 residual-noise PPO이며, "
+                     "상태별 보행 PPO나 TT 재학습이 아니다. "
+                     "TT 예측 상태가 물리적으로 일관되지 않을 수 있으므로 실현된 보상만 성능으로 인정한다.", ""])
+    ready_videos = sum(x["video_path"] is not None for x in video_audit)
+    missing_videos = len(video_audit) - ready_videos
+    report["videos"] = dict(available=ready_videos, missing=missing_videos,
+                           candidates=video_audit)
+    markdown.extend(["## 영상 녹화 요약", "",
+                     f"확인된 MP4 {ready_videos}개 / 파일 없음 {missing_videos}개",
+                     "영상은 report.html에 포함됩니다. 파일을 브라우저에서 직접 여세요.", ""])
+    (root/"report.md").write_text("\n".join(markdown)+"\n", encoding="utf-8")
+    (root/"report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+    document = ('<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width">'
+                '<title>TT Task Benchmark</title><style>body{max-width:1050px;margin:30px auto;padding:0 20px;'
+                'font:16px/1.6 system-ui,sans-serif;color:#1c2938}table{width:100%;border-collapse:collapse}'
+                'td,th{border-bottom:1px solid #ddd;padding:9px;text-align:left;font-size:14px}'
+                'th{background:#eef2f6}section{margin:26px 0}svg{display:block;margin:12px 0}</style>'
+                '<h1>TT Reward Gradient vs PPO — 실제 MuJoCo 평가 보고서</h1>'
+                '<p>TT 가중치 동결 · 10초 오픈루프 물리 검증 · Gradient vs episodic PPO</p>'
+                '<p>초기 무효는 평균 보상에서 제외하고 완주율 분모에는 포함한다. '
+                '실제 시뮬레이션 없이 숫자를 채우지 않는다.</p>'
+                '<section id="video-gallery"><h2>Task별 MuJoCo 실험 영상</h2>'
+                '<p><strong>확인된 MP4: ' + str(ready_videos) +
+                '개 / 누락: ' + str(missing_videos) + '개</strong></p>'
+                + ("<p>MP4를 포함한 HTML입니다. 브라우저에서 파일을 직접 열면 재생할 수 있습니다.</p>"
+                   + "".join(video_gallery.values()) if video_gallery else
+                   '<p><strong>MP4 파일이 없습니다.</strong> '
+                   'render_task_videos.py로 생성한 후 보고서를 다시 만드세요.</p>')
+                + '</section>'
+                + "".join("<section>"+s+"</section>" for s in sections)
+                +'<p>RL은 에피소드 단위 PPO이며 상태별 폐루프 PPO는 아님. '
+                '10초 생존과 과제별 성공을 분리한다. legacy 행은 이전 평가기의 시간 판정을 표시한다.</p></html>')
+    (root/"report.html").write_text(document, encoding="utf-8")
+    return report
+
+
+if __name__ == "__main__":
+    import argparse
+    p = argparse.ArgumentParser()
+    p.add_argument("--out", type=Path, required=True)
+    args = p.parse_args()
+    r = build_report(args.out)
+    print(json.dumps(r, indent=2, ensure_ascii=False))

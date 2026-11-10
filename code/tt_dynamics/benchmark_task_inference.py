@@ -40,7 +40,7 @@ def physical_results(task, predicted, morphology, *, horizon=64):
     morphology = np.asarray(morphology)
     if (predicted.ndim != 3 or predicted.shape[1:] != (STEPS, 54) or
             not len(predicted) or morphology.shape != (len(predicted), 13)):
-        raise ValueError("Expected aligned nonempty candidate arrays pred[N,500,54] and E[N,13]")
+        raise ValueError("Expected aligned nonempty candidate arrays pred[N,STEPS,54] and E[N,13]")
     mask_list, actual_list, rows, policy_rewards = [], [], [], []
     for i, (e, path) in enumerate(zip(morphology, predicted)):
         actual, mask, meta = replay(e, path, task=task)
@@ -71,8 +71,8 @@ def physical_results(task, predicted, morphology, *, horizon=64):
 
 def check_task_checkpoint(config):
     check_rest_checkpoint(config)
-    if 2 not in config["modes"] or config.get("pose", "abs") != "abs":
-        raise ValueError("Needs TT with mode 2, corrected mode 4, absolute pose")
+    if 2 not in config["modes"] or config.get("pose", "abs") not in ("abs", "delta"):
+        raise ValueError("Needs TT with mode 2, corrected mode 4, abs or delta pose")
 
 
 def load_model(checkpoint, device):
@@ -108,7 +108,7 @@ def generate(model, setup, task, *, count, seed, scale=0., rl_raw=None, rl_polic
         mu=setup["mu"], sd=setup["sd"], beta=setup["beta"],
         abar=setup["abar"], emu=setup["emu"], esd=setup["esd"],
         clip=config["clip"], guidance_scale=scale, seed=seed,
-        s0_fn=s0_fn, denoising_policy=callback)
+        s0_fn=s0_fn, denoising_policy=callback, pose=config.get("pose", "abs"))
 
 
 def run_and_store(folder, name, model, setup, task, *, count, seed,
@@ -250,9 +250,9 @@ def main():
                         help="record MuJoCo 3D MP4 after evaluations in a separate offscreen process")
     parser.add_argument("--video-selection", choices=("best", "all"), default="best",
                         help="record best physical reward candidate per method/seed or all candidates")
-    parser.add_argument("--video-backend", choices=("auto", "osmesa", "egl", "wireframe"),
+    parser.add_argument("--video-backend", choices=("auto", "osmesa", "egl"),
                         default="auto",
-                        help="auto: CPU OSMesa mesh if installed, otherwise GL-free MuJoCo 3D FK wireframe")
+                        help="auto: CPU OSMesa mesh if installed, otherwise GPU EGL mesh")
     parser.add_argument("--video-fps", type=int, choices=(10, 25, 50), default=25)
     args = parser.parse_args()
     if args.candidates < 1 or args.eval_seeds < 1 or args.rl_updates < 1 or args.rl_rollouts < 2:
@@ -339,7 +339,7 @@ def report_and_video(args):
                    "--backend", args.video_backend, "--fps", str(args.video_fps),
                    "--resume"]
         env = os.environ.copy()
-        if args.video_backend in ("auto", "osmesa", "wireframe"):
+        if args.video_backend == "osmesa":
             env["CUDA_VISIBLE_DEVICES"] = ""
         # A separate process is mandatory because this process imported
         # MuJoCo before the CLI/video backend was selected.

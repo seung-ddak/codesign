@@ -1,0 +1,174 @@
+<title>TT Task 비교</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: single reading column for prose, full-width bands for tables and the video grid */
+:root{
+  --bg:#f5f7f8; --surface:#ffffff; --fg:#17212b; --muted:#5b6774; --line:#d9e0e5;
+  --accent:#1f6f8b; --bad:#b4372f; --bad-bg:#fbe9e7; --mid:#8a6a00; --mid-bg:#fbf3d6;
+  --sans:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11171c; --surface:#18212a; --fg:#e4eaef; --muted:#9aa7b3; --line:#2b3742;
+  --accent:#6cbad6; --bad:#f08a80; --bad-bg:#3a1f1d; --mid:#e3c35a; --mid-bg:#352d12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11171c; --surface:#18212a; --fg:#e4eaef; --muted:#9aa7b3; --line:#2b3742;
+  --accent:#6cbad6; --bad:#f08a80; --bad-bg:#3a1f1d; --mid:#e3c35a; --mid-bg:#352d12; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.65}
+.wrap{max-width:1180px;margin:0 auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:44px}
+.prose{max-width:68ch}
+h1,h2,h3{text-wrap:balance;line-height:1.3;margin:0}
+h1{font-size:28px;font-weight:700}
+h2{font-size:20px;font-weight:700;padding-bottom:8px;border-bottom:1px solid var(--line)}
+h3{font-size:17px;font-weight:700}
+h3 small{font-weight:400;color:var(--muted);font-size:14px;margin-left:6px}
+p{margin:0}
+section{display:grid;gap:16px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+.lede{font-size:17px}
+.verdict{background:var(--bad-bg);border-left:4px solid var(--bad);padding:16px 20px;border-radius:4px;display:grid;gap:8px}
+.verdict b{color:var(--bad)}
+ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:6px}
+table{border-collapse:collapse;width:100%;min-width:620px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child th,tr:last-child td{border-bottom:0}
+thead th{font-size:13px;color:var(--muted);font-weight:500;background:var(--bg)}
+tbody th{font-weight:600;white-space:nowrap}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:13px}
+.sub{font-size:13px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.pill.bad{color:var(--bad);background:var(--bad-bg)}
+.pill.mid{color:var(--mid);background:var(--mid-bg)}
+.task{gap:12px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.vid{margin:0;background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden;display:grid}
+.vid video{width:100%;max-width:100%;aspect-ratio:8/3;background:#0d1216;display:block}
+.vid figcaption{padding:10px 12px;display:grid;gap:6px;font-size:13px}
+.cap{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+.cap span{color:var(--muted)}
+.vid.empty{place-items:center;min-height:120px;color:var(--muted)}
+.legend{font-size:13px;color:var(--muted)}
+.steps{counter-reset:s;list-style:none;padding:0}
+.steps li{counter-increment:s;padding-left:30px;position:relative}
+.steps li::before{content:counter(s);position:absolute;left:0;top:2px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:var(--surface);font-size:12px;font-weight:700;display:grid;place-items:center}
+code{font-family:var(--mono);font-size:13px}
+</style>
+
+<div class="wrap">
+<header class="prose" style="display:grid;gap:12px">
+  <div class="eyebrow">codesign · 2026-11-10 · 시범 평가</div>
+  <h1>10k 데이터로 학습한 TT, 세 가지 task 시범 평가</h1>
+  <p class="lede">학습된 TT로 형상(E)·상태(S)·행동(A)을 생성하고, 그 결과를 MuJoCo 물리 시뮬레이터에서 10초 동안 그대로 실행했다. 같은 조건으로 이전 TT 두 버전과 비교했다.</p>
+</header>
+
+<section>
+  <div class="verdict prose">
+    <p><b>결론: 어느 모델·어느 방법도 task를 성공하지 못했다.</b></p>
+    <ul>
+      <li>새 10k TT(H64)가 만든 후보 18개는 <b>모두 1.4~4.3초 안에 넘어졌다.</b></li>
+      <li>이전 V7은 절반 이상 10초를 버텼지만 거의 제자리에 서 있었다 (진행 1 m 미만). V16은 모두 넘어졌다.</li>
+      <li>Reward gradient와 RL 모두 보정 없음보다 나아지지 않았다. 슬라럼 게이트는 모든 경우 0/9.</li>
+      <li>이번 실행은 후보 2개 · 시드 1개 · RL 업데이트 2번의 작은 시범이다. 방법 간 우열을 판단할 규모는 아니다.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>무엇을 했나</h2>
+  <ol class="steps prose">
+    <li>학습이 끝난 TT의 가중치는 고정한다. TT는 노이즈에서 시작해 형상 E, 10초 동안의 상태 S, 관절 목표각 A를 함께 생성한다.</li>
+    <li>생성 방법은 세 가지다. <b>보정 없음</b>은 TT가 그냥 생성한다. <b>Reward gradient</b>는 생성 중 task 보상의 기울기로 E·S·A를 밀어준다. <b>RL (PPO)</b>은 생성 과정에 더할 보정값을 실제 MuJoCo 보상으로 학습한다.</li>
+    <li>생성된 E로 로봇을 만들고 A를 MuJoCo에서 매 스텝 보정 없이 그대로 실행한다 (open-loop). 점수는 TT 예측이 아니라 이 실제 실행 결과로만 매긴다.</li>
+  </ol>
+  <div class="tbl"><table>
+    <thead><tr><th scope="col">고정 조건</th><th scope="col">값</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">물리</th><td>MuJoCo CPU · 평지 · 제어 0.02초 · 적분 0.005초 · PD kp=30 · 토크 한계 ±33.5 N·m · 10초 open-loop</td></tr>
+      <tr><th scope="row">평가 규모</th><td>모델 3 × task 3 × 방법 3 × 후보 2 = 54회 실행 · 평가 시드 20000 하나</td></tr>
+      <tr><th scope="row">생성</th><td>DDIM 5 스텝 · gradient scale 0 / 1</td></tr>
+      <tr><th scope="row">RL</th><td>에피소드마다 보정 벡터 하나를 고르는 PPO · 업데이트 2번 × rollout 4개 (학습이 거의 안 된 상태)</td></tr>
+      <tr><th scope="row">영상</th><td>MuJoCo 3D 렌더링 (GPU EGL). 저장된 E·A를 다시 실행해 저장된 물리 결과와 일치하는지 확인한 뒤 녹화. 왼쪽: 로봇을 따라가는 카메라 · 오른쪽: 트랙 전체. 초록 경로 중심선 · 흰색 차선 · 노란 게이트 · 빨간 기둥 · 주황 로봇이 실제로 간 길 · 파랑 TT가 예측한 길</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tbl"><table>
+    <thead><tr><th scope="col">비교 모델</th><th scope="col">학습 조건</th></tr></thead>
+    <tbody><tr><th scope='row'>10k TT (이번 모델)</th><td>V100 · 10k 데이터 · 200 형상 · H64 · EMA · 25k step</td></tr><tr><th scope='row'>V7 E-swap (이전)</th><td>pipeline_v1 · H32 · 60k step</td></tr><tr><th scope='row'>V16 Twin (이전)</th><td>pipeline_v1 · H32 · 60k step</td></tr></tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>결과 한눈에</h2>
+  <p class="legend">칸마다 후보 6개(방법 3 × 후보 2) 중 10초를 넘어지지 않고 버틴 수, 가장 오래 버틴 시간, 목표 방향으로 가장 많이 간 거리.</p>
+  <div class="tbl"><table>
+    <thead><tr><th scope="col">모델</th><th scope='col'>원형 트랙</th><th scope='col'>기둥 슬라럼</th><th scope='col'>직진</th></tr></thead>
+    <tbody><tr><th scope="row">10k TT (이번 모델)</th><td><span class="pill bad">0/6 생존</span><div class="sub">최대 3.1초 · 최고 진행 +0.07 m · 성공 0</div></td><td><span class="pill bad">0/6 생존</span><div class="sub">최대 4.3초 · 최고 진행 +0.03 m · 성공 0</div></td><td><span class="pill bad">0/6 생존</span><div class="sub">최대 2.9초 · 최고 진행 -0.05 m · 성공 0</div></td></tr><tr><th scope="row">V7 E-swap (이전)</th><td><span class="pill mid">4/6 생존</span><div class="sub">최대 10.0초 · 최고 진행 +0.09 m · 성공 0</div></td><td><span class="pill mid">3/6 생존</span><div class="sub">최대 10.0초 · 최고 진행 +0.12 m · 성공 0</div></td><td><span class="pill mid">4/6 생존</span><div class="sub">최대 10.0초 · 최고 진행 +0.39 m · 성공 0</div></td></tr><tr><th scope="row">V16 Twin (이전)</th><td><span class="pill bad">0/6 생존</span><div class="sub">최대 5.2초 · 최고 진행 +0.34 m · 성공 0</div></td><td><span class="pill bad">0/6 생존</span><div class="sub">최대 5.2초 · 최고 진행 +0.79 m · 성공 0</div></td><td><span class="pill bad">0/6 생존</span><div class="sub">최대 5.2초 · 최고 진행 +0.79 m · 성공 0</div></td></tr></tbody>
+  </table></div>
+  <h3>방법별 (세 task 합계)</h3>
+  <div class="tbl"><table>
+    <thead><tr><th scope="col">방법</th><th scope='col'>10k TT (이번 모델)</th><th scope='col'>V7 E-swap (이전)</th><th scope='col'>V16 Twin (이전)</th></tr></thead>
+    <tbody><tr><th scope="row">보정 없음</th><td class="num">0/6 · 평균 2.6초</td><td class="num">6/6 · 평균 10.0초</td><td class="num">0/6 · 평균 3.7초</td></tr><tr><th scope="row">Reward gradient</th><td class="num">0/6 · 평균 2.6초</td><td class="num">1/6 · 평균 5.1초</td><td class="num">0/6 · 평균 1.4초</td></tr><tr><th scope="row">RL (PPO)</th><td class="num">0/6 · 평균 2.6초</td><td class="num">4/6 · 평균 8.9초</td><td class="num">0/6 · 평균 3.6초</td></tr></tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>영상</h2>
+  <p class="legend prose">각 칸은 같은 조건의 후보 2개 중 실제 보상이 더 높은 후보다. 넘어진 뒤에는 마지막 화면을 멈춰서 보여준다.</p>
+  <section class="task"><h3>원형 트랙 <small>반경 1 m 원을 반시계로 진행</small></h3><div class="grid"><figure class="vid"><video src="videos/tasks/H64_circle_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>보정 없음</span></div><div class="cap"><span class="pill bad">2.2초에 넘어짐</span><span class="num">진행 -0.05 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/H64_circle_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">3.1초에 넘어짐</span><span class="num">진행 +0.07 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/H64_circle_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill bad">2.2초에 넘어짐</span><span class="num">진행 -0.05 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_circle_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>보정 없음</span></div><div class="cap"><span class="pill mid">10초 완주</span><span class="num">진행 -0.12 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_circle_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">6.6초에 넘어짐</span><span class="num">진행 +0.09 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_circle_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill mid">10초 완주</span><span class="num">진행 -0.12 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_circle_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>보정 없음</span></div><div class="cap"><span class="pill bad">5.2초에 넘어짐</span><span class="num">진행 +0.33 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_circle_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">0.8초에 넘어짐</span><span class="num">진행 -0.04 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_circle_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill bad">5.0초에 넘어짐</span><span class="num">진행 +0.34 m</span></div></figcaption></figure></div></section><section class="task"><h3>기둥 슬라럼 <small>기둥 4개 사이 게이트 9개를 순서대로 통과</small></h3><div class="grid"><figure class="vid"><video src="videos/tasks/H64_zigzag_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>보정 없음</span></div><div class="cap"><span class="pill bad">2.9초에 넘어짐</span><span class="num">진행 -0.16 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/H64_zigzag_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">4.3초에 넘어짐</span><span class="num">진행 +0.03 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/H64_zigzag_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill bad">2.3초에 넘어짐</span><span class="num">진행 -0.35 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_zigzag_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>보정 없음</span></div><div class="cap"><span class="pill mid">10초 완주</span><span class="num">진행 +0.12 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_zigzag_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">7.1초에 넘어짐</span><span class="num">진행 +0.08 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_zigzag_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill mid">10초 완주</span><span class="num">진행 -1.02 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_zigzag_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>보정 없음</span></div><div class="cap"><span class="pill bad">5.2초에 넘어짐</span><span class="num">진행 +0.79 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_zigzag_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">0.9초에 넘어짐</span><span class="num">진행 +0.35 m · 게이트 0/9</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_zigzag_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill bad">4.7초에 넘어짐</span><span class="num">진행 +0.73 m · 게이트 0/9</span></div></figcaption></figure></div></section><section class="task"><h3>직진 <small>+X 방향으로 최대한 멀리</small></h3><div class="grid"><figure class="vid"><video src="videos/tasks/H64_straight_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>보정 없음</span></div><div class="cap"><span class="pill bad">2.2초에 넘어짐</span><span class="num">진행 -0.38 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/H64_straight_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">1.5초에 넘어짐</span><span class="num">진행 -0.05 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/H64_straight_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>10k TT (이번 모델)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill bad">2.2초에 넘어짐</span><span class="num">진행 -0.38 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_straight_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>보정 없음</span></div><div class="cap"><span class="pill mid">10초 완주</span><span class="num">진행 -1.02 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_straight_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>Reward gradient</span></div><div class="cap"><span class="pill mid">10초 완주</span><span class="num">진행 +0.22 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V7_straight_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V7 E-swap (이전)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill mid">10초 완주</span><span class="num">진행 -1.02 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_straight_gradient_scale_0.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>보정 없음</span></div><div class="cap"><span class="pill bad">2.1초에 넘어짐</span><span class="num">진행 +0.32 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_straight_gradient_scale_1.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>Reward gradient</span></div><div class="cap"><span class="pill bad">1.9초에 넘어짐</span><span class="num">진행 +0.30 m</span></div></figcaption></figure><figure class="vid"><video src="videos/tasks/V16_straight_rl_ppo.mp4" controls muted loop playsinline preload="metadata"></video>
+<figcaption><div class="cap"><b>V16 Twin (이전)</b><span>RL (PPO)</span></div><div class="cap"><span class="pill bad">2.3초에 넘어짐</span><span class="num">진행 +0.31 m</span></div></figcaption></figure></div></section>
+</section>
+
+<section>
+  <h2>왜 넘어지나</h2>
+  <div class="prose" style="display:grid;gap:12px">
+    <p>TT가 예측한 움직임과 실제 물리 실행이 다르다. TT 예측과 실제 몸통 위치 차이, 관절각 차이는 아래와 같다 (넘어지기 전까지 평균).</p>
+  </div>
+  <div class="tbl"><table>
+    <thead><tr><th scope="col">모델</th><th scope="col">몸통 위치 차이</th><th scope="col">관절각 차이</th><th scope="col">평균 버틴 시간</th></tr></thead>
+    <tbody><tr><th scope="row">10k TT (이번 모델)</th><td class="num">19.2 cm</td><td class="num">9.7°</td><td class="num">2.6초</td></tr><tr><th scope="row">V7 E-swap (이전)</th><td class="num">46.1 cm</td><td class="num">6.7°</td><td class="num">8.0초</td></tr><tr><th scope="row">V16 Twin (이전)</th><td class="num">53.0 cm</td><td class="num">8.8°</td><td class="num">2.9초</td></tr></tbody>
+  </table></div>
+  <ul class="prose">
+    <li>H64의 위치 차이가 가장 작아 보이지만 평균 2~3초만 버텼기 때문이다. 짧은 구간만 비교한 값이다.</li>
+    <li>V100에서 따로 잰 H64 예측 오차도 같은 방향이다. 관절각은 처음 자세를 유지한다고 가정한 기준보다 3배 정확하지만, 10초 뒤 몸통 위치는 평균 96 cm 어긋나 기준보다 나쁘다.</li>
+    <li>10k 학습 데이터 40,000 에피소드 중 넘어짐 기록이 25,588번이다. TT가 넘어지는 동작을 많이 배웠을 가능성이 있다 (아직 확인하지 않음).</li>
+    <li>V7이 오래 버틴 것은 거의 움직이지 않았기 때문이다. task를 수행하며 버틴 것이 아니다.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>다음 단계 후보</h2>
+  <ul class="prose">
+    <li>학습 데이터에서 넘어지지 않은 에피소드를 H64가 얼마나 잘 재현하는지 먼저 확인한다. 재현이 안 되면 guidance나 RL로는 해결되지 않는다.</li>
+    <li>넘어짐 비율을 형상별·모션별로 나눠 본다. 넘어진 구간을 빼고 다시 학습할지 판단한다.</li>
+    <li>규모를 키운 비교(후보 4개 · 시드 3개 · RL 업데이트 40번)는 위 확인 뒤에 돌린다.</li>
+  </ul>
+  <p class="legend">원본 결과: <code>codesign_v100/runs/v100_mujoco_10k/tt_version_comparison/</code> · H64 단독 시범: <code>task_gradient_vs_ppo_pilot_v1/</code> (같은 결론, 18/18 넘어짐)</p>
+</section>
+</div>

@@ -64,3 +64,31 @@ runs/**/queue.lock
 
 # Shared PPO orchestration mutex, not training data.
 runs/**/runner.lock
+
+# 2026-11-10 폴더 정리 (legacy/ · code/ · check/): 코드·문서만 추적, 데이터·체크포인트·영상은 제외
+*.npz
+*.npy
+*.pt
+*.pth
+*.pkl
+*.msgpack
+*.mp4
+*.gif
+*.whl
+*.tar.gz
+*.zarr
+*.h5
+*.ckpt
+*.partial.*
+**/checkpoints/
+**/stages/*/files/checkpoints/
+legacy/runs/**/rollouts/
+legacy/runs/**/references/
+legacy/runs/**/episodes/
+legacy/runs/**/data_track/
+legacy/portability/
+legacy/archive/
+legacy/jax_cache/
+legacy/.runtime/
+check/slide/runs/
+check/slide/references/
