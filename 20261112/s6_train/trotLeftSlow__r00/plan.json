@@ -1,0 +1,255 @@
+{
+ "version": 1,
+ "kind": "ref_ppo",
+ "reference": "trotLeftSlow__r00",
+ "motion_count": 1,
+ "config": {
+  "version": 1,
+  "seed": 0,
+  "hours": 48,
+  "phase_hours": {
+   "prepare": 8,
+   "train": 20,
+   "collect": 18,
+   "verify": 2
+  },
+  "train_designs": 200,
+  "eval_designs": 20,
+  "source_motions": 10000,
+  "morphologies_per_motion": 2,
+  "rollouts_per_pair": 2,
+  "resident_designs": 9,
+  "num_envs": 1024,
+  "batch_size": 1024,
+  "rollout_batch": 256,
+  "train_transitions": 5010000,
+  "unroll_length": 24,
+  "num_minibatches": 4,
+  "num_updates_per_batch": 8,
+  "learning_rate": 0.001,
+  "entropy_cost": 0.01,
+  "checkpoint_steps": 1000000,
+  "control_hz": 30,
+  "physics_hz": 240,
+  "pool_fraction": 0.6,
+  "reserve_disk_gb": 20,
+  "train_sweeps": 2,
+  "prepare_workers": 2,
+  "hidden": [
+   256,
+   128,
+   64
+  ],
+  "penalty_foot_slip": 0.0,
+  "metrics_steps": 2000000,
+  "max_episode_length": 1000,
+  "penalty_termination": 0.0,
+  "reward_clip_positive": true
+ },
+ "topology": "00000011",
+ "designs": [
+  {
+   "design": "G_l-20_b-20",
+   "E": [
+    0.5,
+    0.5,
+    0.35,
+    0.7,
+    0.7,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.26667,
+    0.26667,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l-20_b+00",
+   "E": [
+    0.5,
+    0.5,
+    0.5,
+    0.7,
+    0.7,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.26667,
+    0.26667,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l-20_b+20",
+   "E": [
+    0.5,
+    0.5,
+    0.65,
+    0.7,
+    0.7,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.26667,
+    0.26667,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l+00_b-20",
+   "E": [
+    0.5,
+    0.5,
+    0.35,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l+00_b+00",
+   "E": [
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l+00_b+20",
+   "E": [
+    0.5,
+    0.5,
+    0.65,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l+20_b-20",
+   "E": [
+    0.5,
+    0.5,
+    0.35,
+    0.3,
+    0.3,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.73333,
+    0.73333,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l+20_b+00",
+   "E": [
+    0.5,
+    0.5,
+    0.5,
+    0.3,
+    0.3,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.73333,
+    0.73333,
+    0.5,
+    0.5
+   ]
+  },
+  {
+   "design": "G_l+20_b+20",
+   "E": [
+    0.5,
+    0.5,
+    0.65,
+    0.3,
+    0.3,
+    0.5,
+    0.5,
+    0.5,
+    0.5,
+    0.73333,
+    0.73333,
+    0.5,
+    0.5
+   ]
+  }
+ ],
+ "eval_designs": [],
+ "assignments": {
+  "G_l-20_b-20": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l-20_b+00": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l-20_b+20": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l+00_b-20": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l+00_b+00": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l+00_b+20": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l+20_b-20": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l+20_b+00": [
+   "trotLeftSlow__r00"
+  ],
+  "G_l+20_b+20": [
+   "trotLeftSlow__r00"
+  ]
+ },
+ "eval_assignments": {
+  "G_l-20_b-20": [],
+  "G_l-20_b+00": [],
+  "G_l-20_b+20": [],
+  "G_l+00_b-20": [],
+  "G_l+00_b+00": [],
+  "G_l+00_b+20": [],
+  "G_l+20_b-20": [],
+  "G_l+20_b+00": [],
+  "G_l+20_b+20": []
+ }
+}
