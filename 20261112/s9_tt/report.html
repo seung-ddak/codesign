@@ -1,0 +1,53 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>9 단계: 생성 모델 (TT) 학습</title><style>:root{--bg:#f7f7f5;--panel:#fff;--fg:#1c1c1a;--muted:#62615c;--line:#dedcd6;--bad:#fde8e8;--good:#e8f5e9}
+@media (prefers-color-scheme: dark){:root{--bg:#16171a;--panel:#1f2024;--fg:#ececea;--muted:#a3a29c;--line:#34353a;--bad:#3a1f1f;--good:#1f3324}}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 system-ui,"Noto Sans KR",sans-serif}
+main{max-width:1400px;margin:0 auto;padding:16px}
+h1{font-size:21px;margin:0 0 6px} h2{font-size:17px;margin:22px 0 8px;border-bottom:1px solid var(--line);padding-bottom:4px}
+.muted{color:var(--muted)} .wrap{overflow-x:auto}
+table{border-collapse:collapse;background:var(--panel);font-variant-numeric:tabular-nums}
+th,td{padding:5px 10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap} th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-size:12px} tr.bad td{background:var(--bad)} tr.good td{background:var(--good)}
+img{max-width:100%;background:#fff;border-radius:6px} video{width:100%;max-width:640px;border-radius:6px;background:#000}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:12px} figure{margin:0} figcaption{color:var(--muted);font-size:12px}
+ul{margin:4px 0}
+.flt{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;border-bottom:1px solid var(--line)}
+.flt select{font:inherit;padding:4px 8px;margin-left:6px;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px}</style></head><body><main><h1>9 단계: 생성 모델 (TT) 학습</h1><p class="muted">생성 2026-11-15 11:26:14</p><h2>고정 환경·조건</h2><div class="wrap"><table><thead><tr><th>항목</th><th>값</th></tr></thead><tbody><tr><td>학습기</td><td>code/tt_dynamics/train_tt.py</td></tr><tr><td>데이터</td><td>8 단계 rollout 120 파일</td></tr><tr><td>인자</td><td>--horizon 64 --steps 20000 --batch 32 --norm minmax --clip 1 --sampler ddim</td></tr></tbody></table></div><h2>그림</h2><p>그림 없음</p><h2>학습 로그 마지막 40 줄</h2><pre>{
+ "t1": {
+  "n": 64,
+  "joint_rmse_deg": 3.915168285369873,
+  "pos_err_cm": 3.3875644207000732
+ },
+ "t10": {
+  "n": 64,
+  "joint_rmse_deg": 5.459918022155762,
+  "pos_err_cm": 10.143455505371094
+ },
+ "t50": {
+  "n": 64,
+  "joint_rmse_deg": 7.954926013946533,
+  "pos_err_cm": 68.04122924804688
+ },
+ "t100": {
+  "n": 64,
+  "joint_rmse_deg": 9.253877639770508,
+  "pos_err_cm": 125.96435546875
+ },
+ "t250": {
+  "n": 63,
+  "joint_rmse_deg": 9.804726600646973,
+  "pos_err_cm": 291.04193115234375
+ },
+ "t499": {
+  "n": 34,
+  "joint_rmse_deg": 10.064452171325684,
+  "pos_err_cm": 422.0113220214844
+ },
+ "all": {
+  "joint_rmse_deg": 8.29505729675293,
+  "pos_err_cm": 224.64291381835938
+ },
+ "baseline_hold_s0_all": {
+  "joint_rmse_deg": 19.577224731445312,
+  "pos_err_cm": 150.69776916503906
+ }
+}</pre></main></body></html>
