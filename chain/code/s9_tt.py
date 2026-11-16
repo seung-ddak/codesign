@@ -13,8 +13,5 @@ def main(tt_args=DEFAULT_ARGS):
     cmd = [PY, '-u', str(ROOT / 'code/tt_dynamics/train_tt.py'), '--data', *data, '--out', str(OUT / 'tt'), *shlex.split(tt_args)]
     (OUT / 'command.txt').write_text(' '.join(cmd[:4]) + f' <{len(data)} files> ' + ' '.join(cmd[4 + len(data):]))
     log(f's9 TT 학습 시작 ({len(data)} 파일)'); run(cmd, OUT / 'train.log')
-    pngs = sorted((OUT / 'tt').glob('*.png')); tail = (OUT / 'train.log').read_text().splitlines()[-40:]
-    report(OUT / 'report.html', '9 단계: 생성 모델 (TT) 학습', [('그림', ''.join(img(p, p.name) for p in pngs) or '<p>그림 없음</p>'),
-                                                              ('학습 로그 마지막 40 줄', '<pre>' + '\n'.join(tail) + '</pre>')],
-           [('학습기', 'code/tt_dynamics/train_tt.py'), ('데이터', f'8 단계 rollout {len(data)} 파일'), ('인자', tt_args)])
+    import s9_report; s9_report.main(tt_args)
     return OUT / 'tt'

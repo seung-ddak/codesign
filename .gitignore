@@ -72,7 +72,6 @@ runs/**/runner.lock
 *.pth
 *.pkl
 *.msgpack
-*.mp4
 *.gif
 *.whl
 *.tar.gz
@@ -94,6 +93,9 @@ check/slide/runs/
 check/slide/references/
 
 # 체인·ref_ppo 대용량 산출물 (보고서는 reports 브랜치)
-chain/runs/
+chain/runs/**
+!chain/runs/**/
+!chain/runs/**/*.mp4
+!chain/runs/**/report.html
+chain/runs/_old_*/
 ref_ppo/_data/
-*.mp4
