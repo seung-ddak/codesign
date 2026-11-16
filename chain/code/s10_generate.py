@@ -32,8 +32,10 @@ def to50(x, m):
 
 
 def videos(task, rows):
-    import imageio
-    from render_tt import render_tt
+    """과제·유도마다 보상 최고 후보 1 개: 과제 환경 한 장면에 MuJoCo 실제 (초록) · TT 예측 (주황 반투명) 겹침 (11-17 사용자 요청)."""
+    sys.path.insert(0, str(ROOT / 'code/tt_dynamics'))
+    from render_tt import render_task_overlay
+    from generate_task_mujoco import TASKS as TK
     out = []
     for sc, r in rows.items():
         ok = [x for x in r['rows'] if x['initial_valid'] and x['reward'] is not None]
@@ -42,17 +44,11 @@ def videos(task, rows):
         dst = OUT / 'videos' / f'{task}_{sc}_c{i}.mp4'; out.append((dst, b, sc))
         if dst.exists(): continue
         dst.parent.mkdir(parents=True, exist_ok=True)
-        z = np.load(OUT / task / f'{sc}.npz'); E = z['E'][i]; tmp = [dst.with_suffix(f'.{k}.mp4') for k in ('phys', 'pred')]
-        render_tt(s9_report.to_qpos(to50(z['mujoco'][i], z['valid'][i])), E, tmp[0], fell=b['fell'], title=f'MuJoCo replay · {task} · {sc}', sub='TT generated shape + actions')
-        render_tt(s9_report.to_qpos(to50(z['pred'][i], np.ones(len(z['pred'][i]), bool))), E, tmp[1], title=f'TT prediction · {task} · {sc}', sub='TT generated shape + actions')
-        from itertools import zip_longest
-        a, c = imageio.get_reader(str(tmp[0])), imageio.get_reader(str(tmp[1])); la = lc = None
-        with imageio.get_writer(str(dst), fps=a.get_meta_data()['fps'], codec='libx264', quality=7, macro_block_size=8) as w:
-            for fa, fc in zip_longest(a, c):  # 프레임을 한 장씩 (전부 메모리에 올리면 MemoryError, 11-17)
-                la = fa if fa is not None else la; lc = fc if fc is not None else lc; w.append_data(np.concatenate([la, lc], 1))
-        a.close(); c.close()
-        for f in tmp: f.unlink()
-        log(f's10 영상 {dst.name}')
+        z = np.load(OUT / task / f'{sc}.npz'); E = z['E'][i]
+        render_task_overlay(s9_report.to_qpos(to50(z['mujoco'][i], z['valid'][i])),
+                            s9_report.to_qpos(to50(z['pred'][i], np.ones(len(z['pred'][i]), bool))), E, TK[task](), dst,
+                            title=f'{task} · {sc} · candidate {i} · reward {b["reward"]:.2f}', fell_t=b['valid_seconds'] if b['fell'] else None)
+        log(f'영상 {dst.name}')
     return out
 
 
@@ -67,7 +63,7 @@ def main():
                              f"{x['progress']:.2f} {x['progress_unit']}" if x.get('progress') is not None else '-',
                              '성공' if x['task_success'] else '', ' '.join(f'{v:.2f}' for v in x['morphology'])))
         for dst, b, sc in videos(task, S):
-            vh += video(f'videos/{dst.name}', f"{TASKS[task]} · {sc} · 후보 {b['candidate']} · 보상 {b['reward']:.3f} · 왼쪽 MuJoCo 재생 / 오른쪽 TT 예측", tag=task)
+            vh += video(f'videos/{dst.name}', f"{TASKS[task]} · {sc} · 후보 {b['candidate']} · 보상 {b['reward']:.3f} · 한 장면: 초록 MuJoCo 실제 / 주황 TT 예측", tag=task)
     report(OUT / 'report.html', '10 단계: TT 로 task 형상·행동 생성', [
         ('영상 (과제·유도마다 보상 최고 후보)', f'<div class="grid">{vh}</div>'),
         ('후보별 결과', table(['과제', '유도', '후보', 'MuJoCo 재생', '생존 (s)', '보상', '진행', '과제 성공', '형상 E (13)'], rows, filter_col=0))],
