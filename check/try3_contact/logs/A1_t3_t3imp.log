@@ -1,0 +1,105 @@
+ERROR:jax._src.xla_bridge:Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda12.initialize()
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 508, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 370, in initialize
+    _check_cuda_versions(raise_on_first_error = True)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 274, in _check_cuda_versions
+    for d in range(cuda_versions.cuda_device_count())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: jaxlib/cuda/versions_helpers.cc:135: operation cuInit(0) failed: CUDA_ERROR_NO_DEVICE
+WARNING:jax._src.xla_bridge:An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+calm_06117|A 0.13474310059741287 3.9781928062438965
+calm_06117|D 0.1005260651997009 4.118915557861328
+calm_06117|E 0.10867156340156828 4.099725723266602
+calm_06117|F 0.10431586538676667 4.1422858238220215
+calm_00026|A 0.07881756349564795 3.2383170127868652
+calm_00026|D 0.0570183044311815 3.243032932281494
+calm_00026|E 0.05524175760947006 3.244809150695801
+calm_00026|F 0.05728060445450627 3.2399256229400635
+WARNING:absl:Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/pd_replay.py:106: UserWarning: Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+impratio: parent has 1, child has 100, keeping parent value
+cone: parent has 0, child has 1, keeping parent value
+  m = spec.compile()
+WARNING:absl:Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/A1_t3_t3imp/report.html
+check/try3_contact/code/A1_t3_t3imp.py", line 84, in <module>
+    main()
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/code/A1_t3_t3imp.py", line 36, in main
+    R.render(np.load(OUT / f'qpos_{M}_A.npy'), np.load(OUT / f'qpos_{M}_F.npy'), z['a1_qpos'], float(z['dt']), dst, res[f'{M}|A'], res[f'{M}|F'],
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/code/run.py", line 25, in render
+    m = rs.joint_model(np.asarray(E, float)); d = mujoco.MjData(m); d2 = mujoco.MjData(m)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/check/slide/code/render_slide.py", line 31, in joint_model
+    m = build_model('00000011', uniforms=E, flat_ground=True, scene_fn=attach)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/pd_replay.py", line 65, in build_model
+    from t2.env.mj_utils import set_up_default_scene
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/env/mj_utils.py", line 7, in <module>
+    from dm_control import mjcf
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/dm_control/mjcf/__init__.py", line 18, in <module>
+    from dm_control.mjcf.attribute import Asset
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/dm_control/mjcf/attribute.py", line 28, in <module>
+    from dm_control.mujoco.wrapper import util
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/dm_control/mujoco/__init__.py", line 18, in <module>
+    from dm_control.mujoco.engine import action_spec
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/dm_control/mujoco/engine.py", line 41, in <module>
+    from dm_control import _render
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/dm_control/_render/__init__.py", line 90, in <module>
+    Renderer = import_func()
+               ^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/dm_control/_render/__init__.py", line 46, in _import_osmesa
+    from dm_control._render.pyopengl.osmesa_renderer import OSMesaContext
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/dm_control/_render/pyopengl/osmesa_renderer.py", line 35, in <module>
+    from OpenGL import GL
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/OpenGL/GL/__init__.py", line 4, in <module>
+    from OpenGL.GL.VERSION.GL_1_1 import *
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/OpenGL/GL/VERSION/GL_1_1.py", line 14, in <module>
+    from OpenGL.raw.GL.VERSION.GL_1_1 import *
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/OpenGL/raw/GL/VERSION/GL_1_1.py", line 7, in <module>
+    from OpenGL.raw.GL import _errors
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/OpenGL/raw/GL/_errors.py", line 4, in <module>
+    _error_checker = _ErrorChecker( _p, _p.GL.glGetError )
+                                        ^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'glGetError'
+WARNING:absl:Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/pd_replay.py:106: UserWarning: Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+impratio: parent has 1, child has 100, keeping parent value
+cone: parent has 0, child has 1, keeping parent value
+  m = spec.compile()
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/code/A1_t3_t3imp.py", line 84, in <module>
+    main()
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/code/A1_t3_t3imp.py", line 36, in main
+    R.render(np.load(OUT / f'qpos_{M}_A.npy'), np.load(OUT / f'qpos_{M}_F.npy'), z['a1_qpos'], float(z['dt']), dst, res[f'{M}|A'], res[f'{M}|F'],
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/code/run.py", line 59, in render
+    rm.encode_frames(path, frames(), width=W, height=H, fps=rs.FPS)
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/render_task_videos.py", line 66, in encode_frames
+    raise RuntimeError(f"ffmpeg failed ({rc}): {error.decode(errors='replace')[-2000:]}")
+RuntimeError: ffmpeg failed (254): [mp4 @ 0x3ec05f40] Unable to re-open /home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/A1_t3_t3imp/videos/calm_00026_A1_try3_imp1_imp100.partial.mp4 output file for shifting data
+[out#0/mp4 @ 0x3ec05dc0] Error writing trailer: No such file or directory
+
+/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/A1_t3_t3imp/report.html
+WARNING:absl:Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/pd_replay.py:106: UserWarning: Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+impratio: parent has 1, child has 100, keeping parent value
+cone: parent has 0, child has 1, keeping parent value
+  m = spec.compile()
+WARNING:absl:Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/A1_t3_t3imp/report.html
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+calm_06117|s1 0.10851196866364506 4.07889461517334 98.68450927734375
+calm_06117|s2 0.10083143627467495 4.137012958526611 98.31795501708984
+calm_06117|s3 0.10795186335124851 4.0993971824646 98.43384552001953
+calm_06117|s4 0.11188675974403824 4.1910529136657715 98.57006072998047
+calm_06117|s5 0.10827194521217239 4.195964813232422 98.15386199951172
+calm_06117|s6 0.10036514749758775 4.036839008331299 97.78994750976562
+calm_06117|s7 0.09777315335354828 4.049463748931885 97.9871826171875
+calm_06117|s8 0.10077679601506548 4.074449062347412 98.15709686279297
+calm_06117|s9 0.10270120772804661 4.067146301269531 97.82465362548828
+calm_06117|s10 0.09969212723037871 4.115787029266357 97.74971771240234
+/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/A1_t3_t3imp/report.html

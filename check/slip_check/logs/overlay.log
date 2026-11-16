@@ -1,0 +1,92 @@
+ERROR:jax._src.xla_bridge:Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda12.initialize()
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 508, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 370, in initialize
+    _check_cuda_versions(raise_on_first_error = True)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 274, in _check_cuda_versions
+    for d in range(cuda_versions.cuda_device_count())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: jaxlib/cuda/versions_helpers.cc:135: operation cuInit(0) failed: CUDA_ERROR_NO_DEVICE
+WARNING:jax._src.xla_bridge:An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/subprocess.py:1885: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  self.pid = _fork_exec(
+E0 squat__r00 D 0.00906334379747802 0.0020318420405462676
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+E0 squat__r00 E 0.00906334379747802 0.0017120162544792385
+E0 squat__r00 F 0.00906334379747802 0.0016512532156318731
+E0 walkForwardSlow__r00 D 0.036188974686063205 0.02082922412053924
+E0 walkForwardSlow__r00 E 0.036188974686063205 0.02037225865590147
+E0 walkForwardSlow__r00 F 0.036188974686063205 0.020049741778450595
+E0 trotForwardFast__r00 D 0.12256032392747175 0.08929160341065794
+E0 trotForwardFast__r00 E 0.12256032392747175 0.08876004930841991
+E0 trotForwardFast__r00 F 0.12256032392747175 0.08858108207013296
+E0 trotCCWSlow__r00 D 0.10914373173109855 0.09198735497046732
+E0 trotCCWSlow__r00 E 0.10914373173109855 0.091430911300383
+E0 trotCCWSlow__r00 F 0.10914373173109855 0.09365302846681704
+E0 walkBackwardSlow__r00 D 0.052814185011581735 0.036266586853274066
+E0 walkBackwardSlow__r00 E 0.052814185011581735 0.03577847236277758
+E0 walkBackwardSlow__r00 F 0.052814185011581735 0.03565984858901874
+E1 squat__r00 D 3.384179804541339 1.033398262984448
+E1 squat__r00 E 3.384179804541339 1.3063179559178235
+E1 squat__r00 F 3.384179804541339 1.2780921689789686
+E1 walkForwardSlow__r00 D 0.026001112164185786 0.013726488571813538
+E1 walkForwardSlow__r00 E 0.026001112164185786 0.013396977077403473
+E1 walkForwardSlow__r00 F 0.026001112164185786 0.013318018934216818
+E1 trotForwardFast__r00 D 0.09289877618789656 0.06279568352647644
+E1 trotForwardFast__r00 E 0.09289877618789656 0.06225350652202507
+E1 trotForwardFast__r00 F 0.09289877618789656 0.06207696184103391
+E1 trotCCWSlow__r00 D 0.0906960374864138 0.06869600148349767
+E1 trotCCWSlow__r00 E 0.0906960374864138 0.06841702256867378
+E1 trotCCWSlow__r00 F 0.0906960374864138 0.06833194541746093
+E1 walkBackwardSlow__r00 D 3.186081885901896 4.899009814661529
+E1 walkBackwardSlow__r00 E 3.186081885901896 4.63127193022496
+E1 walkBackwardSlow__r00 F 3.186081885901896 4.403371302196931
+E2 squat__r00 D 0.01041306803834592 0.0029587035442250873
+E2 squat__r00 E 0.01041306803834592 0.0027586638632396358
+E2 squat__r00 F 0.01041306803834592 0.0026914848633410714
+E2 walkForwardSlow__r00 D 0.04102084835791782 0.02145003753116186
+E2 walkForwardSlow__r00 E 0.04102084835791782 0.020532324414932003
+E2 walkForwardSlow__r00 F 0.04102084835791782 0.020361185566140323
+E2 trotForwardFast__r00 D 0.1414936319502509 0.09734721471849096
+E2 trotForwardFast__r00 E 0.1414936319502509 0.09647608857347863
+E2 trotForwardFast__r00 F 0.1414936319502509 0.09795717281345738
+E2 trotCCWSlow__r00 D 0.09774428515419645 0.07719792582106888
+E2 trotCCWSlow__r00 E 0.09774428515419645 0.07675781584234066
+E2 trotCCWSlow__r00 F 0.09774428515419645 0.07663720837443067
+E2 walkBackwardSlow__r00 D 0.07840321902198288 0.06653571945058487
+E2 walkBackwardSlow__r00 E 0.07840321902198288 0.06633056395516378
+E2 walkBackwardSlow__r00 F 0.07840321902198288 0.06624506837725144
+E3 squat__r00 D 0.00788769446655151 0.001737085411290775
+E3 squat__r00 E 0.00788769446655151 0.0014994739459731317
+E3 squat__r00 F 0.00788769446655151 0.0014583932806635123
+E3 walkForwardSlow__r00 D 0.030854362422826093 0.017922076092993663
+E3 walkForwardSlow__r00 E 0.030854362422826093 0.01754306904674692
+E3 walkForwardSlow__r00 F 0.030854362422826093 0.017676850278997316
+E3 trotForwardFast__r00 D 0.11349301865663941 0.0755208448475855
+E3 trotForwardFast__r00 E 0.11349301865663941 0.07495483181821992
+E3 trotForwardFast__r00 F 0.11349301865663941 0.07482562544271538
+E3 trotCCWSlow__r00 D 0.09616438874470522 0.0729217579808393
+E3 trotCCWSlow__r00 E 0.09616438874470522 0.07245359778700858
+E3 trotCCWSlow__r00 F 0.09616438874470522 0.07233074557982748
+E3 walkBackwardSlow__r00 D 0.045957851805447314 0.028455897268144233
+E3 walkBackwardSlow__r00 E 0.045957851805447314 0.027632988789804965
+E3 walkBackwardSlow__r00 F 0.045957851805447314 0.02753452795678114
+E4 squat__r00 D 0.007047303955591068 0.0017340166314385808
+E4 squat__r00 E 0.007047303955591068 0.0015258911922394719
+E4 squat__r00 F 0.007047303955591068 0.0014802599237831373
+E4 walkForwardSlow__r00 D 0.04243451119483869 0.02398022762763953
+E4 walkForwardSlow__r00 E 0.04243451119483869 0.023271295856828522
+E4 walkForwardSlow__r00 F 0.04243451119483869 0.02315525618908755
+E4 trotForwardFast__r00 D 0.13093347778137382 0.10102734166436436
+E4 trotForwardFast__r00 E 0.13093347778137382 0.10045353002965351
+E4 trotForwardFast__r00 F 0.13093347778137382 0.10032000468657691
+E4 trotCCWSlow__r00 D 0.10281691899434184 0.07790742291809694
+E4 trotCCWSlow__r00 E 0.10281691899434184 0.07745838174362148
+E4 trotCCWSlow__r00 F 0.10281691899434184 0.07732097744225018
+E4 walkBackwardSlow__r00 D 0.05617197599631793 0.03713368515714057
+E4 walkBackwardSlow__r00 E 0.05617197599631793 0.036582350176244734
+E4 walkBackwardSlow__r00 F 0.05617197599631793 0.03639722685191667

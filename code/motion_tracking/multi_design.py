@@ -125,11 +125,11 @@ def make_bank(envs, uniforms, distinct_clips=False):
     if distinct_clips:
         if len({len(e.clip_start) for e in envs})!=1:raise ValueError('Resident designs need equal clip counts')
         # Fixed capacity prevents ragged banks; clip_end keeps padding out of RSI.
-        capacity=len(envs[0].clip_start)*601
+        # 형상마다 레퍼런스 총 길이가 다를 수 있다 (30 Hz / 50 Hz 모두). 가장 긴 형상에 맞춰 끝 값으로 채운다.
+        capacity=max(len(np.asarray(e.ref_qpos)) for e in envs)
         for env in envs:
             for name in ['ref_qpos','ref_qvel','ref_foot','ref_contact']+(['ref_latent'] if hasattr(env,'ref_latent') else []):
                 value=np.asarray(getattr(env,name))
-                if len(value)>capacity:raise ValueError('Reference exceeds 20-second 30Hz capacity')
                 setattr(env,name,jnp.asarray(np.pad(value,[(0,capacity-len(value))]+[(0,0)]*(value.ndim-1),mode='edge')))
     bank = {
         "base": models[0],

@@ -1,0 +1,21 @@
+ERROR:jax._src.xla_bridge:Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda12.initialize()
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 508, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 370, in initialize
+    _check_cuda_versions(raise_on_first_error = True)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 274, in _check_cuda_versions
+    for d in range(cuda_versions.cuda_device_count())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: jaxlib/cuda/versions_helpers.cc:135: operation cuInit(0) failed: CUDA_ERROR_NO_DEVICE
+WARNING:jax._src.xla_bridge:An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+WARNING:absl:Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/pd_replay.py:106: UserWarning: Attach conflict when attaching 'a1' to 'umi_on_legs_plus_plus', policy is 'warning'
+impratio: parent has 1, child has 100, keeping parent value
+cone: parent has 0, child has 1, keeping parent value
+  m = spec.compile()
+{'shape': 'E0', 'motion': 'calm_06117', 'config': 'try3, contact A', 'survived': True, 'seconds': 10.0, 'slip_center': 0.13364176079308596, 'slip_contact': 0.13474310059741287, 'joint_rmse_deg': 8.621471405029297, 'root_rmse_cm': 3.9781928062438965}
+{'shape': 'E0', 'motion': 'calm_06117', 'config': 'try1, contact D', 'survived': False, 'seconds': 5.33, 'slip_center': 0.28984259164857645, 'slip_contact': 0.3024631159565093, 'joint_rmse_deg': 27.645488739013672, 'root_rmse_cm': 48.58213424682617}
+/home/cgr-ugrad-2026/quad_ws/codesign/check/try3_contact/videos/calm_06117_A1_try3A_vs_try1D.mp4

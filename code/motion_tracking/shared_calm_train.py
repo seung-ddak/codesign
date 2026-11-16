@@ -17,10 +17,12 @@ def main():
     plan=read(out/'plan.json');c=plan['config'];names,evalnames=ready_batch(out,plan,a.stage)
     if not names:raise ValueError('No prepared training morphologies in batch')
     designs={r['design']:r['E'] for r in plan['designs']+plan['eval_designs']};root=out/'references';run=out/'stages'/f'{a.visit:03d}'/'files';run.mkdir(parents=True,exist_ok=True)
-    envcfg=OmegaConf.load(CODE/'config/env/a1_track.yaml');envcfg.update(dict(reference_dir=str(root),clips=[],ctrl_dt=1/30,sim_dt=1/240,max_episode_length=600,w_vel=1.,action_reference=c.get('action_reference','home'),termination_pose_consecutive_steps=15,obs_time_indices=[0,1,2,4,5],reset_qpos=0.,reset_qvel=0.,velocity_kick=[0.,0.]))
+    envcfg=OmegaConf.load(CODE/'config/env/a1_track.yaml');hz=c.get('control_hz',30);envcfg.update(dict(reference_dir=str(root),clips=[],ctrl_dt=1/hz,sim_dt=1/c.get('physics_hz',240),max_episode_length=c.get('max_episode_length',600),w_vel=1.,action_reference=c.get('action_reference','home'),termination_pose_consecutive_steps=15 if hz==30 else 25,obs_time_indices=[0,1,2,4,5] if hz==30 else list(envcfg.obs_time_indices),reset_qpos=0.,reset_qvel=0.,velocity_kick=[0.,0.]))
     envcfg.penalty_foot_slip=float(c.get('penalty_foot_slip',0.))  # 0 = 끔 (기존과 동일)
+    if 'penalty_termination' in c:envcfg.penalty_termination=float(c['penalty_termination'])  # 0 = 감점 없이 조기 종료만
+    if 'reward_clip_positive' in c:envcfg.reward_clip_positive=bool(c['reward_clip_positive'])  # step 보상 ≥ 0
     evalcfg=OmegaConf.create(OmegaConf.to_container(envcfg));evalcfg.update(dict(termination_pos_err_threshold=100.,termination_orn_err_threshold=100.,termination_pose_consecutive_steps=600,obs_noise={k:0. for k in envcfg.obs_noise}))
-    clips={k:['calm_%05d'%i for i in ids] for k,ids in plan['assignments'].items()}
+    clips={k:[i if isinstance(i,str) else 'calm_%05d'%i for i in ids] for k,ids in plan['assignments'].items()}  # 이름 (레퍼런스) 또는 CALM 번호
     model=functools.partial(build_model,choice=plan['topology'],torque_limit=33.5)
     env,bank=build_bank(names,envcfg,root,plan['topology'],designs,model,[0]*len(names),clips_by_design=clips)
     if evalnames:ev,evalbank=build_bank(evalnames,evalcfg,root,plan['topology'],designs,model,[0],clips_by_design=clips)
@@ -74,7 +76,7 @@ def main():
         save(out/'checkpoint.json',dict(step=int(step),path=str(path),stage=a.stage,time=time.time()))
     train(environment=env,eval_env=ev,num_timesteps=a.steps,num_envs=c['num_envs'],batch_size=c['batch_size'],unroll_length=c['unroll_length'],num_minibatches=c['num_minibatches'],num_updates_per_batch=c['num_updates_per_batch'],
           learning_rate=c['learning_rate'],entropy_cost=c['entropy_cost'],discounting=.99,gae_lambda=.95,clipping_epsilon=.2,max_grad_norm=1.,normalize_observations=True,
-          episode_length=600,num_evals=max(2,math.ceil(a.steps/c['checkpoint_steps'])+1),num_eval_envs=1,run_evals=False,network_factory=network,wrap_env_fn=wrap,
+          episode_length=c.get('max_episode_length',600),num_evals=max(2,math.ceil(a.steps/c['checkpoint_steps'])+1),num_eval_envs=1,run_evals=False,network_factory=network,wrap_env_fn=wrap,
           progress_fn=progress,policy_params_fn=checkpoint,full_state_path=str(out/'learner.msgpack'),max_walltime_seconds=a.seconds,
           log_training_metrics=True,training_metrics_steps=c.get('metrics_steps',98304),seed=c['seed']+a.visit)
     jax.effects_barrier();save(out/'training_coverage.json',coverage)

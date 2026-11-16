@@ -1,0 +1,37 @@
+{
+  "plan_sha256": "160db5c9a02f18e58899eb28170f12a94005963aee310d1a517a007311f20251",
+  "duplicate_distance": 0.03,
+  "source_sha256": {
+    "collect_calm_joystick.py": "96cf4834500d5cd1574243c39693dfbe99e4e5338cfebf46bd807d361bffdf71",
+    "calm_joystick.py": "6921e14a80090597d74d37a7e3d65ee3c4f5d597225b173a5ac02e97f8f72ddc"
+  },
+  "checkpoint_sha256": {
+    "highLevelPolicy.pth": "0a65e7223ed38a35c7cdfbd95f83b95c8324478ec34b3238b221a112937f9276",
+    "lowLevelController.pth": "a023eb35757086dde8386b8deebad0c095ba1d654794995845695b6bf58b1fbf"
+  },
+  "duration_seconds": [
+    10,
+    20
+  ],
+  "command": "joystick body-frame vx,vy,wz; facing=integrated wz, |facing-yaw|<=0.50",
+  "temporal_validation": {
+    "lag_seconds": 1,
+    "position_m": 0.03,
+    "heading_degrees": 5,
+    "height_m": 0.02,
+    "min_active_fraction": 0.5,
+    "max_idle_seconds": 1.5,
+    "pose_hold_allowed": false
+  },
+  "physics": {
+    "dt": 0.016666666666666666,
+    "substeps": 2,
+    "control_dt": 0.03333333333333333,
+    "kp": 40,
+    "kd": 1.5,
+    "effort": 15,
+    "self_collision": false
+  },
+  "stand_up_controller": "HLC zero-speed upright target; actual body rise required",
+  "data_kind": "CALM A1 PhysX rollout; not TT dynamics training data"
+}

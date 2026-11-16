@@ -31,8 +31,8 @@ def select_candidates(rows, selection):
     return [max(eligible, key=lambda i: rows[i]["reward"])]
 
 
-def encode_frames(path, frames, *, width, height, fps):
-    """Stream uncompressed RGB frames through ffmpeg; write MP4 atomically."""
+def encode_frames(path, frames, *, width, height, fps, crf=23, preset="veryfast"):
+    """Stream uncompressed RGB frames through ffmpeg; write MP4 atomically. crf/preset: 화질 (낮은 crf = 고화질)."""
     exe = shutil.which("ffmpeg")
     if not exe:
         try:
@@ -49,7 +49,7 @@ def encode_frames(path, frames, *, width, height, fps):
         exe, "-hide_banner", "-loglevel", "error", "-nostdin",
         "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{width}x{height}",
         "-r", str(fps), "-i", "pipe:0", "-an",
-        "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+        "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
         "-pix_fmt", "yuv420p", "-movflags", "+faststart",
         "-f", "mp4", str(tmp),
     ]

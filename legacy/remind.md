@@ -14,7 +14,7 @@
    - 기존 reference를 검증하고 사용할 모션만 선택한다.
 2. retargeting한 primitive motion을 추종하는 PPO expert를 학습한다.
    - 모션별 expert를 학습하고 여러 연속 morphology에서 추종하도록 한다.
-3. transition은 별도 정책 없이 고정된 primitive expert를 이어 붙여 데이터로 확보한다 (2026-10-17 결정).
+3. ~~transition은 별도 정책 없이 고정된 primitive expert를 이어 붙여 데이터로 확보한다 (2026-10-17 결정).~~ **대체됨**: 전환 구간은 CALM 모션 10,000 개를 PPO 로 학습한 정책의 rollout 으로 확보 (`ref_ppo/README.md`, 2026-11-12 사용자 확인).
    - TT는 dynamics를 배우고 최종 실행은 MJX open-loop이므로 expert hand-off 정책이 필요 없다. 필요한 것은 전환 구간 데이터다.
    - DeepMimic composite 방식: 10초 sequence 안에서 무작위 시점에 무작위 모션 expert로 넘긴다.
 4. 여러 morphology에서 primitive 및 transition expert를 MJX로 실행한다.
@@ -423,3 +423,9 @@
 - 형상 효과: 모션들은 같은 기본 동작을 다른 조합으로 이은 것이라, 형상 20 개 공유 정책 데이터로 학습 가능하다고 판단 (사용자). TT 학습 뒤 형상 민감도 검사로 확인.
 - 정책 합격 기준: 물리적으로 가능한 레퍼런스 95.3 % (try3/analysis/feasible_motions.json) 에서, 외란 없이 10 초 생존 ≥ 90 %, 관절 RMSE ≤ 5°, 몸통 위치 RMSE ≤ 3 cm. 레퍼런스 점검: 토크 상위 1 % 한계 초과 0.05 %, 외력 필요 프레임 5 % 초과 3.5 %, 발 위치 오차 10 mm 초과 3 %.
 - MJX ↔ CPU MuJoCo: CALM 512 에피소드로 통계 일치 확인 (생존 93.2 / 92.8 %, 방향 코사인 0.285 / 0.278) → 학습은 MJX, 수집·평가는 CPU MuJoCo.
+
+### 연속 실험 체인 결정 (2026-11-12, 사용자 결정, `chain/README.md`)
+- 목표 기준: 레퍼런스 100 % 추종이 아니라 다양한 형상·모션의 쓸 만한 rollout. 정책 통과 = 끝까지 생존 · 관절 RMSE ≤ 10° · 몸통 위치 RMSE ≤ 10 cm.
+- 다리 하한 = 짧은 다리 실험 (check/short_leg, -5~-25 %) 에서 squat·후진 중 하나라도 실패한 가장 작은 축소 비율의 바로 앞 단계. 형상별 lr 변경 금지.
+- CALM 재구성: trot 레퍼런스 10 개에 고르게 (각 1,000), 조이스틱 방식 (속도 무작위·조합 다양·부드러운 전환). 학습: 형상마다 레퍼런스 25 개 전부 + CALM 모션당 형상 2 개, 묶음별 공유 정책.
+- 단계 결과 = GitHub 이슈 댓글 + HTML 보고서 (reports 브랜치, 파일 링크). 결정 지점은 이슈 댓글 `승인 key=value` 로 체인이 이어감.

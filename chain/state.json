@@ -1,0 +1,43 @@
+{
+ "issue": 11,
+ "run_tag": "20261112",
+ "done": [
+  "wait_short_leg",
+  "s1",
+  "s4",
+  "s5",
+  "s6a",
+  "s6",
+  "s7",
+  "s8",
+  "s6c",
+  "retrain_s6",
+  "retrain_s7",
+  "retrain_s8",
+  "retrain_s6c",
+  "retrain_s6a",
+  "retrain",
+  "s9",
+  "s6c50"
+ ],
+ "values": {
+  "grid": {
+   "legs": "-20,0,20",
+   "bodies": "-20,0,20"
+  },
+  "collect": {
+   "n_shapes": 20,
+   "per_group": 100
+  },
+  "tt": {
+   "tt_args": "--horizon_64_--steps_20000_--batch_32_--norm_minmax_--clip_1_--sampler_ddim"
+  },
+  "after_s6c": {
+   "s6_steps": 100000000,
+   "s6a_steps": 80000000
+  }
+ },
+ "grid_comment": 6818549160,
+ "collect_comment": 6839081489,
+ "tt_comment": 6844070248
+}

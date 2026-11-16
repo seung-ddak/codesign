@@ -1,0 +1,40 @@
+ERROR:jax._src.xla_bridge:Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda12.initialize()
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 508, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 370, in initialize
+    _check_cuda_versions(raise_on_first_error = True)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 274, in _check_cuda_versions
+    for d in range(cuda_versions.cuda_device_count())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: jaxlib/cuda/versions_helpers.cc:135: operation cuInit(0) failed: CUDA_ERROR_NO_DEVICE
+WARNING:jax._src.xla_bridge:An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+/home/cgr-ugrad-2026/quad_ws/codesign/check/slide/eval_slide.py:55: DeprecationWarning: Accessing `contact` directly from `Data` is deprecated. Access it via `data._impl.contact` instead.
+  geom, dist = np.asarray(s.data.contact.geom), np.asarray(s.data.contact.dist)
+E0 squat__r00             surv=True 5.04/5.04s joint=2.3° root=1.0cm slip=0.019 (ref 0.000) contact=1.00
+E0 walkForwardSlow__r00   surv=True 4.7/4.7s joint=1.5° root=1.4cm slip=0.037 (ref 0.015) contact=0.94
+E0 trotForwardFast__r00   surv=True 1.82/1.82s joint=2.1° root=2.4cm slip=0.134 (ref 0.074) contact=0.87
+E0 trotCCWSlow__r00       surv=True 2.18/2.18s joint=1.2° root=1.9cm slip=0.115 (ref 0.069) contact=0.93
+E0 walkBackwardSlow__r00  surv=True 5.06/5.06s joint=1.6° root=1.3cm slip=0.055 (ref 0.015) contact=0.94
+E1 squat__r00             surv=False 0.34/5.04s joint=58.7° root=3.9cm slip=2.860 (ref 0.001) contact=0.09
+E1 walkForwardSlow__r00   surv=True 4.7/4.7s joint=1.5° root=1.8cm slip=0.025 (ref 0.012) contact=0.94
+E1 trotForwardFast__r00   surv=True 1.82/1.82s joint=1.9° root=1.9cm slip=0.103 (ref 0.060) contact=0.87
+E1 trotCCWSlow__r00       surv=True 2.18/2.18s joint=1.7° root=1.8cm slip=0.104 (ref 0.069) contact=0.93
+E1 walkBackwardSlow__r00  surv=False 0.52/5.06s joint=60.9° root=6.6cm slip=3.464 (ref 0.012) contact=0.38
+E2 squat__r00             surv=True 5.04/5.04s joint=2.0° root=1.3cm slip=0.021 (ref 0.000) contact=1.00
+E2 walkForwardSlow__r00   surv=True 4.7/4.7s joint=1.4° root=1.7cm slip=0.042 (ref 0.018) contact=0.94
+E2 trotForwardFast__r00   surv=True 1.82/1.82s joint=2.5° root=9.4cm slip=0.146 (ref 0.088) contact=0.85
+E2 trotCCWSlow__r00       surv=True 2.18/2.18s joint=1.3° root=2.8cm slip=0.103 (ref 0.070) contact=0.92
+E2 walkBackwardSlow__r00  surv=True 5.06/5.06s joint=2.8° root=1.9cm slip=0.077 (ref 0.018) contact=0.92
+E3 squat__r00             surv=True 5.04/5.04s joint=1.4° root=0.8cm slip=0.019 (ref 0.000) contact=1.00
+E3 walkForwardSlow__r00   surv=True 4.7/4.7s joint=1.7° root=2.3cm slip=0.032 (ref 0.015) contact=0.94
+E3 trotForwardFast__r00   surv=True 1.82/1.82s joint=1.9° root=2.3cm slip=0.123 (ref 0.074) contact=0.87
+E3 trotCCWSlow__r00       surv=True 2.18/2.18s joint=1.4° root=1.6cm slip=0.097 (ref 0.063) contact=0.92
+E3 walkBackwardSlow__r00  surv=True 5.06/5.06s joint=1.5° root=1.6cm slip=0.050 (ref 0.015) contact=0.97
+E4 squat__r00             surv=True 5.04/5.04s joint=1.4° root=0.9cm slip=0.019 (ref 0.000) contact=1.00
+E4 walkForwardSlow__r00   surv=True 4.7/4.7s joint=2.0° root=1.7cm slip=0.041 (ref 0.015) contact=0.94
+E4 trotForwardFast__r00   surv=True 1.82/1.82s joint=1.9° root=4.1cm slip=0.147 (ref 0.074) contact=0.87
+E4 trotCCWSlow__r00       surv=True 2.18/2.18s joint=1.6° root=1.4cm slip=0.105 (ref 0.075) contact=0.93
+E4 walkBackwardSlow__r00  surv=True 5.06/5.06s joint=1.9° root=2.5cm slip=0.054 (ref 0.015) contact=0.95

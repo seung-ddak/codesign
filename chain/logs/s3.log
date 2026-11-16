@@ -1,0 +1,228 @@
+ERROR:jax._src.xla_bridge:Jax plugin configuration error: Exception when calling jax_plugins.xla_cuda12.initialize()
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/xla_bridge.py", line 508, in discover_pjrt_plugins
+    plugin_module.initialize()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 370, in initialize
+    _check_cuda_versions(raise_on_first_error = True)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax_plugins/xla_cuda12/__init__.py", line 274, in _check_cuda_versions
+    for d in range(cuda_versions.cuda_device_count())
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: jaxlib/cuda/versions_helpers.cc:135: operation cuInit(0) failed: CUDA_ERROR_NO_DEVICE
+WARNING:jax._src.xla_bridge:An NVIDIA GPU may be present on this machine, but a CUDA-enabled jaxlib is not installed. Falling back to cpu.
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+00000011 squat__r00         s=0.844 foot_err=  0.3mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 11.6/ 15.8
+00000011 trotCCWSlow__r00   s=0.844 foot_err=  0.3mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=114.5%W tau p99/max= 16.0/ 18.4
+00000011 trotForwardFast__r00 s=0.844 foot_err=  0.3mm slip=0.002 q_at_limit=0.00 inv bad=46.7% ghost p95=106.4%W tau p99/max= 43.3/ 67.9
+00000011 walkBackwardSlow__r00 s=0.844 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.5%W tau p99/max= 12.8/ 14.3
+00000011 walkForwardSlow__r00 s=0.844 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.8%W tau p99/max= 13.2/ 18.0
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l-10_b+00
+2026-11-12 13:51:09 s3 G_l-10_b+00 squat__r00 policy E1: surv False joint 63.37710189819336 root 22.235881805419922
+2026-11-12 13:51:10 s3 G_l-10_b+00 squat__r00 policy E0: surv True joint 2.6069862842559814 root 1.045525312423706
+2026-11-12 13:51:17 s3 G_l-10_b+00 walkForwardSlow__r00 policy E1: surv True joint 2.093254804611206 root 4.261571884155273
+2026-11-12 13:51:18 s3 G_l-10_b+00 walkForwardSlow__r00 policy E0: surv True joint 1.5722962617874146 root 2.1704514026641846
+2026-11-12 13:51:25 s3 G_l-10_b+00 trotForwardFast__r00 policy E1: surv True joint 2.969644784927368 root 3.608806848526001
+2026-11-12 13:51:25 s3 G_l-10_b+00 trotForwardFast__r00 policy E0: surv True joint 3.021156072616577 root 3.7857775688171387
+2026-11-12 13:51:33 s3 G_l-10_b+00 trotCCWSlow__r00 policy E1: surv True joint 2.160698413848877 root 1.779046654701233
+2026-11-12 13:51:33 s3 G_l-10_b+00 trotCCWSlow__r00 policy E0: surv True joint 1.8978877067565918 root 4.4475274085998535
+2026-11-12 13:51:40 s3 G_l-10_b+00 walkBackwardSlow__r00 policy E1: surv False joint 66.54322052001953 root 38.00955581665039
+2026-11-12 13:51:41 s3 G_l-10_b+00 walkBackwardSlow__r00 policy E0: surv True joint 100.16228485107422 root 55.843013763427734
+00000011 squat__r00         s=1.031 foot_err=  0.3mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 13.7/ 20.0
+00000011 trotCCWSlow__r00   s=1.031 foot_err=  0.2mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=120.4%W tau p99/max= 20.2/ 24.7
+00000011 trotForwardFast__r00 s=1.031 foot_err=  0.2mm slip=0.002 q_at_limit=0.00 inv bad=57.6% ghost p95=143.5%W tau p99/max= 61.3/ 98.2
+00000011 walkBackwardSlow__r00 s=1.031 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.6%W tau p99/max= 16.1/ 18.1
+00000011 walkForwardSlow__r00 s=1.031 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.4% ghost p95=  1.2%W tau p99/max= 16.7/ 23.7
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l+10_b+00
+2026-11-12 13:51:51 s3 G_l+10_b+00 squat__r00 policy E2: surv True joint 2.2512311935424805 root 1.3187836408615112
+2026-11-12 13:51:52 s3 G_l+10_b+00 squat__r00 policy E0: surv True joint 2.307156801223755 root 1.0780199766159058
+2026-11-12 13:52:00 s3 G_l+10_b+00 walkForwardSlow__r00 policy E2: surv True joint 1.3546066284179688 root 3.2529122829437256
+2026-11-12 13:52:00 s3 G_l+10_b+00 walkForwardSlow__r00 policy E0: surv True joint 1.9906569719314575 root 3.2534594535827637
+2026-11-12 13:52:08 s3 G_l+10_b+00 trotForwardFast__r00 policy E2: surv True joint 3.08172345161438 root 7.599967002868652
+2026-11-12 13:52:08 s3 G_l+10_b+00 trotForwardFast__r00 policy E0: surv True joint 3.4346821308135986 root 6.894622802734375
+2026-11-12 13:52:15 s3 G_l+10_b+00 trotCCWSlow__r00 policy E2: surv True joint 1.5804282426834106 root 4.220436096191406
+2026-11-12 13:52:16 s3 G_l+10_b+00 trotCCWSlow__r00 policy E0: surv True joint 1.5798215866088867 root 2.0995330810546875
+2026-11-12 13:52:23 s3 G_l+10_b+00 walkBackwardSlow__r00 policy E2: surv True joint 2.6592507362365723 root 2.3305139541625977
+2026-11-12 13:52:24 s3 G_l+10_b+00 walkBackwardSlow__r00 policy E0: surv True joint 1.793537974357605 root 1.6790153980255127
+00000011 squat__r00         s=0.938 foot_err=  0.3mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 11.9/ 17.4
+00000011 trotCCWSlow__r00   s=0.938 foot_err=  0.3mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=117.7%W tau p99/max= 17.6/ 21.0
+00000011 trotForwardFast__r00 s=0.938 foot_err=  0.3mm slip=0.002 q_at_limit=0.00 inv bad=52.2% ghost p95=125.0%W tau p99/max= 51.1/ 81.5
+00000011 walkBackwardSlow__r00 s=0.938 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.5%W tau p99/max= 14.0/ 15.7
+00000011 walkForwardSlow__r00 s=0.938 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  1.0%W tau p99/max= 14.5/ 20.5
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l+00_b-10
+2026-11-12 13:52:35 s3 G_l+00_b-10 squat__r00 policy E0: surv True joint 2.3039958477020264 root 1.0351588726043701
+2026-11-12 13:52:42 s3 G_l+00_b-10 walkForwardSlow__r00 policy E0: surv True joint 1.4263099431991577 root 1.0757853984832764
+2026-11-12 13:52:50 s3 G_l+00_b-10 trotForwardFast__r00 policy E0: surv True joint 2.0481181144714355 root 2.3394837379455566
+2026-11-12 13:52:57 s3 G_l+00_b-10 trotCCWSlow__r00 policy E0: surv True joint 1.5403212308883667 root 2.724179744720459
+2026-11-12 13:53:05 s3 G_l+00_b-10 walkBackwardSlow__r00 policy E0: surv True joint 1.6423025131225586 root 1.6384587287902832
+00000011 squat__r00         s=0.938 foot_err=  0.3mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 13.7/ 18.3
+00000011 trotCCWSlow__r00   s=0.938 foot_err=  0.3mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=117.2%W tau p99/max= 18.0/ 22.1
+00000011 trotForwardFast__r00 s=0.938 foot_err=  0.3mm slip=0.002 q_at_limit=0.00 inv bad=55.4% ghost p95=124.6%W tau p99/max= 52.1/ 83.1
+00000011 walkBackwardSlow__r00 s=0.938 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.5%W tau p99/max= 14.9/ 16.5
+00000011 walkForwardSlow__r00 s=0.938 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.4% ghost p95=  1.0%W tau p99/max= 15.4/ 21.0
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l+00_b+10
+2026-11-12 13:53:16 s3 G_l+00_b+10 squat__r00 policy E0: surv True joint 2.315984010696411 root 0.9666058421134949
+2026-11-12 13:53:23 s3 G_l+00_b+10 walkForwardSlow__r00 policy E0: surv True joint 1.5731152296066284 root 1.9565107822418213
+2026-11-12 13:53:31 s3 G_l+00_b+10 trotForwardFast__r00 policy E0: surv True joint 2.0751702785491943 root 2.377222776412964
+2026-11-12 13:53:38 s3 G_l+00_b+10 trotCCWSlow__r00 policy E0: surv True joint 1.973880410194397 root 1.7786846160888672
+2026-11-12 13:53:46 s3 G_l+00_b+10 walkBackwardSlow__r00 policy E0: surv True joint 1.6397087574005127 root 1.589132308959961
+00000011 squat__r00         s=0.750 foot_err=  0.4mm slip=0.001 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max=  9.5/ 13.1
+00000011 trotCCWSlow__r00   s=0.750 foot_err=  0.3mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=112.1%W tau p99/max= 13.6/ 16.6
+00000011 trotForwardFast__r00 s=0.750 foot_err=  0.3mm slip=0.003 q_at_limit=0.00 inv bad=37.0% ghost p95= 88.4%W tau p99/max= 34.9/ 54.1
+00000011 walkBackwardSlow__r00 s=0.750 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.4%W tau p99/max= 10.6/ 11.9
+00000011 walkForwardSlow__r00 s=0.750 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.6%W tau p99/max= 10.8/ 15.0
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l-20_b-20
+2026-11-12 13:53:56 s3 G_l-20_b-20 squat__r00 policy E1: surv False joint 60.799224853515625 root 4.600705623626709
+2026-11-12 13:53:57 s3 G_l-20_b-20 squat__r00 policy E0: surv True joint 3.1713924407958984 root 1.1555238962173462
+2026-11-12 13:54:04 s3 G_l-20_b-20 walkForwardSlow__r00 policy E1: surv True joint 1.763709306716919 root 3.028156280517578
+2026-11-12 13:54:05 s3 G_l-20_b-20 walkForwardSlow__r00 policy E0: surv True joint 63.33855438232422 root 17.970687866210938
+2026-11-12 13:54:12 s3 G_l-20_b-20 trotForwardFast__r00 policy E1: surv True joint 1.9982255697250366 root 1.7527868747711182
+2026-11-12 13:54:13 s3 G_l-20_b-20 trotForwardFast__r00 policy E0: surv True joint 4.921700954437256 root 3.6527786254882812
+2026-11-12 13:54:20 s3 G_l-20_b-20 trotCCWSlow__r00 policy E1: surv True joint 3.1974594593048096 root 1.552269458770752
+2026-11-12 13:54:20 s3 G_l-20_b-20 trotCCWSlow__r00 policy E0: surv True joint 3.679276704788208 root 12.442895889282227
+2026-11-12 13:54:27 s3 G_l-20_b-20 walkBackwardSlow__r00 policy E1: surv False joint 61.24135208129883 root 5.435527801513672
+2026-11-12 13:54:28 s3 G_l-20_b-20 walkBackwardSlow__r00 policy E0: surv True joint 100.30162048339844 root 48.7688102722168
+00000011 squat__r00         s=0.750 foot_err=  0.4mm slip=0.001 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 10.3/ 14.4
+00000011 trotCCWSlow__r00   s=0.750 foot_err=  0.3mm slip=0.002 q_at_limit=0.00 inv bad= 9.1% ghost p95=110.9%W tau p99/max= 14.5/ 16.0
+00000011 trotForwardFast__r00 s=0.750 foot_err=  0.3mm slip=0.003 q_at_limit=0.00 inv bad=41.3% ghost p95= 88.5%W tau p99/max= 36.2/ 56.1
+00000011 walkBackwardSlow__r00 s=0.750 foot_err=  0.2mm slip=0.001 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.4%W tau p99/max= 11.6/ 13.0
+00000011 walkForwardSlow__r00 s=0.750 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.6%W tau p99/max= 12.3/ 15.7
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l-20_b+20
+2026-11-12 13:54:38 s3 G_l-20_b+20 squat__r00 policy E1: surv False joint 59.83647537231445 root 5.073391437530518
+2026-11-12 13:54:39 s3 G_l-20_b+20 squat__r00 policy E0: surv True joint 3.323579788208008 root 1.086584448814392
+2026-11-12 13:54:47 s3 G_l-20_b+20 walkForwardSlow__r00 policy E1: surv True joint 1.7150547504425049 root 1.8568705320358276
+2026-11-12 13:54:47 s3 G_l-20_b+20 walkForwardSlow__r00 policy E0: surv True joint 3.600083112716675 root 4.205726623535156
+2026-11-12 13:54:54 s3 G_l-20_b+20 trotForwardFast__r00 policy E1: surv True joint 1.948551058769226 root 2.113222122192383
+2026-11-12 13:54:55 s3 G_l-20_b+20 trotForwardFast__r00 policy E0: surv True joint 5.194436550140381 root 4.722282886505127
+2026-11-12 13:55:02 s3 G_l-20_b+20 trotCCWSlow__r00 policy E1: surv True joint 3.495926856994629 root 3.8802902698516846
+2026-11-12 13:55:02 s3 G_l-20_b+20 trotCCWSlow__r00 policy E0: surv True joint 26.87775421142578 root 7.753079414367676
+2026-11-12 13:55:10 s3 G_l-20_b+20 walkBackwardSlow__r00 policy E1: surv False joint 53.2415657043457 root 4.879023551940918
+2026-11-12 13:55:10 s3 G_l-20_b+20 walkBackwardSlow__r00 policy E0: surv True joint 100.29644012451172 root 48.455928802490234
+00000011 squat__r00         s=1.125 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 15.3/ 22.5
+00000011 trotCCWSlow__r00   s=1.125 foot_err=  0.2mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=124.1%W tau p99/max= 22.6/ 27.0
+00000011 trotForwardFast__r00 s=1.125 foot_err=  0.2mm slip=0.002 q_at_limit=0.00 inv bad=58.7% ghost p95=162.9%W tau p99/max= 70.8/113.1
+00000011 walkBackwardSlow__r00 s=1.125 foot_err=  0.1mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.8%W tau p99/max= 17.0/ 18.9
+00000011 walkForwardSlow__r00 s=1.125 foot_err=  0.1mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  1.6%W tau p99/max= 17.7/ 26.3
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l+20_b-20
+2026-11-12 13:55:21 s3 G_l+20_b-20 squat__r00 policy E2: surv True joint 1.9141559600830078 root 1.2831789255142212
+2026-11-12 13:55:21 s3 G_l+20_b-20 squat__r00 policy E0: surv True joint 2.5776431560516357 root 1.6097627878189087
+2026-11-12 13:55:29 s3 G_l+20_b-20 walkForwardSlow__r00 policy E2: surv True joint 1.4539576768875122 root 1.7884101867675781
+2026-11-12 13:55:30 s3 G_l+20_b-20 walkForwardSlow__r00 policy E0: surv True joint 2.5475494861602783 root 3.7725727558135986
+2026-11-12 13:55:37 s3 G_l+20_b-20 trotForwardFast__r00 policy E2: surv True joint 2.46079158782959 root 8.962559700012207
+2026-11-12 13:55:37 s3 G_l+20_b-20 trotForwardFast__r00 policy E0: surv True joint 6.024801731109619 root 36.93654251098633
+2026-11-12 13:55:45 s3 G_l+20_b-20 trotCCWSlow__r00 policy E2: surv True joint 3.006558656692505 root 7.008660793304443
+2026-11-12 13:55:45 s3 G_l+20_b-20 trotCCWSlow__r00 policy E0: surv True joint 2.855081796646118 root 2.3916709423065186
+2026-11-12 13:55:53 s3 G_l+20_b-20 walkBackwardSlow__r00 policy E2: surv True joint 2.847665548324585 root 3.6293399333953857
+2026-11-12 13:55:54 s3 G_l+20_b-20 walkBackwardSlow__r00 policy E0: surv True joint 2.4868361949920654 root 2.279902696609497
+00000011 squat__r00         s=1.125 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 16.4/ 23.4
+00000011 trotCCWSlow__r00   s=1.125 foot_err=  0.2mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=122.9%W tau p99/max= 23.7/ 29.4
+00000011 trotForwardFast__r00 s=1.125 foot_err=  0.2mm slip=0.002 q_at_limit=0.00 inv bad=63.0% ghost p95=161.9%W tau p99/max= 73.3/117.9
+00000011 walkBackwardSlow__r00 s=1.125 foot_err=  0.1mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.8%W tau p99/max= 19.3/ 21.4
+00000011 walkForwardSlow__r00 s=1.125 foot_err=  0.1mm slip=0.000 q_at_limit=0.00 inv bad= 1.7% ghost p95=  1.5%W tau p99/max= 20.2/ 27.5
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l+20_b+20
+2026-11-12 13:56:04 s3 G_l+20_b+20 squat__r00 policy E2: surv True joint 1.941826343536377 root 1.3627041578292847
+2026-11-12 13:56:05 s3 G_l+20_b+20 squat__r00 policy E0: surv True joint 2.653965950012207 root 1.7757846117019653
+2026-11-12 13:56:13 s3 G_l+20_b+20 walkForwardSlow__r00 policy E2: surv True joint 1.5223931074142456 root 1.327364206314087
+2026-11-12 13:56:13 s3 G_l+20_b+20 walkForwardSlow__r00 policy E0: surv True joint 3.0477428436279297 root 6.896973609924316
+2026-11-12 13:56:20 s3 G_l+20_b+20 trotForwardFast__r00 policy E2: surv True joint 2.6092028617858887 root 9.59804916381836
+2026-11-12 13:56:21 s3 G_l+20_b+20 trotForwardFast__r00 policy E0: surv True joint 5.597387313842773 root 17.68886947631836
+2026-11-12 13:56:28 s3 G_l+20_b+20 trotCCWSlow__r00 policy E2: surv True joint 4.070494174957275 root 4.391239643096924
+2026-11-12 13:56:28 s3 G_l+20_b+20 trotCCWSlow__r00 policy E0: surv True joint 3.514918327331543 root 3.1830289363861084
+2026-11-12 13:56:36 s3 G_l+20_b+20 walkBackwardSlow__r00 policy E2: surv True joint 2.8668932914733887 root 2.4225924015045166
+2026-11-12 13:56:37 s3 G_l+20_b+20 walkBackwardSlow__r00 policy E0: surv True joint 2.4323575496673584 root 1.6923891305923462
+00000011 squat__r00         s=0.844 foot_err=  0.3mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 11.9/ 15.7
+00000011 trotCCWSlow__r00   s=0.844 foot_err=  0.3mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=114.2%W tau p99/max= 16.3/ 18.6
+00000011 trotForwardFast__r00 s=0.844 foot_err=  0.3mm slip=0.002 q_at_limit=0.00 inv bad=47.8% ghost p95=106.2%W tau p99/max= 43.8/ 68.6
+00000011 walkBackwardSlow__r00 s=0.844 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.5%W tau p99/max= 13.0/ 14.6
+00000011 walkForwardSlow__r00 s=0.844 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.8%W tau p99/max= 13.5/ 18.2
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l-10_b+10
+2026-11-12 13:56:47 s3 G_l-10_b+10 squat__r00 policy E1: surv False joint 65.54650115966797 root 16.16756248474121
+2026-11-12 13:56:48 s3 G_l-10_b+10 squat__r00 policy E0: surv True joint 2.628601551055908 root 1.0146315097808838
+2026-11-12 13:56:55 s3 G_l-10_b+10 walkForwardSlow__r00 policy E1: surv True joint 2.1935880184173584 root 4.509728908538818
+2026-11-12 13:56:56 s3 G_l-10_b+10 walkForwardSlow__r00 policy E0: surv True joint 1.602260947227478 root 1.4641106128692627
+2026-11-12 13:57:03 s3 G_l-10_b+10 trotForwardFast__r00 policy E1: surv True joint 2.9345076084136963 root 3.3446543216705322
+2026-11-12 13:57:04 s3 G_l-10_b+10 trotForwardFast__r00 policy E0: surv True joint 3.091212749481201 root 4.014406204223633
+2026-11-12 13:57:11 s3 G_l-10_b+10 trotCCWSlow__r00 policy E1: surv True joint 2.795319080352783 root 3.478804111480713
+2026-11-12 13:57:11 s3 G_l-10_b+10 trotCCWSlow__r00 policy E0: surv True joint 2.7601263523101807 root 4.613045692443848
+2026-11-12 13:57:18 s3 G_l-10_b+10 walkBackwardSlow__r00 policy E1: surv False joint 50.848472595214844 root 7.52814245223999
+2026-11-12 13:57:19 s3 G_l-10_b+10 walkBackwardSlow__r00 policy E0: surv True joint 100.1704330444336 root 55.18115234375
+00000011 squat__r00         s=1.031 foot_err=  0.3mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.0%W tau p99/max= 13.6/ 19.5
+00000011 trotCCWSlow__r00   s=1.031 foot_err=  0.2mm slip=0.001 q_at_limit=0.00 inv bad= 9.1% ghost p95=120.7%W tau p99/max= 20.1/ 24.2
+00000011 trotForwardFast__r00 s=1.031 foot_err=  0.2mm slip=0.002 q_at_limit=0.00 inv bad=57.6% ghost p95=143.7%W tau p99/max= 60.8/ 97.2
+00000011 walkBackwardSlow__r00 s=1.031 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  0.6%W tau p99/max= 15.7/ 17.6
+00000011 walkForwardSlow__r00 s=1.031 foot_err=  0.2mm slip=0.000 q_at_limit=0.00 inv bad= 0.0% ghost p95=  1.2%W tau p99/max= 16.2/ 23.5
+-> /home/cgr-ugrad-2026/quad_ws/codesign/chain/runs/s3_generalization/references/G_l+10_b-10
+2026-11-12 13:57:30 s3 G_l+10_b-10 squat__r00 policy E2: surv True joint 2.246062755584717 root 1.3052048683166504
+2026-11-12 13:57:30 s3 G_l+10_b-10 squat__r00 policy E0: surv True joint 2.301959991455078 root 1.0830862522125244
+2026-11-12 13:57:38 s3 G_l+10_b-10 walkForwardSlow__r00 policy E2: surv True joint 1.4112540483474731 root 3.539933681488037
+2026-11-12 13:57:38 s3 G_l+10_b-10 walkForwardSlow__r00 policy E0: surv True joint 1.9263540506362915 root 2.4873485565185547
+2026-11-12 13:57:46 s3 G_l+10_b-10 trotForwardFast__r00 policy E2: surv True joint 3.0409929752349854 root 7.264225959777832
+2026-11-12 13:57:46 s3 G_l+10_b-10 trotForwardFast__r00 policy E0: surv True joint 3.487640380859375 root 8.274335861206055
+2026-11-12 13:57:53 s3 G_l+10_b-10 trotCCWSlow__r00 policy E2: surv True joint 2.1204121112823486 root 6.901043891906738
+2026-11-12 13:57:54 s3 G_l+10_b-10 trotCCWSlow__r00 policy E0: surv True joint 1.7858517169952393 root 2.2845120429992676
+2026-11-12 13:58:02 s3 G_l+10_b-10 walkBackwardSlow__r00 policy E2: surv True joint 2.6912624835968018 root 1.435085415840149
+2026-11-12 13:58:02 s3 G_l+10_b-10 walkBackwardSlow__r00 policy E0: surv True joint 1.8635711669921875 root 1.7903540134429932
+/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/subprocess.py:1885: RuntimeWarning: os.fork() was called. os.fork() is incompatible with multithreaded code, and JAX is multithreaded, so this will likely lead to a deadlock.
+  self.pid = _fork_exec(
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/orbax/checkpoint/_src/serialization/jax_array_handlers.py:925: UserWarning: Sharding info not provided when restoring. Populating sharding info from sharding file. Please note restoration time will be slightly increased due to reading from file. Note also that this option is unsafe when restoring on a different topology than the checkpoint was saved with.
+  warnings.warn(
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/gh.py", line 28, in ensure_branch
+    call('GET', f'/git/ref/heads/{BRANCH}')
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/gh.py", line 17, in call
+    with urllib.request.urlopen(req, timeout=120) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 404: Not Found
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/s3_generalization.py", line 111, in <module>
+    publish('s3_generalization', OUT, f"기존 형상별 정책 (E0~E4) 을 학습하지 않은 형상 {len(TESTS)} 개에 적용. 최근접 정책 통과 {sum(map(ev.passes, test))}/{len(test)}.", [png])
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/common.py", line 84, in publish
+    files = gh.upload_dir(out_dir, f"{s.get('run_tag', time.strftime('%Y%m%d'))}/{stage}")
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/gh.py", line 56, in upload_dir
+    out[rel] = upload(f, f'{remote_dir}/{rel}')
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/gh.py", line 37, in upload
+    ensure_branch()
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/gh.py", line 32, in ensure_branch
+    call('POST', '/git/refs', dict(ref=f'refs/heads/{BRANCH}', sha=main))
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/gh.py", line 17, in call
+    with urllib.request.urlopen(req, timeout=120) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/.local/share/uv/python/cpython-3.12.14-linux-x86_64-gnu/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 403: Forbidden

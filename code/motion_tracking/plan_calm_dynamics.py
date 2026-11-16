@@ -119,7 +119,8 @@ def build(source,out,count=1000,seed=0):
     return result
 
 
-def prepare_reference(source,destination):
+def prepare_reference(source,destination,hz=30):
+    """CALM A1 기록 → 레퍼런스 (fix_*). hz = 레퍼런스 주기 (기본 30, 50 이면 30 Hz 기록을 보간)."""
     from scipy.spatial.transform import Rotation,Slerp
     from collect_pd_rollouts import save_rollout
     source=Path(source);destination=Path(destination)
@@ -127,7 +128,7 @@ def prepare_reference(source,destination):
         root=z['root'];ts=z['time'];q=z['q'];names=z['joint_names'].tolist()
         if root.shape!=(len(ts),13) or q.shape!=(len(ts),12) or not np.all(np.isfinite(root)) or not np.all(np.isfinite(q)):
             raise ValueError('invalid source trace')
-        td=np.arange(round(float(ts[-1])*30)+1)/30
+        td=np.arange(round(float(ts[-1])*hz)+1)/hz
         if not np.all(np.diff(ts)>0) or not np.isclose(ts[-1],10 if len(ts)==301 else 20):raise ValueError('invalid time axis')
         order=[names.index(leg+'_'+joint+'_joint') for leg in ['FR','FL','RR','RL'] for joint in ['hip','thigh','calf']]
         angles=np.stack([np.interp(td,ts,q[:,j]) for j in order],axis=1)
@@ -136,7 +137,21 @@ def prepare_reference(source,destination):
         near=np.minimum(np.round(td*30).astype(int),len(ts)-1)
         foot=np.stack([np.stack([np.interp(td,ts,z['foot_pos'][:,f,j]) for j in range(3)],axis=1) for f in range(4)],axis=1)
         save_rollout(destination,dict(fix_q=angles,fix_base_pos=pos,fix_base_quat=quat,fix_foot_pos=foot-[0,0,.02],
-                                    fix_contact=z['foot_floor_contact'][near],dt=1/30,source_motion=str(source),source_sha256=digest(source)))
+                                    fix_contact=z['foot_floor_contact'][near],dt=1/hz,source_motion=str(source),source_sha256=digest(source)))
+
+
+def resample_reference(source,destination,hz=30):
+    """A1 레퍼런스 (fix_*, 예: randomized_reference 50 Hz) 를 hz 로 다시 표본 추출 (위치·관절 선형, 자세 slerp, 접지 최근접)."""
+    from scipy.spatial.transform import Rotation,Slerp
+    from collect_pd_rollouts import save_rollout
+    source=Path(source);destination=Path(destination)
+    with np.load(source) as z:
+        dt=float(z['dt']);n=len(z['fix_q']);ts=np.arange(n)*dt;td=np.arange(int(np.floor(ts[-1]*hz+1e-9))+1)/hz
+        lin=lambda a:np.stack([np.interp(td,ts,c) for c in a.reshape(n,-1).T],1).reshape((len(td),)+a.shape[1:])
+        quat=Slerp(ts,Rotation.from_quat(z['fix_base_quat'][:,[1,2,3,0]]))(td).as_quat()[:,[3,0,1,2]]
+        near=np.minimum(np.round(td/dt).astype(int),n-1)
+        save_rollout(destination,dict(fix_q=lin(z['fix_q']),fix_base_pos=lin(z['fix_base_pos']),fix_base_quat=quat,fix_foot_pos=lin(z['fix_foot_pos']),
+                                    fix_contact=z['fix_contact'][near],dt=1/hz,source_motion=str(source),source_sha256=digest(source)))
 
 
 def main():
