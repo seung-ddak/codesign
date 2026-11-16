@@ -16,14 +16,14 @@ UN = ('G_l+20_b+10', json.load(open(RUNS / 's8_collect/shapes.json'))['G_l+20_b+
 GREEN = np.array([.15, .7, .3, 1.])
 
 
-def a1_only(z, path):
+def a1_only(z, path, M=M, dirs='CCW + Forward + CW', max_s=None):
     import render_three as r3
-    rm = r3.rm; dt = float(z['dt']); a = z['a1_qpos'].astype(float).copy(); a[:, :2] -= a[0, :2]; p = r3.Panel(r3.a1_model())
+    rm = r3.rm; dt = float(z['dt']); a = z['a1_qpos'].astype(float).copy(); a = a[:int(round(max_s / dt)) + 1] if max_s else a; a[:, :2] -= a[0, :2]; p = r3.Panel(r3.a1_model())
 
     def frames():
         for t in np.arange(0, len(a) * dt, 1 / r3.FPS):
             k = min(int(round(t / dt)), len(a) - 1)
-            yield rm.label(p.frame(a[k], a[:k + 1, :2], a[k, :2]), f'{M} · CCW + Forward + CW', 'A1: original CALM motion', f't = {t:4.1f} s   moved {np.linalg.norm(a[k, :2]):.2f} m', False)
+            yield rm.label(p.frame(a[k], a[:k + 1, :2], a[k, :2]), f'{M} · {dirs}', 'A1: original CALM motion', f't = {t:4.1f} s   moved {np.linalg.norm(a[k, :2]):.2f} m', False)
     try: rm.encode_frames(path, frames(), width=r3.W, height=r3.H, fps=r3.FPS)
     finally: p.r.close()
 
@@ -70,21 +70,22 @@ def scene(a1, dt, tts, path, head, sub):
     finally: ren.close()
 
 
-def main():
+def main(M=M, G=G, TR=TR, OUT=OUT, dirs='CCW + Forward + CW', max_s=None):
+    """max_s: None = 모션 끝까지, 숫자 = 그 초까지 (s7 평가와 같게 10)."""
     import pd_replay as pd
     OUT.mkdir(parents=True, exist_ok=True); ck = ckpts(RUNS / 's6_train' / G)[-1]; res = {}; runs = []
     dtr = S5 / 'references' / TR[0] / '00000011'; dun = OUT / 'refs' / UN[0]
     if not (dun / '00000011' / f'{M}.npz').exists(): pd.retarget_tt(str(S5 / 'a1_reference'), str(dun), only=[M], choices=['00000011'], uniforms=UN[1], torque_limit=33.5)
     for (s, E), d, kind in [(TR, dtr, 'train'), (UN, dun / '00000011', 'unseen')]:
         z = np.load(d / f'{M}.npz'); dt = float(z['dt'])
-        r = evalpol.evaluate(ck, E, d, M, multi=True, keep_qpos=True, max_seconds=len(z['fix_q']) * dt)
+        r = evalpol.evaluate(ck, E, d, M, multi=True, keep_qpos=True, max_seconds=max_s or len(z['fix_q']) * dt)
         runs.append((np.asarray(r.pop('qpos')), E, f"TT {kind} {s}: joint {r['joint_rmse_deg']:.1f} deg, root {r['root_rmse_cm']:.1f} cm", not r['survived']))
         res[kind] = dict(shape=s, passed=evalpol.passes(r), **{k: v for k, v in r.items() if np.isscalar(v) or v is None}); log(f"three {kind} {s} 생존 {r['survived']} 관절 {r['joint_rmse_deg']:.1f}°")
     z = np.load(dtr / f'{M}.npz'); dt = float(z['dt'])
-    a1_only(z, OUT / f'1_{M}_A1_only.mp4')
-    scene(z['a1_qpos'], dt, runs[:1], OUT / f'2_{M}_A1_vs_TT_train.mp4', f'{M} · CCW policy (100M) · same scene', 'A1 vs TT trained shape')
-    scene(z['a1_qpos'], dt, runs, OUT / f'3_{M}_A1_vs_TT_train_vs_unseen.mp4', f'{M} · CCW policy (100M) · same scene', 'A1 vs TT trained shape vs TT unseen shape')
-    json.dump(dict(motion=M, policy=G, checkpoint=str(ck), **res), open(OUT / 'three_calm.json', 'w'), indent=1, default=float)
+    a1_only(z, OUT / f'1_{M}_A1_only.mp4', M, dirs, max_s)
+    scene(z['a1_qpos'][:int(round(max_s / dt)) + 1] if max_s else z['a1_qpos'], dt, runs[:1], OUT / f'2_{M}_A1_vs_TT_train.mp4', f"{M} · {G.replace('trot', '').replace('Slow__r00', '')} policy (100M) · same scene", 'A1 vs TT trained shape')
+    scene(z['a1_qpos'][:int(round(max_s / dt)) + 1] if max_s else z['a1_qpos'], dt, runs, OUT / f'3_{M}_A1_vs_TT_train_vs_unseen.mp4', f"{M} · {G.replace('trot', '').replace('Slow__r00', '')} policy (100M) · same scene", 'A1 vs TT trained shape vs TT unseen shape')
+    json.dump(dict(motion=M, policy=G, directions=dirs, max_seconds=max_s, checkpoint=str(ck), **res), open(OUT / 'three_calm.json', 'w'), indent=1, default=float)
 
 
 if __name__ == '__main__':
