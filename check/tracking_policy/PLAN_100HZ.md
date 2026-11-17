@@ -14,7 +14,16 @@
 | (형상, 모션) 짝 | CALM 하나를 형상 9 개 전부에 리타겟 (s5 는 2 개뿐): (6 + 6000) × 9 = 54,054 쌍 |
 | 제어 / 물리 | 100 Hz / 200 Hz, max_episode_length 2000 (20 s) |
 | PPO · 보상 | `check/tracking_policy/hz100` 과 같음 (num_envs 1024, lr 1e-3, 256-128-64 …) |
-| 학습량 | 정책당 450M (형상별 54 개 × 50M 과 같은 총량). 50M 도 비교함 — 시작 시 확정 |
+| 학습량 | **정책당 450M (2026-11-17 확정)** = 총 2700M, (형상, 모션) 짝당 약 5 만 step (100 Hz 약 500 s) |
+| GPU 메모리 | 형상 9 × 1001 클립은 12 GB 초과 (1001·500 클립 OOM, 250 클립 7.2 GB 정상, `bank_probe`). → **CALM 1000 을 250 개씩 4 묶음 (레퍼런스는 모든 묶음) 으로 나눠 정책 하나가 방문마다 묶음을 바꿔 학습 (방문당 25M, 18 방문)**. 학습 상태는 learner.msgpack 로 이어짐 |
+
+## 시작 방법
+```
+cd codesign && bash chain/code/run_100hz.sh      # GPU 가 비어 있어야 함, tmux s5h (리타겟) + s6h (학습)
+```
+- 코드: `chain/code/s5h_retarget100.py` (모션 세트 순서, ready/<세트>/<형상>.json), `chain/code/s6h_train100.py` (세트 ready 9/9 이면 학습, 묶음 번갈아), `chain/code/run_100hz.sh`.
+- 출력: `chain/runs/s5h_retarget100/`, `chain/runs/s6h_train100/<세트>/`, 로그 `chain/logs/{chain,s5h,s6h}.log`.
+- 학습 후 평가 (학습 형상 9 + 처음 보는 형상 10) 코드는 아직 없음 — 학습 중 작성.
 
 ## 리타겟
 - 방식: s5 A1 레퍼런스 (30 Hz) 를 `resample_reference` 로 100 Hz 보간 → `pd_replay.retarget_tt` (foot_lock + IK).
@@ -33,7 +42,8 @@
   | hz100_sg_diag a | 70 ms | 0 | 9/9 | 2.1° | 3.7 cm |
   | hz100_sg_diag b | 230 ms | 1 | 9/9 | 1.9° | 1.5 cm |
 
-  230 ms 는 seed 에 따라 학습 실패 (불안정), 학습되면 몸통 오차가 70 ms 보다 작음. **어느 쪽으로 할지는 사용자 결정 대기** (현재 코드 기본값 230 ms, `TRACK_SG_SEC=0.07` 로 70 ms).
+  230 ms 는 seed 에 따라 학습 실패 (불안정), 학습되면 몸통 오차가 70 ms 보다 작음.
+  **2026-11-17 사용자 확정: 학습 환경 평활 70 ms.** 학습 시작 시 `TRACK_SG_SEC=0.07` 을 설정하거나 `track_env.py` 기본값을 0.07 로 바꾼다 (현재 코드 기본값은 230 ms). 리타겟 쪽 (`pd_replay`) 평활은 시간 기준 그대로.
 - 프레임 수 고정 설정 (미래 레퍼런스 관측 `obs_time_indices` 0~8 = 80 ms 앞, `termination_pose_consecutive_steps` 25, unroll 24) 은 그대로 — 미검토.
 
 ## 평가 / 합격 기준
@@ -46,7 +56,7 @@
 | 리타겟 54,054 쌍 | 약 11.4 h (모션 세트당 1.9 h) | 약 11.4 h |
 | 학습 (초당 약 56k transition) | 6 × 약 2.3 h ≈ 14 h | 6 × 약 25 분 ≈ 2.5 h |
 | 평가 | 약 1.5 h | 약 1.5 h |
-| 합계 | 약 17~18 h | 약 13~14 h |
+| 합계 | 약 19~20 h (묶음 교체 약 2 분 × 18 방문 포함) | 약 13~14 h |
 
 - GPU 는 학습 1 개만 가능 (학습 하나가 약 9 GB). 다른 GPU 작업과 겹치지 말 것.
 
