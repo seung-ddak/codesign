@@ -19,7 +19,7 @@ from t2.mjx_env.base_env import MjxEnv, State, make_data, step
 
 LEGS = ["FR", "FL", "RR", "RL"]
 FOOT_RADIUS = 0.02  # fix_foot_pos 는 발바닥, sim 은 foot geom 중심을 비교하므로 보정
-SG_WIN = 7  # 속도 평활 Savitzky-Golay 창 (pd_replay.SG_WIN 과 동일)
+SG_SEC = float(__import__("os").environ.get("TRACK_SG_SEC", 7 / 30))  # 속도 평활 Savitzky-Golay 창 (초, pd_replay.SG_SEC 과 동일; 2026-11-17 시간 기준으로 변경, 30 Hz 에서 7 프레임). TRACK_SG_SEC 로 덮어쓰기 (원인 확인용)
 
 
 def quat_angle(q: jax.Array) -> jax.Array:
@@ -302,7 +302,7 @@ class TrackMjxEnv(MjxEnv):
             for t in range(T - 1):
                 mujoco.mj_differentiatePos(m, qvel[t], self.dt, qpos[t], qpos[t + 1])
             qvel[-1] = qvel[-2]
-            qvel = savgol_filter(qvel, SG_WIN, 2, axis=0)
+            qvel = savgol_filter(qvel, max(5, int(round(SG_SEC / self.dt))) | 1, 2, axis=0)
             foot_b = np.zeros((T, 4, 3))  # base frame 의 foot geom 중심 (Peng 식 7: root 기준 상대 위치)
             for t in range(T):
                 d.qpos[:] = qpos[t]

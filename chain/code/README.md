@@ -19,3 +19,5 @@
 - 폴더: 코드 `code/`, 결과 `runs/`, 로그 `logs/` (chain.log, chain_run.log). 상태: `state.json` (끝난 단계, 결정 값, 이슈 번호), 다시 실행하면 이어서 한다.
 - 보고서: `reports` 브랜치 `<날짜>/<단계>/report.html` (contents API, 로컬 git 미사용). 댓글에 요약 그림 + 보고서 링크.
 - 승인: 소유자·협업자 댓글 `승인` / `승인 key=value ...` / `중단`, 10 분마다 확인.
+
+- 2026-11-17 runs 정리: `runs/s6_tracking/` (s6_train, s6a_ref, s6c_calm, s6c50_calm), `runs/s8_rollout/` (s8_collect; s8_all 은 2026-11-17 중단·삭제), `runs/s9_diffusion/` (s9_tt, s9_tt_200k, s9_tt_m4). 옛 경로는 심볼릭 링크로 남겨 코드·저장된 절대 경로가 그대로 동작.

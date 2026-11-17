@@ -27,8 +27,18 @@ JOINTS = [f"q_{l}_{j}" for l in LEGS for j in ("hip", "thigh", "calf")]
 STANCE_EPS = 0.015  # 가장 낮은 발 대비 높이(m) 이내면 딛은 발. trot swing 높이(수 cm)보다 작게
 STANCE_VMAX = 0.3  # m/s. 딛은 발 월드 수평 속도 상한. kin_ref slip 평균(0.05~0.19)보다 크게
 RADIUS = 0.02  # A1 foot sphere
-BASE_SG_WIN = 9  # reference base 위치 평활 창(프레임, 180ms)
-SG_WIN = 7  # 속도 평활 Savitzky-Golay 창(프레임, 140ms)
+BASE_SG_SEC = 0.3  # reference base 위치 평활 창 (초). 30 Hz 에서 9 프레임 (기존 값)
+SG_SEC = 7 / 30  # 속도 평활 Savitzky-Golay 창 (초). 30 Hz 에서 7 프레임 (기존 값)
+# 2026-11-17 사용자 결정: 창을 프레임 수 대신 시간 기준으로 (100 Hz 에서 7 프레임 = 70 ms 라 역동역학 잡음 증폭). 30 Hz 는 그대로.
+
+
+def sg_win(dt, sec):
+    """평활 창 길이 (초) → dt 에서의 홀수 프레임 수 (최소 5)."""
+    n = max(5, int(round(sec / dt)))
+    return n if n % 2 else n + 1
+
+
+BASE_SG_WIN, SG_WIN = 9, 7  # 30 Hz 프레임 수 (참고용; 실제 사용은 sg_win(dt, *_SEC))
 GHOST_FRAC = 0.1  # base 잔차 힘이 체중의 10% 를 넘으면 불가능 프레임
 MIN_RUN = 3  # 이보다 짧은 접지/공중 구간은 깜빡임으로 보고 앞 구간에 합친다
 IK_ITERS = 30
@@ -231,7 +241,7 @@ def kin_ref(m, clip, foot_ids):
     # 딛는 발 쌍이 바뀔 때 FK 높이 차(~1cm)로 base 가 계단식으로 튄다 → 가속도 1.6g 잡음. 저역 평활
     from scipy.signal import savgol_filter
 
-    pos = savgol_filter(pos, BASE_SG_WIN, 2, axis=0)
+    pos = savgol_filter(pos, sg_win(dt, BASE_SG_SEC), 2, axis=0)
     foot = pos[:, None] + rel
     angvel = np.zeros((T, 3))  # body frame
     for t in range(T - 1):
@@ -347,7 +357,7 @@ def inverse_check(m, fix, dt):
         mujoco.mj_differentiatePos(m, qvel[t], dt, qpos[t], qpos[t + 1])
     qvel[-1] = qvel[-2]
     # 50Hz 차분 노이즈가 가속도에서 증폭되므로 속도를 평활한 뒤 미분
-    qvel = savgol_filter(qvel, SG_WIN, 2, axis=0)
+    qvel = savgol_filter(qvel, sg_win(dt, SG_SEC), 2, axis=0)
     qacc = np.gradient(qvel, dt, axis=0)
 
     mu = FRICTION
@@ -629,7 +639,7 @@ def retarget_tt(src, dst, only=None, height_trace_only=False, torque_limit=None,
             off = zb - s * z["fix_base_pos"][:, 2]
             zb = s * z["fix_base_pos"][:, 2] + np.interp(np.arange(T), np.where(ok)[0], off[ok])
             interpolated_z = zb.copy()
-            zb = savgol_filter(zb, BASE_SG_WIN, 2)
+            zb = savgol_filter(zb, sg_win(dt, BASE_SG_SEC), 2)
             if height_trace_only:
                 height_traces[(choice, name)] = dict(dt=dt, scale=s, a1_z=z["fix_base_pos"][:, 2].copy(),
                     contact=contact.copy(), interp_ok=ok.copy(), off=off.copy(), contact_z=contact_z,
