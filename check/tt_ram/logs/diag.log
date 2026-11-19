@@ -1,0 +1,90 @@
+split metadata: {'episodes': 500, 'train_episodes': 460, 'validation_episodes': 40, 'independent_source_groups': 25, 'train_source_groups': 23, 'validation_source_groups': 2, 'distinct_s0_feature_vectors_rounded_1e-5': 500, 'split_group_contract': 'cross-morphology source_episode or group_id; see rollout_data.source_group_keys', 'validation_loss_scope': 'all validation episodes, batched; random-window/noise, fixed evaluation RNG seed'}
+intervention pairs (train, val): {'E': (0, 0), 'A': (0, 0)}
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/tt_model.py:69: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(layer, layers)
+episodes=500 (train 460, val 40) valid steps=674838 horizon=500 sources=[np.str_('trotBackwardSlow__r00/chunk_000'), np.str_('trotCCWSlow__r00/chunk_000')]
+params=5.05M
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:668: RuntimeWarning: Mean of empty slice
+  yaw_err_deg=float(np.abs(wrap(np.radians(dy_p - dy_t))).mean() * 180 / np.pi), yaw_hold_deg=float(np.abs(dy_t).mean()),
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/numpy/_core/_methods.py:142: RuntimeWarning: invalid value encountered in divide
+  ret = ret.dtype.type(ret / rcount)
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:669: RuntimeWarning: Mean of empty slice
+  yaw_bias_deg=float((dy_p - dy_t).mean()), yaw_slope=float(np.polyfit(dy_t, dy_p, 1)[0]) if g.sum() > 2 else None,
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:671: RuntimeWarning: Mean of empty slice
+  vel_err=float(np.linalg.norm(p[:, 1:, 8:10] - tr_[:, 1:, 8:10], axis=-1).mean()),
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:672: RuntimeWarning: Mean of empty slice
+  vel_hold=float(np.linalg.norm(tr_[:, :1, 8:10] - tr_[:, 1:, 8:10], axis=-1).mean()),
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:673: RuntimeWarning: Mean of empty slice
+  wz_err=float(np.abs(p[:, 1:, 13] - tr_[:, 1:, 13]).mean()), wz_hold=float(np.abs(tr_[:, :1, 13] - tr_[:, 1:, 13]).mean()),
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:674: RuntimeWarning: Mean of empty slice
+  pos_err_cm=float(np.linalg.norm(p[:, k, :2] - tr_[:, k, :2], axis=-1).mean() * 100),
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:675: RuntimeWarning: Mean of empty slice
+  pos_hold_cm=float(np.linalg.norm(tr_[:, k, :2], axis=-1).mean() * 100),
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/train_tt.py:676: RuntimeWarning: Mean of empty slice
+  joint_err_deg=float(np.degrees(np.sqrt(((p[:, 1:, Q] - tr_[:, 1:, Q]) ** 2).mean()))),
+{
+ "정지": {
+  "n": 0,
+  "yaw_err_deg": NaN,
+  "yaw_hold_deg": NaN,
+  "yaw_bias_deg": NaN,
+  "yaw_slope": null,
+  "yaw_corr": null,
+  "vel_err": NaN,
+  "vel_hold": NaN,
+  "wz_err": NaN,
+  "wz_hold": NaN,
+  "pos_err_cm": NaN,
+  "pos_hold_cm": NaN,
+  "joint_err_deg": NaN
+ },
+ "직진·횡이동": {
+  "n": 144,
+  "yaw_err_deg": 87.5484848022461,
+  "yaw_hold_deg": 34.2017936706543,
+  "yaw_bias_deg": -48.37194061279297,
+  "yaw_slope": -0.11830221636125854,
+  "yaw_corr": -0.072395023258675,
+  "vel_err": 2.5968716144561768,
+  "vel_hold": 0.2882867455482483,
+  "wz_err": 6.841456890106201,
+  "wz_hold": 0.39422380924224854,
+  "pos_err_cm": 551.79736328125,
+  "pos_hold_cm": 167.82444763183594,
+  "joint_err_deg": 58.47429275512695
+ },
+ "회전": {
+  "n": 144,
+  "yaw_err_deg": 97.60212707519531,
+  "yaw_hold_deg": 80.89018249511719,
+  "yaw_bias_deg": -54.83204650878906,
+  "yaw_slope": 0.04763979471611559,
+  "yaw_corr": 0.04104363827917001,
+  "vel_err": 2.518486499786377,
+  "vel_hold": 0.16755002737045288,
+  "wz_err": 7.382857799530029,
+  "wz_hold": 0.71261066198349,
+  "pos_err_cm": 603.3934326171875,
+  "pos_hold_cm": 41.85813522338867,
+  "joint_err_deg": 58.53716278076172
+ },
+ "전체": {
+  "n": 288,
+  "yaw_err_deg": 92.57530212402344,
+  "yaw_hold_deg": 57.54598617553711,
+  "yaw_bias_deg": -51.601993560791016,
+  "yaw_slope": 0.017357835160218642,
+  "yaw_corr": 0.013438966315598632,
+  "vel_err": 2.5576791763305664,
+  "vel_hold": 0.22791838645935059,
+  "wz_err": 7.112157344818115,
+  "wz_hold": 0.5534172058105469,
+  "pos_err_cm": 577.5953979492188,
+  "pos_hold_cm": 104.84129333496094,
+  "joint_err_deg": 58.5057373046875
+ },
+ "check_true_yaw_vs_wz_integral": {
+  "corr": 0.3562850182662278,
+  "mean_abs_diff_deg": 175.13812255859375
+ }
+}

@@ -59,7 +59,7 @@ def joint_diffusion_full_reward(
     guidance_scale=1.0, clip=1.0, seed=0, no_guide_s=False, s_gradient_scale=1.0,
     e_low=0.05, e_high=0.95, inactive_e=(0, 11, 12), s0_fn=None,
     denoising_policy=None, fixed_prediction_cache=None, pose="abs",
-    fixed_e=None, init_state=None, init_delta=None
+    fixed_e=None, init_state=None, init_delta=None, warm_x=None, warm_k=None, return_latents=False
 ):
     """Return (trajectory[B,episode_states,S+A], E[B,e_dim], audit).
 
@@ -75,6 +75,10 @@ def joint_diffusion_full_reward(
     MPC 다시 계획용 (2026-11-10): fixed_e (물리 E [B,e_dim]) 를 주면 E 는 생성하지 않고 고정한다.
     init_state ([B,state_dim], 실제 상태 특징) 를 주면 그 상태에서 시작한다 (모든 창 Mode 2).
     init_delta ([B,3], delta 자세에서 직전 step 의 몸통 기준 이동·회전) 는 delta 자세의 첫 변화량이다.
+
+    MPC warm start (2026-11-19): warm_x (창마다 [B,horizon,S+A] 정규화 x 토큰, 이전 계획의 창을 한 창 앞으로 민 것) 와
+    warm_k (0~len(beta)-1) 를 주면 처음 노이즈 대신 warm_x 를 noise 단계 warm_k 까지 섞은 것에서 시작해 k = warm_k..0 만 denoise 한다.
+    창 토큰은 창 시작 상태 기준 (heading-aligned) 이라 창 단위로 밀어도 좌표가 맞는다. return_latents=True 면 audit["latents"] = 마지막 창 토큰.
     """
     if (fixed_e is None) != (init_state is None):
         raise ValueError("MPC replanning needs both fixed_e and init_state")
@@ -100,6 +104,12 @@ def joint_diffusion_full_reward(
     xs = [torch.randn((n, horizon, xdim), generator=generator, device=dev, dtype=dtype)
           for _ in windows]
     e = torch.randn((n, e_dim), generator=generator, device=dev, dtype=dtype)
+    if warm_x is not None:
+        if len(warm_x) != len(windows) or warm_k is None or not 0 <= int(warm_k) < len(beta):
+            raise ValueError("warm_x needs one token per window and 0 <= warm_k < diffusion steps")
+        ab_w = abar[int(warm_k)]
+        # None = 이전 계획에 없는 창 (고정 길이 예측 구간 끝에 새로 붙는 창): 순수 noise 그대로
+        xs = [x if w is None else ab_w.sqrt() * torch.as_tensor(w, device=dev, dtype=dtype) + (1 - ab_w).sqrt() * x for w, x in zip(warm_x, xs)]
     initial_x = rest_s0().to(device=dev, dtype=dtype)
     if len(initial_x) != state_dim:
         raise ValueError("rest_s0 dimension does not match model S_DIM")
@@ -191,7 +201,7 @@ def joint_diffusion_full_reward(
 
     if fixed_prediction_cache is not None and guidance_scale != 0:
         raise ValueError('fixed TT prediction requires guidance_scale=0')
-    steps = [len(beta)-1] if fixed_prediction_cache is not None else reversed(range(len(beta)))
+    steps = [len(beta)-1] if fixed_prediction_cache is not None else reversed(range(len(beta) if warm_x is None else int(warm_k) + 1))
     for k in steps:
         with torch.enable_grad() if guidance_scale > 0 else torch.no_grad():
             xts = [x.detach().requires_grad_(guidance_scale > 0) for x in xs]
@@ -297,7 +307,10 @@ def joint_diffusion_full_reward(
             frames.append(ep[:, :w] if i == len(windows) - 1 else ep[:, :w - 1])
             cur = ep[:, w - 1].clone()
         final_traj = torch.cat(frames, dim=1)
+    audit_latents = {"latents": [x.detach() for x in xs]} if return_latents else {}
     return final_traj, ef, {
+        **audit_latents,
+        "warm_k": None if warm_x is None else int(warm_k),
         "algorithm": ("PPO residual-noise joint DDIM on shared noisy E + S/A" if denoising_policy is not None
                       else "per-step full-horizon reward-gradient joint DDIM on shared noisy E + X"),
         "rl_correction_norm_per_step": correction_norms,

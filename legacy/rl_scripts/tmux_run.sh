@@ -1,6 +1,5 @@
 #!/bin/bash
-# RL 폴더 공통 학습 런처. tmux detached 세션에서 명령을 돌리고, 종료되면
-# 무조건 텔레그램 알림을 보낸다 (성공/실패 모두). walk_N 계열 전용
+# RL 폴더 공통 학습 런처. tmux detached 세션에서 명령을 돌린다. walk_N 계열 전용
 # start_walk_train.sh 과 달리 어떤 학습 명령에도 쓸 수 있다.
 #
 #   bash scripts/tmux_run.sh <세션이름> "<명령>"
@@ -28,15 +27,8 @@ tmux has-session -t "=$SESSION" 2>/dev/null && {
 
 mkdir -p "$(dirname "$LOG")"
 
-# 시작 알림 (사용자 지시: 시작/완료 둘 다 필수)
-[ "$NOTIFY" = "1" ] && bash "${RL_DIR}/scripts/tg_send.sh" "${LABEL} 학습 시작" || true
-
-# 종료 알림을 같은 셸 안에서 chain 한다. 별도 세션 감시(polling)는 쓰지 않는다.
 # rc 는 tee 가 아니라 학습 프로세스의 코드여야 하므로 PIPESTATUS[0] 을 쓴다.
 NOTIFY_TAIL=":"
-if [ "$NOTIFY" = "1" ]; then
-  NOTIFY_TAIL="if [ \$rc -eq 0 ]; then bash '${RL_DIR}/scripts/tg_send.sh' '${LABEL} 학습 완료'; else bash '${RL_DIR}/scripts/tg_send.sh' \"${LABEL} 학습 중단 (exit \$rc)\"; fi"
-fi
 
 tmux new-session -d -s "$SESSION" bash -c \
   "cd '${CWD}' && PYTHONUNBUFFERED=1 ${CMD} 2>&1 | tee '${LOG}'; rc=\${PIPESTATUS[0]}; ${NOTIFY_TAIL}"

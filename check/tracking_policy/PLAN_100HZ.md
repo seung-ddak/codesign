@@ -23,7 +23,7 @@ cd codesign && bash chain/code/run_100hz.sh      # GPU 가 비어 있어야 함,
 ```
 - 코드: `chain/code/s5h_retarget100.py` (모션 세트 순서, ready/<세트>/<형상>.json), `chain/code/s6h_train100.py` (세트 ready 9/9 이면 학습, 묶음 번갈아), `chain/code/run_100hz.sh`.
 - 출력: `chain/runs/s5h_retarget100/`, `chain/runs/s6h_train100/<세트>/`, 로그 `chain/logs/{chain,s5h,s6h}.log`.
-- 학습 후 평가 (학습 형상 9 + 처음 보는 형상 10) 코드는 아직 없음 — 학습 중 작성.
+- 학습 후 평가: `chain/code/s7h_eval100.py` (2026-11-17 작성, 미실행). 출력 runs/s7h_eval100/.
 
 ## 리타겟
 - 방식: s5 A1 레퍼런스 (30 Hz) 를 `resample_reference` 로 100 Hz 보간 → `pd_replay.retarget_tt` (foot_lock + IK).

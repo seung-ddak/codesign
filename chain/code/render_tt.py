@@ -66,7 +66,11 @@ def render_task_overlay(q_real, q_pred, E, task, path, title='', fell_t=None):
     q_* = 50 Hz qpos (s0 기준 world 좌표, 원점 출발). 카메라는 두 몸통 중점을 따라감, 아래에 두 위치 차이 (m)."""
     import imageio, mujoco, render_three as r3
     from pd_replay import build_model
-    rm = r3.rm; m = build_model('00000011', uniforms=list(E), flat_ground=True, torque_limit=33.5); p = r3.Panel(m); d2 = mujoco.MjData(m)
+    # 폴은 MuJoCo 실행과 같은 geom 으로 모델에 넣는다 (2026-11-19: 이전 _pole 은 원기둥 size 를 잘못 넣어 높이 0.12 m 원판이 공중 0.41 m 에 떠 보였음)
+    sys.path.insert(0, str(ROOT / 'code/tt_dynamics')); from generate_task_mujoco import add_slalom_poles
+    from functools import partial
+    scene_fn = partial(add_slalom_poles, task=task) if hasattr(task, 'poles') else None
+    rm = r3.rm; m = build_model('00000011', uniforms=list(E), flat_ground=True, torque_limit=33.5, scene_fn=scene_fn); p = r3.Panel(m); d2 = mujoco.MjData(m)
     p.cam.distance, p.cam.elevation = 2.6, -32.
     spec = task.describe(); lines = task.guide_lines()
     qa, qb = np.asarray(q_real), np.asarray(q_pred); n = max(len(qa), len(qb)); step = max(1, 50 // r3.FPS)
@@ -82,7 +86,6 @@ def render_task_overlay(q_real, q_pred, E, task, path, title='', fell_t=None):
             _tint(m, sc, n0, PRED_C)
             for pts, solid in lines:
                 for u, v in zip(pts[:-1:2], pts[2::2]): rm.add_line(sc, u, v, (1, 1, 1, .9) if solid else (.2, .3, .5, .9), .006 if solid else .012)
-            for x, y in spec.get('poles', []): _pole(sc, x, y, spec.get('pole_radius', .06), spec.get('pole_height', .5))
             for u, v in zip(qb[:ib + 1:2, :2][:-1], qb[:ib + 1:2, :2][1:]): rm.add_line(sc, u, v, PRED_C[:3] + (1,), .01, z=.007)
             for u, v in zip(qa[:ia + 1:2, :2][:-1], qa[:ia + 1:2, :2][1:]): rm.add_line(sc, u, v, REAL_C, .012, z=.009)
             img = p.r.render().copy(); gap = np.linalg.norm(a[:2] - b[:2])

@@ -4,6 +4,7 @@ Green is the replayed MuJoCo path and orange is the TT prediction. Red
 circles mark physical slalom poles when present.
 """
 import math
+import os
 import numpy as np
 
 
@@ -100,5 +101,5 @@ def image_with_overlay(rgb, *, task, task_spec, physical_xy, predicted_xy,
     d.text((x0+12,y0+inset_h-18),"REF gray / TT orange / REAL green",font=font,fill=(23,37,56,255))
     if fall_step is not None and frame >= fall_step:
         d.rounded_rectangle((14,h-53,min(w-14,360),h-14),radius=6,fill=(115,26,34,225))
-        d.text((25,h-40),f"{termination_reason.upper()} at {fall_step*0.02:.2f}s (held frame)",font=font,fill=(255,255,255,255))
+        d.text((25,h-40),f"{termination_reason.upper()} at {fall_step/int(os.environ.get('TT_CONTROL_HZ', '50')):.2f}s (held frame)",font=font,fill=(255,255,255,255))
     return Image.alpha_composite(img,canvas).convert("RGB")

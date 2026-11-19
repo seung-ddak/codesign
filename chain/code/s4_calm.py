@@ -50,10 +50,24 @@ def classify(files):
     return {str(files[i]): names[int(votes[i].argmax())] for i in range(len(files))}, sf, best, names
 
 
+def classify_z(files):
+    """2026-11-17 사용자 결정: CALM 인코더 z 기준 분류 (calm_z.py, 창 투표 최다 레퍼런스). 캐시 = OUT/z_cache."""
+    cache = OUT / 'z_cache'; todo = [f for f in files if not (cache / f'{f.parent.parent.name}_{f.stem}.json').exists()]
+    if todo:
+        (OUT / 'z_todo.txt').write_text('\n'.join(map(str, todo)))
+        run([f'{RLGPU}/bin/python', '-u', str(CODE_DIR / 'calm_z.py'), str(OUT / 'z_todo.txt'), str(cache)], OUT / 'z.log',
+            env=dict(OMP_NUM_THREADS='2', LD_LIBRARY_PATH=f'{RLGPU}/lib'))
+    lab = {}
+    for f in files:
+        v = json.loads((cache / f'{f.parent.parent.name}_{f.stem}.json').read_text())['votes']
+        if sum(v): lab[str(f)] = TROT[int(np.argmax(v))]
+    return lab
+
+
 def tally(quota):
     files = sorted(OUT.glob('round_*/accepted/*.npz'))
     if not files: return {r: [] for r in TROT}, {}
-    label, *_ = classify(files)
+    label = classify_z(files)
     by = {r: [] for r in TROT}; other = {}
     for f, r in label.items():
         (by[r].append(f) if r in by else other.__setitem__(r, other.get(r, 0) + 1))

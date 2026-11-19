@@ -24,7 +24,25 @@ class TrackReward:
         # 기울기·높이 감점 ×2 (실제 넘어짐은 생존 감점 ×20 이 맡는다). 기본 (v1) 은 이전과 같다.
         v2 = os.environ.get("TT_REWARD_PROFILE", "v1") == "v2"
         self.rewards = rewards if rewards is not None else {"progress": 10.0 if v2 else 1.0}
-        self.penalties = penalties if penalties is not None else {"lane": 20.0, "fall": 2.0 if v2 else 20.0, "action_rate": 0.05, "survival": 20.0}
+        self.penalties = penalties if penalties is not None else {"lane": 20.0, "fall": 2.0 if v2 else 20.0, "action_rate": 0.05, "survival": 20.0,
+                                                                  "heading": self.heading_weight}
+
+    # 2026-11-19 사용자 결정 (쓸데없는 회전 제거): 몸 방향이 과제 진행 방향에서 벗어난 정도 (1 - cos) 의 평균에 감점.
+    # 0 = 늘 진행 방향, 1 = 옆, 2 = 반대. 가중치 5 = 10 s 내내 반대를 보면 -10, 제자리 한 바퀴 (1 s) 면 약 -0.5.
+    heading_weight = 5.0
+
+    def heading_ref(self, x):
+        """[B,T,2] 진행 방향 단위벡터 (출발 기준 xy). 원형 트랙 = 반시계 접선."""
+        rel = x[..., POS] - x.new_tensor(self.center)
+        t = torch.stack([-rel[..., 1], rel[..., 0]], -1)
+        return t / t.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+
+    def p_heading(self, x, m):
+        """몸 방향 (특징 cos·sin = 출발 기준 yaw) 과 heading_ref 사이 1 - cos 의 평균 (0~2)."""
+        n = torch.sqrt(x[..., COS] ** 2 + x[..., SIN] ** 2).clamp_min(1e-6)
+        ref = self.heading_ref(x)
+        out = 1 - (x[..., COS] * ref[..., 0] + x[..., SIN] * ref[..., 1]) / n
+        return (out * m).sum(1) / m.sum(1).clamp(min=1)
 
     # ---- 보상 ----
     def r_progress(self, x, m):
@@ -117,6 +135,13 @@ class ZigzagReward(TrackReward):
         dx = x[:, 1:, 0] - x[:, :-1, 0]
         return (dx * (m[:, 1:] & m[:, :-1])).sum(1)
 
+    def heading_ref(self, x):
+        """중심선 y_ref 의 기울기 방향 (+x 쪽)."""
+        px = x[..., 0].detach()
+        slope = (self.y_ref(px + 0.01) - self.y_ref(px - 0.01)) / 0.02
+        t = torch.stack([torch.ones_like(slope), slope], -1)
+        return t / t.norm(dim=-1, keepdim=True)
+
     def p_lane(self, x, m):
         out = torch.relu((x[..., 1] - self.y_ref(x[..., 0])).abs() - self.half_width) ** 2
         return (out * m).sum(1) / m.sum(1).clamp(min=1)
@@ -141,6 +166,12 @@ class StraightReward(TrackReward):
         super().__init__(half_width=half_width, **kw)
 
     r_progress = ZigzagReward.r_progress
+
+    def heading_ref(self, x):
+        """+x."""
+        ref = torch.zeros_like(x[..., POS])
+        ref[..., 0] = 1
+        return ref
 
     def p_lane(self, x, m):
         outside = torch.relu(x[..., 1].abs() - self.half_width) ** 2
@@ -188,7 +219,11 @@ class SlalomReward(ZigzagReward):
     pole_height = 0.82
     collision_penalty = 20.0
 
-    body_clearance = 0.15  # 몸통 중심에서 폴 표면까지 이보다 가까우면 충돌로 본다 (몸통 반폭 근사)
+    # 2026-11-19 사용자 요청 "기둥에 닿으면 패널티": 몸통 중심 원 (반경 0.15) 대신 몸통 방향 직사각형 (다리 포함) 으로 판정.
+    # s11z MPC 실제 MuJoCo 폴 접촉 7 건은 모두 몸통 중심에서 폴 중심까지 0.36~0.45 m (이전 판정 0.21 m 밖 → 7 건 모두 감점 0).
+    # 반길이 0.35 · 반폭 0.20 이면 160 개 실제 궤적에서 접촉 7/7 판정 (접촉 없는 폴 통과 15 건도 판정: 보수적).
+    foot_half_length = 0.35
+    foot_half_width = 0.20
 
     def __init__(self):
         super().__init__(half_width=0.22)
@@ -220,16 +255,24 @@ class SlalomReward(ZigzagReward):
                 (m[:, 1:] & m[:, :-1])).sum(1)
 
     def p_pole(self, x, m):
-        """폴마다 가장 가까이 간 순간의 충돌 정도 (0~1) 의 합. 몸통 중심이 폴 표면에서 body_clearance 안이면 1 에 가깝다."""
+        """폴마다 가장 깊이 닿은 순간의 충돌 정도 (0~1) 의 합. 몸통 방향 직사각형 (반길이 foot_half_length, 반폭 foot_half_width) 과
+        폴 원기둥 사이 거리가 0 이하면 1 에 가깝다. 방향 = 특징 cos·sin (출발 기준 yaw), 위치 = 특징 xy (출발 기준)."""
         poles = x.new_tensor(self.poles)
-        dist = (x[..., None, POS] - poles).norm(dim=-1) - self.pole_radius
-        hit = torch.sigmoid((self.body_clearance - dist) / 0.02) * m[..., None].to(x.dtype)
+        rel = poles - x[..., None, POS]
+        n = torch.sqrt(x[..., COS] ** 2 + x[..., SIN] ** 2).clamp_min(1e-6)
+        c, s = (x[..., COS] / n)[..., None], (x[..., SIN] / n)[..., None]
+        lon = (c * rel[..., 0] + s * rel[..., 1]).abs() - self.foot_half_length
+        lat = (-s * rel[..., 0] + c * rel[..., 1]).abs() - self.foot_half_width
+        outside = torch.sqrt(lon.clamp_min(0) ** 2 + lat.clamp_min(0) ** 2 + 1e-8)
+        dist = outside + torch.maximum(lon, lat).clamp_max(0) - self.pole_radius
+        hit = torch.sigmoid(-dist / 0.02) * m[..., None].to(x.dtype)
         return hit.amax(1).sum(-1)
 
     def describe(self):
         return dict(task="pole_slalom", poles=self.poles, gates=self.gates,
                     route=self.route, half_width=self.half_width,
                     pole_radius=self.pole_radius, pole_height=self.pole_height,
+                    pole_footprint=(self.foot_half_length, self.foot_half_width), heading_weight=self.heading_weight,
                     collision_penalty_per_pole=self.collision_penalty,
                     rewards=self.rewards, penalties=self.penalties, unit=self.unit)
 
@@ -247,3 +290,76 @@ class SlalomReward(ZigzagReward):
                     break
                 crossings.append(float(index + fraction))
         return crossings
+
+
+class Slalom3Reward(SlalomReward):
+    """2026-11-19 사용자 결정: 기둥 3 개 (x = 1.0, 2.3, 3.6) 를 피해 끝 게이트 (x = 4.7, y = 0) 까지 가장 빨리.
+    게이트·경로·감점은 SlalomReward 와 같고 4 번째 기둥만 뺀다. 끝 = 게이트 7 개를 순서대로 통과."""
+
+    def __init__(self):
+        super().__init__()
+        self.poles = self.poles[:3]
+        self.gates = self.gates[:6] + [(self.poles[-1][0] + 1.1, 0.0)]
+        self.route = [(0.0, 0.0), *self.gates]
+
+    def guide_lines(self, length=None):
+        return super().guide_lines(self.gates[-1][0] if length is None else length)
+
+
+
+class Poles3ForwardReward(SlalomReward):
+    """2026-11-19 사용자 결정: 지그재그 경로를 따르지 않고, 기둥 3 개 (x = 1.0, 2.3, 3.6, y = 0) 에 닿지 않으면서 끝선 x = 4.7 m 까지 가장 빨리.
+    경로·통로 (lane) 없음. 진행 = +x 전진 (끝선에서 자름, 뒤로 가면 감점). 몸 방향 기준 = +x. 폴 감점 = SlalomReward 직사각형 판정 (가중치 20)."""
+
+    unit, unit_scale = "m", 1.0
+    finish_x = 4.7
+
+    def __init__(self):
+        super().__init__()
+        self.poles = self.poles[:3]
+        self.gates, self.route = [], [(0.0, 0.0), (self.finish_x, 0.0)]
+        self.penalties = {k: v for k, v in self.penalties.items() if k != "lane"}
+
+    def r_progress(self, x, m):
+        px = x[..., 0].clamp(max=self.finish_x)
+        return ((px[:, 1:] - px[:, :-1]) * (m[:, 1:] & m[:, :-1])).sum(1)
+
+    heading_ref = StraightReward.heading_ref
+
+    def describe(self):
+        return dict(task="poles3_forward", poles=self.poles, finish_x=self.finish_x,
+                    pole_radius=self.pole_radius, pole_height=self.pole_height,
+                    pole_footprint=(self.foot_half_length, self.foot_half_width), heading_weight=self.heading_weight,
+                    collision_penalty_per_pole=self.collision_penalty,
+                    rewards=self.rewards, penalties=self.penalties, unit=self.unit)
+
+    def guide_lines(self, length=None):
+        """출발선 · 끝선 (y ±1 m)."""
+        return [(np.array([[0.0, -1.0], [0.0, 1.0]]), False), (np.array([[self.finish_x, -1.0], [self.finish_x, 1.0]]), True)]
+
+
+class CorridorPolesReward(Poles3ForwardReward):
+    """2026-11-19 사용자 결정 (장애물 피하기 검증): 직선 통로 (몸통 중심 |y| <= 0.40 m) 안에 좌우로 엇갈린 기둥 3 개
+    (x 1.0 / 2.3 / 3.6, y +0.15 / -0.15 / +0.15). 기둥과 같은 쪽 틈 (0.40 - 0.15 = 0.25 < 몸 반폭 0.20 + 기둥 반지름 0.06) 은 막혀
+    기둥마다 반대편으로 비켜 가야 한다. 끝선 x 4.7 m 까지 가장 빨리.
+    통로 감점 = 통로 밖에 있던 시간 비율 (sigmoid 판정) × 20, 기둥 감점 20, 진행 = +x 전진 (끝선에서 자름), 몸 방향 기준 +x."""
+
+    corridor_half_width = 0.40
+
+    def __init__(self):
+        super().__init__()
+        self.poles = [(1.0, 0.15), (2.3, -0.15), (3.6, 0.15)]
+        self.half_width = self.corridor_half_width
+        self.penalties = dict(self.penalties, lane=20.0)
+
+    def p_lane(self, x, m):
+        out = torch.sigmoid((x[..., 1].abs() - self.half_width) / 0.02)
+        return (out * m).sum(1) / m.sum(1).clamp(min=1)
+
+    def describe(self):
+        return dict(super().describe(), task="corridor_poles3", corridor_half_width=self.half_width)
+
+    def guide_lines(self, length=None):
+        L = self.finish_x + 0.3 if length is None else length
+        return [(np.array([[0.0, y], [L, y]]), True) for y in (-self.half_width, self.half_width)] + \
+               [(np.array([[self.finish_x, -self.half_width], [self.finish_x, self.half_width]]), False)]

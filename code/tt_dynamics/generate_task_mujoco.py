@@ -324,7 +324,7 @@ def main():
     (args.out / "summary.json").write_text(json.dumps(
         dict(task=args.task, evaluation_version=EVALUATION_VERSION,
              physics_backend="MuJoCo CPU", seconds=10,
-             control_hz=50, seed=args.seed, tt_checkpoint=str(checkpoint),
+             control_hz=CONTROL_HZ, seed=args.seed, tt_checkpoint=str(checkpoint),
              inference_weights="ema" if use_ema else "raw",
              results=outcomes), indent=2, ensure_ascii=False))
     print("Saved:", args.out / "summary.json")

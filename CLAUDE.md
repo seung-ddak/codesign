@@ -14,8 +14,7 @@
 - cfg·기준·학습 시작/중단 결정은 사용자만 한다. 진단과 선택지 제시까지만 자동으로 한다.
 
 ## 학습 실행
-- 모든 학습·평가는 tmux 에서 `bash ../scripts/tmux_run.sh <세션> "<명령>"` 로 돌린다 (nohup 금지). 시작·종료 텔레그램 알림은 자동이다.
-- 알림은 한 줄만 (`<이름> 학습 완료`). 자격증명은 `~/.config/telegram_bot.env` (RL 봇). 비-RL 봇과 섞지 않는다.
+- 모든 학습·평가는 tmux 에서 `bash ../scripts/tmux_run.sh <세션> "<명령>"` 로 돌린다 (nohup 금지).
 - 여러 단계 명령은 `bash -c '...'` 한 덩어리로 넘긴다 (`;` 로 이으면 마지막 명령만 로그에 남는다).
 - tmux 대기는 반드시 `tmux has-session -t "=이름"` (정확 일치). 접두 매칭 때문에 체인이 17 시간 멈춘 적이 있다.
 - run 폴더 = `stage2/runs/T{TODO}/try{N}`, tmux 세션 = `T{TODO}_try{N}`.

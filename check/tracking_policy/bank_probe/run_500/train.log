@@ -1,0 +1,39 @@
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/shared_calm_train.py", line 86, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/shared_calm_train.py", line 77, in main
+    train(environment=env,eval_env=ev,num_timesteps=a.steps,num_envs=c['num_envs'],batch_size=c['batch_size'],unroll_length=c['unroll_length'],num_minibatches=c['num_minibatches'],num_updates_per_batch=c['num_updates_per_batch'],
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/mjx_env/train.py", line 751, in train
+    (training_state, env_state, training_metrics) = training_epoch_with_timing(
+                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/mjx_env/train.py", line 603, in training_epoch_with_timing
+    jax.tree_util.tree_map(lambda x: x.block_until_ready(), metrics)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/tree_util.py", line 399, in tree_map
+    return treedef.unflatten(f(*xs) for xs in zip(*all_leaves))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/tree_util.py", line 399, in <genexpr>
+    return treedef.unflatten(f(*xs) for xs in zip(*all_leaves))
+                             ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/mjx_env/train.py", line 603, in <lambda>
+    jax.tree_util.tree_map(lambda x: x.block_until_ready(), metrics)
+                                     ^^^^^^^^^^^^^^^^^^^^^
+jax.errors.JaxRuntimeError: RESOURCE_EXHAUSTED: [0] Failed to load in-memory CUBIN (compiled for a different GPU?).: CUDA_ERROR_OUT_OF_MEMORY: out of memory [executable_name='jit__mean']
+Exception ignored in atexit callback: <function clean_up at 0x7cd7dfc2b240>
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/api.py", line 2578, in clean_up
+    clear_backends(_crash=True)
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/api.py", line 2554, in clear_backends
+    effects_barrier()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/api.py", line 2477, in effects_barrier
+    dispatch.runtime_tokens.block_until_ready()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/dispatch.py", line 171, in block_until_ready
+    token.block_until_ready()
+jax.errors.JaxRuntimeError: RESOURCE_EXHAUSTED: [0] Failed to load in-memory CUBIN (compiled for a different GPU?).: CUDA_ERROR_OUT_OF_MEMORY: out of memory [executable_name='jit__fun']
+Exception ignored in atexit callback: <function wait_for_tokens at 0x7cd7dfc0f4c0>
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/dispatch.py", line 178, in wait_for_tokens
+    runtime_tokens.block_until_ready()
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/dispatch.py", line 171, in block_until_ready
+    token.block_until_ready()
+jax.errors.JaxRuntimeError: RESOURCE_EXHAUSTED: [0] Failed to load in-memory CUBIN (compiled for a different GPU?).: CUDA_ERROR_OUT_OF_MEMORY: out of memory [executable_name='jit__fun']

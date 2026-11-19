@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/check/z_vs_speed/code/videos.py", line 16, in <module>
+    a1_only(z, OUT / 'videos' / f'{N[s]}_to_{N[zt]}.mp4', M=name, dirs=f'speed: {N[s]} -> z: {N[zt]}  cos ' + ' '.join(f'{n[:3]} {v:.2f}' for n, v in zip(N, c['mean_cos'])))
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/chain/code/three_calm.py", line 27, in a1_only
+    try: rm.encode_frames(path, frames(), width=r3.W, height=r3.H, fps=r3.FPS)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/render_task_videos.py", line 44, in encode_frames
+    raise FileExistsError("Refusing to overwrite existing video: " + str(path))
+FileExistsError: Refusing to overwrite existing video: /home/cgr-ugrad-2026/quad_ws/codesign/check/z_vs_speed/videos/Backward_to_Left.mp4

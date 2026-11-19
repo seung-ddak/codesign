@@ -1,0 +1,53 @@
+split metadata: {'episodes': 500, 'train_episodes': 455, 'validation_episodes': 45, 'independent_source_groups': 452, 'train_source_groups': 407, 'validation_source_groups': 45, 'distinct_s0_feature_vectors_rounded_1e-5': 500, 'split_group_contract': 'cross-morphology source_episode or group_id; see rollout_data.source_group_keys', 'validation_loss_scope': 'all validation episodes, batched; random-window/noise, fixed evaluation RNG seed'}
+intervention pairs (train, val): {'E': (0, 0), 'A': (0, 0)}
+/home/cgr-ugrad-2026/quad_ws/codesign/code/tt_dynamics/tt_model.py:69: UserWarning: enable_nested_tensor is True, but self.use_nested_tensor is False because encoder_layer.norm_first was True
+  self.enc = nn.TransformerEncoder(layer, layers)
+episodes=500 (train 455, val 45) valid steps=674838 horizon=500 sources=[np.str_('trotBackwardSlow__r00/chunk_000'), np.str_('trotCCWSlow__r00/chunk_000')]
+params=5.05M
+{'step': 10, 'loss': 1.5870927572250366, 'val_loss': 1.445868714650472, 'val_episodes_evaluated': 45, 'val_batches': 2, 'lr': 0.0, 'min': 0.01889033317565918, 'sampled_modes': [94, 108, 118, 0, 0, 0], 'sampled_sources': [320, 0], 'xy_kinematic_loss': 2937.41357421875, 'joint_kinematic_loss': 6.329874515533447, 'xy_kinematic_rmse_cm': 368.1473388671875, 'joint_kinematic_rmse_deg': 34.92403030395508, 'val_xy_kinematic_loss': 3596.6928431515803, 'val_joint_kinematic_loss': 7.254510105280003, 'val_xy_kinematic_rmse_cm': 318.1873961630834, 'val_joint_kinematic_rmse_deg': 29.604499228745162, 'val_kinematic_transition_count': 22455, 'raw_group_mse': {'action': 1.2745425701141357, 'joint_position': 1.2106088399887085, 'joint_velocity': 1.1794941425323486, 'body': 1.2180564403533936, 'contact': 1.1840746402740479, 'E': 1.2034510374069214}, 'val_raw_group_mse': {'action': 1.2346551418304443, 'joint_position': 1.1790902614593506, 'joint_velocity': 1.1764472723007202, 'body': 1.2164150476455688, 'contact': 1.206385612487793, 'E': 1.1082956790924072}, 'raw_loss': 1.2117046117782593, 'val_raw_loss': 1.1868815024693806, 'loss_objective': 'legacy_v1', 'loss_group_terms': {'action': 0.1633630245923996, 'joint_position': 0.301554411649704, 'joint_velocity': 0.29380396008491516, 'body': 0.35397782921791077, 'contact': 0.09831497818231583, 'E': 0.3760784864425659}, 'loss_group_fractions': {'action': 0.10293225191209252, 'joint_position': 0.19000428488990087, 'joint_velocity': 0.18512085771970857, 'body': 0.22303538502217968, 'contact': 0.06194658874762796, 'E': 0.2369606317084904}, 'val_loss_group_terms': {'action': 0.1694987714290619, 'joint_position': 0.29069089889526367, 'joint_velocity': 0.29007741808891296, 'body': 0.3498702347278595, 'contact': 0.09908320009708405, 'E': 0.24664820730686188}, 'val_loss_group_fractions': {'action': 0.11722970961905134, 'joint_position': 0.20104930188626666, 'joint_velocity': 0.2006250027826271, 'body': 0.24197925256739605, 'contact': 0.06852848948447278, 'E': 0.17058824366018607}}
+Saved resumable state: step=10
+{
+ "t2": {
+  "n": 4,
+  "joint_rmse_deg": 55.14904022216797,
+  "pos_err_cm": 457.183349609375
+ },
+ "t20": {
+  "n": 4,
+  "joint_rmse_deg": 55.19822692871094,
+  "pos_err_cm": 478.6230163574219
+ },
+ "t100": {
+  "n": 4,
+  "joint_rmse_deg": 62.537986755371094,
+  "pos_err_cm": 441.4889831542969
+ },
+ "t200": {
+  "n": 4,
+  "joint_rmse_deg": 57.57737731933594,
+  "pos_err_cm": 608.2598266601562
+ },
+ "t500": {
+  "n": 4,
+  "joint_rmse_deg": 62.15947723388672,
+  "pos_err_cm": 804.41064453125
+ },
+ "t998": {
+  "n": 4,
+  "joint_rmse_deg": 56.37570571899414,
+  "pos_err_cm": 969.0360107421875
+ },
+ "t1999": {
+  "n": 3,
+  "joint_rmse_deg": 60.17618942260742,
+  "pos_err_cm": 1434.9154052734375
+ },
+ "all": {
+  "joint_rmse_deg": 58.020355224609375,
+  "pos_err_cm": 1050.9990234375
+ },
+ "baseline_hold_s0_all": {
+  "joint_rmse_deg": 10.730429649353027,
+  "pos_err_cm": 280.8409729003906
+ }
+}

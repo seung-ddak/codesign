@@ -1,0 +1,28 @@
+W1117 16:08:17.778192 3490822 bfc_allocator.cc:514] Allocator (GPU_0_bfc) ran out of memory trying to allocate 825.21MiB (rounded to 865296640)requested by op 
+If the cause is memory fragmentation maybe the environment variable 'TF_GPU_ALLOCATOR=cuda_malloc_async' will improve the situation. 
+Current allocation summary follows.
+Current allocation summary follows.
+W1117 16:08:17.778601 3490822 bfc_allocator.cc:525] *****x**************************x**********x__********__*****************************************__*
+/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/interpreters/mlir.py:1246: UserWarning: A large amount of constants were captured during lowering (3.82GB total). If this is intentional, disable this warning by setting JAX_CAPTURED_CONSTANTS_WARN_BYTES=-1. To obtain a report of where these constants were encountered, set JAX_CAPTURED_CONSTANTS_REPORT_FRAMES=-1.
+  warnings.warn(message)
+Traceback (most recent call last):
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/shared_calm_train.py", line 86, in <module>
+    if __name__=='__main__':main()
+                            ^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/codesign/code/motion_tracking/shared_calm_train.py", line 77, in main
+    train(environment=env,eval_env=ev,num_timesteps=a.steps,num_envs=c['num_envs'],batch_size=c['batch_size'],unroll_length=c['unroll_length'],num_minibatches=c['num_minibatches'],num_updates_per_batch=c['num_updates_per_batch'],
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/t2/mjx_env/train.py", line 393, in train
+    env_state = reset_fn(key_envs)
+                ^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/pmap.py", line 319, in wrapped
+    out = jitted_f(*dyn_args_flat)
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/array.py", line 1108, in _array_mlir_constant_handler
+    return mlir.ir_constant(val._value)
+    ^^^^^
+  File "/home/cgr-ugrad-2026/quad_ws/transformer-transformer/.venv/lib/python3.12/site-packages/jax/_src/array.py", line 623, in _value
+    npy_value, did_copy = self._single_device_array_to_np_array_did_copy()
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+jax.errors.JaxRuntimeError: RESOURCE_EXHAUSTED: Out of memory while trying to allocate 825.21MiB. [tf-allocator-allocation-error=''] [executable_name='jit_stack']
+--------------------
+For simplicity, JAX has removed its internal frames from the traceback of the following exception. Set JAX_TRACEBACK_FILTERING=off to include these.

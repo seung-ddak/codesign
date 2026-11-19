@@ -59,6 +59,11 @@ parser.add_argument("--init-from", type=Path, help="initialize NEW run with weig
 parser.add_argument("--kin-xy-weight", type=float, default=0., help="denoised x0 XY displacement/velocity consistency loss weight")
 parser.add_argument("--kin-joint-weight", type=float, default=0., help="denoised x0 joint angle/velocity consistency loss weight")
 parser.add_argument("--eval-episodes", type=int, default=64)
+parser.add_argument("--episode-steps", type=int, default=500, help="episode 최대 step (50 Hz 500 = 10 s, 100 Hz 2000 = 20 s)")
+parser.add_argument("--dt", type=float, default=0.02, help="데이터 step 간격 (s). 50 Hz 0.02, 100 Hz 0.01")
+parser.add_argument("--split-by", choices=("episode", "shape", "motion"), default="episode",
+                    help="검증 분할 단위. shape/motion = NPZ 의 episode 별 shape/motion 키로 묶어 val 형상·모션이 train 에 없게")
+parser.add_argument("--data-device", choices=("cuda", "cpu"), default="cuda", help="cpu = 데이터는 RAM, 배치만 GPU 로 (check/tt_ram)")
 parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--eval-only", action="store_true")
 parser.add_argument("--norm", choices=("zscore", "minmax"), default="zscore", help="minmax = 학습 데이터 범위를 [-1,1] 로 (TT 원본)")
@@ -135,7 +140,7 @@ dev = "cuda"
 torch.manual_seed(args.seed)
 
 
-EP = 500  # episode 최대 step (10 s)
+EP = args.episode_steps  # episode 최대 step
 
 
 
@@ -174,7 +179,12 @@ swapped = []
 for path in args.data:
     with np.load(path) as z:
         rows = [b for b in range(len(z["valid"])) if min(int(z["valid"][b].sum()), EP) >= 2]
-        keys = source_group_keys(path, z, length=len(z["valid"]))
+        if args.split_by == "episode":
+            keys = source_group_keys(path, z, length=len(z["valid"]))
+        else:
+            if args.split_by not in z:
+                raise KeyError(f"--split-by {args.split_by}: '{args.split_by}' missing in {path}")
+            keys = [f"{args.split_by}:{v}" for v in z[args.split_by]]
         groups.extend(keys[b] for b in rows)
         swapped.extend([is_e_swap(z)] * len(rows))
 assert len(groups) == len(X)
@@ -213,8 +223,19 @@ split_meta = {
     "validation_loss_scope": "all validation episodes, batched; random-window/noise, fixed evaluation RNG seed",
 }
 print("split metadata:", split_meta, flush=True)
-Xt, Mt = torch.tensor(X, device=dev), torch.tensor(M, device=dev)
-Lt = Mt.sum(1)
+if args.data_device == "cpu":  # 복사 없이 RAM 그대로 공유, gather 한 배치만 GPU 로
+    Xt, Mt = torch.from_numpy(X), torch.from_numpy(M)
+else:
+    Xt, Mt = torch.tensor(X, device=dev), torch.tensor(M, device=dev)
+Lt = Mt.sum(1).to(dev)
+
+
+def take(T, i, t=None):
+    """T[i, t] 를 dev 로. 데이터가 CPU 에 있으면 index 를 CPU 로 옮겨 gather 뒤 배치만 복사."""
+    if T.device.type != "cpu":
+        return T[i] if t is None else T[i, t]
+    i = i.cpu()
+    return (T[i] if t is None else T[i, t.cpu()]).to(dev, non_blocking=True)
 # 개입 쌍 (remind 8-49): 학습용은 둘 다 train, 검증용은 둘 다 val 인 쌍만.
 _pairs_E, _pairs_A = intervention_pairs(args.data, EP)
 
@@ -277,9 +298,9 @@ def window_at(idx, start):
     L = Lt[idx]
     t = start[:, None] + ar
     m = (t < L[:, None])
-    x = rebase(Xt[idx[:, None], t.clamp(max=EP - 1)])
+    x = rebase(take(Xt, idx[:, None], t.clamp(max=EP - 1)))
     if Dt is not None:
-        x = set_delta(x, Dt[idx[:, None], t.clamp(max=EP - 1)])
+        x = set_delta(x, take(Dt, idx[:, None], t.clamp(max=EP - 1)))
     return x * m[..., None], m
 
 
@@ -315,6 +336,7 @@ else:
         sd[38:42] /= args.contact_range  # 접지 채널만 ±contact_range 로 (1.0 = 기존과 동일)
     else:
         mu, sd = flat.mean(0), flat.std(0) + 1e-3
+    del xs, ms, flat  # 정규화 통계용 window (수 GB) 를 학습 내내 들고 있지 않게
 emu, esd = (0.5, 0.5) if args.norm == "minmax" else (0.5, 0.25)
 mu_t, sd_t = torch.tensor(mu, device=dev), torch.tensor(sd, device=dev)
 En = torch.tensor((E - emu) / esd, device=dev)
@@ -412,7 +434,7 @@ if not args.eval_only:
         if args.kin_xy_weight or args.kin_joint_weight or record or return_components:
             # Reconstruct/inpaint physical x0 before measuring 20ms consistency.
             # The epsilon objective and conditioning masks are unchanged.
-            kin = denoised_kinematic_terms(xt, px, x0, kx, m, ab, mu_t, sd_t, args.clip)
+            kin = denoised_kinematic_terms(xt, px, x0, kx, m, ab, mu_t, sd_t, args.clip, dt=args.dt)
             if args.kin_xy_weight:
                 total = total + args.kin_xy_weight * kin["xy_loss"]
             if args.kin_joint_weight:
@@ -617,9 +639,9 @@ if args.diag:
     P, T = [], []
     for i in range(0, len(vt), 256):
         idx, tt = vt[i:i + 256], t[i:i + 256]
-        x = rebase(Xt[idx[:, None], tt])
+        x = rebase(take(Xt, idx[:, None], tt))
         if Dt is not None:
-            x = set_delta(x, Dt[idx[:, None], tt])
+            x = set_delta(x, take(Dt, idx[:, None], tt))
         m = torch.ones(len(idx), H, dtype=torch.bool, device=dev)
         kx, ke = condition_masks(torch.ones(len(idx), dtype=torch.long, device=dev), m)
         px, _ = sample(net, (x - mu_t) / sd_t, En[idx], kx, ke, ~m, beta, abar)
@@ -627,9 +649,11 @@ if args.diag:
         start = torch.zeros(len(idx), X_DIM, device=dev)
         start[:, 3] = 1  # window 기준 원점
         pw = integrate(pw, start) if Dt is not None else pw
-        P.append(pw.cpu().numpy()), T.append(rebase(Xt[idx[:, None], tt]).cpu().numpy())
+        P.append(pw.cpu().numpy()), T.append(rebase(take(Xt, idx[:, None], tt)).cpu().numpy())
     P, T = np.concatenate(P), np.concatenate(T)
     lab = CL[vt.cpu().numpy(), st.cpu().numpy()]
+    # CALM 모션 이름 (calm_…) 에는 동작 단어가 없어 모션 세트 (파일 상위 폴더 = 레퍼런스 이름) 로 분류
+    lab = np.array([c if not str(c).startswith("calm") else s.split("/")[0] for c, s in zip(lab, src[vt.cpu().numpy()])])
     kind = np.array(["정지" if ("squat" in c or "tilt" in c) else "회전" if ("CCW" in c or "CW" in c) else "직진·횡이동" for c in lab])
     yaw = lambda a: np.arctan2(a[..., 4], a[..., 3])
     wrap = lambda a: np.angle(np.exp(1j * a))
@@ -652,7 +676,7 @@ if args.diag:
             joint_err_deg=float(np.degrees(np.sqrt(((p[:, 1:, Q] - tr_[:, 1:, Q]) ** 2).mean()))),
         )
     # 데이터 자체 점검: 실제 yaw 변화 vs body 각속도 z 적분 (평지에서 거의 같아야 한다)
-    integ = np.degrees(T[:, 1:k + 1, 13].sum(1) * 0.02)
+    integ = np.degrees(T[:, 1:k + 1, 13].sum(1) * args.dt)
     out["check_true_yaw_vs_wz_integral"] = dict(corr=float(np.corrcoef(integ, np.degrees(wrap(yaw(T[:, k]))))[0, 1]),
                                                mean_abs_diff_deg=float(np.abs(integ - np.degrees(wrap(yaw(T[:, k])))).mean()))
     json.dump(out, open(args.out / f"diag_window{'_delta' if Dt is not None else ''}.json", "w"), indent=1, ensure_ascii=False)
@@ -660,11 +684,11 @@ if args.diag:
     raise SystemExit
 # 평가: dynamics 조건 (E·s0·A 고정) 으로 S 생성 -> 실제 MJX S 와 비교. window 를 이어 붙여 episode 전체를 예측한다
 ev = torch.tensor(val[:args.eval_episodes], device=dev)
-true_t, mask_t = Xt[ev], Mt[ev]
+true_t, mask_t = take(Xt, ev), take(Mt, ev)
 pred_t = true_t.clone()
 pred_t[:, 1:, :S_DIM] = 0
 cur = true_t[:, 0].clone()
-cur_d = Dt[ev, 0] if Dt is not None else None
+cur_d = take(Dt, ev)[:, 0] if Dt is not None else None
 t0 = 0
 stride = args.stride or H - 1
 assert 1 <= stride <= H - 1
@@ -676,7 +700,7 @@ while t0 < EP - 1 and bool(mask_t[:, t0].any()):
     win[:, 0, :S_DIM] = cur[:, :S_DIM]  # s0 = 직전 window 의 마지막 예측 state
     xw = rebase(win)
     if Dt is not None:  # s0 의 변화량 = 직전 window 의 마지막 예측 (첫 window 는 실제)
-        xw = set_delta(xw, Dt[ev[:, None], t.clamp(max=EP - 1)])
+        xw = set_delta(xw, take(Dt, ev[:, None], t.clamp(max=EP - 1)))
         xw[:, 0, [0, 1, 3]] = cur_d
     xw = (xw - mu_t) / sd_t * m[..., None]
     kx, ke = condition_masks(torch.ones(len(ev), dtype=torch.long, device=dev), m)
@@ -691,7 +715,9 @@ while t0 < EP - 1 and bool(mask_t[:, t0].any()):
     t0 += n - 1
 pred, true, mask = pred_t.cpu().numpy(), true_t.cpu().numpy(), mask_t.cpu().numpy()
 res = {}
-for t in (1, 10, 50, 100, 250, 499):
+# 50 Hz 기준 시점 (0.02·0.2·1·2·5·10 s) 을 dt 에 맞춰 step 으로 + episode 마지막 step (dt 0.02, EP 500 이면 기존과 같음)
+_ts = [round(k * 0.02 / args.dt) for k in (1, 10, 50, 100, 250, 499)] + [EP - 1]
+for t in sorted({t for t in _ts if t < EP}):
     ok = mask[:, t]
     if ok.sum() == 0:
         continue

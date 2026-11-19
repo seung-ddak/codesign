@@ -89,34 +89,31 @@ def intervention_pairs(paths, H):
 
 
 def load(paths, H):
-    """Load each compressed NPZ array only once per file, not per episode."""
-    X, E, M, src, CL = [], [], [], [], []
+    """Load each compressed NPZ array only once per file, not per episode.
+    결과 배열을 먼저 전체 크기로 잡고 채운다 (리스트 + np.stack 의 2 배 메모리 회피, check/tt_ram)."""
+    keep = []
     for p in paths:
+        with np.load(p) as d:
+            keep.append(np.flatnonzero(np.minimum(d["valid"].sum(1), H) >= 2))
+    N = sum(len(k) for k in keep)
+    X = np.zeros((N, H, X_DIM), np.float32); E = np.zeros((N, E_DIM), np.float32); M = np.zeros((N, H), bool)
+    CL = np.full((N, H), "", dtype=object); src = []
+    n = 0
+    for p, rows in zip(paths, keep):
         with np.load(p) as d:
             valid = d["valid"]
             qpos, qvel = d["qpos"], d["qvel"]
             contact, target_q, physical_e = d["contact"], d["target_q"], d["E"]
             motions = d["motions"] if "motions" in d else None
             clips = d["clip"] if motions is not None else None
-            variants = d["variant"] if motions is None else None
-            for b in range(len(valid)):
+            labels = d["motion"] if "motion" in d else (d["variant"] if motions is None else None)
+            for b in rows:
                 L = min(int(valid[b].sum()), H)
-                if L < 2:
-                    continue
-                x = np.zeros((H, X_DIM), np.float32)
-                x[:L, :S_DIM] = features(qpos[b, :L], qvel[b, :L], contact[b, :L])
-                x[:L, S_DIM:] = target_q[b, :L]
-                m = np.zeros(H, bool)
-                m[:L] = True
-                X.append(x)
-                M.append(m)
-                e = physical_e if physical_e.ndim == 1 else physical_e[b]
-                E.append(np.asarray(e, dtype=np.float32))
+                X[n, :L, :S_DIM] = features(qpos[b, :L], qvel[b, :L], contact[b, :L])
+                X[n, :L, S_DIM:] = target_q[b, :L]
+                M[n, :L] = True
+                E[n] = physical_e if physical_e.ndim == 1 else physical_e[b]
+                CL[n, :L] = motions[clips[b, :L]] if motions is not None else labels[b]
                 src.append(f"{Path(p).parent.name}/{Path(p).stem}")
-                cl = np.full(H, "", dtype=object)
-                if motions is not None:
-                    cl[:L] = motions[clips[b, :L]]
-                else:
-                    cl[:L] = variants[b]
-                CL.append(cl)
-    return np.stack(X), np.stack(E), np.stack(M), np.array(src), np.stack(CL)
+                n += 1
+    return X, E, M, np.array(src), CL
