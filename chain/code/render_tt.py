@@ -61,15 +61,19 @@ def _pole(scene, x, y, r, h):
     scene.ngeom += 1
 
 
-def render_task_overlay(q_real, q_pred, E, task, path, title='', fell_t=None):
+def render_task_overlay(q_real, q_pred, E, task, path, title='', fell_t=None, pred_reset_s=None, fade_s=0.06, show_pred=True):
     """과제 환경 (트랙 경계·슬라럼 폴) 한 장면에 실제 MuJoCo 재생 (초록) 과 TT 예측 (주황 반투명) 을 겹쳐 그림.
-    q_* = 50 Hz qpos (s0 기준 world 좌표, 원점 출발). 카메라는 두 몸통 중점을 따라감, 아래에 두 위치 차이 (m)."""
+    q_* = 50 Hz qpos (s0 기준 world 좌표, 원점 출발). 카메라는 두 몸통 중점을 따라감, 아래에 두 위치 차이 (m).
+    pred_reset_s (2026-11-19 사용자 요청): MPC 예측이 이 주기 (s) 마다 실제 상태에서 다시 시작할 때, 경계 앞뒤 fade_s 동안 주황 예측을 투명하게 줄여
+    순간 이동이 보이지 않게 하고, 주황 경로선도 경계를 건너는 구간은 그리지 않는다 (한 계획 안에서만 이어 그림).
+    show_pred=False (2026-11-19 사용자 요청): TT 예측 없이 MuJoCo 실제 로봇만 그림 (예측 오차가 작아 겹쳐 그릴 필요 없음)."""
     import imageio, mujoco, render_three as r3
     from pd_replay import build_model
     # 폴은 MuJoCo 실행과 같은 geom 으로 모델에 넣는다 (2026-11-19: 이전 _pole 은 원기둥 size 를 잘못 넣어 높이 0.12 m 원판이 공중 0.41 m 에 떠 보였음)
     sys.path.insert(0, str(ROOT / 'code/tt_dynamics')); from generate_task_mujoco import add_slalom_poles
     from functools import partial
     scene_fn = partial(add_slalom_poles, task=task) if hasattr(task, 'poles') else None
+    if hasattr(task, 'add_scene'): scene_fn = task.add_scene  # 2026-11-19 지형 과제 (계단 · 허들)
     rm = r3.rm; m = build_model('00000011', uniforms=list(E), flat_ground=True, torque_limit=33.5, scene_fn=scene_fn); p = r3.Panel(m); d2 = mujoco.MjData(m)
     p.cam.distance, p.cam.elevation = 2.6, -32.
     spec = task.describe(); lines = task.guide_lines()
@@ -78,18 +82,24 @@ def render_task_overlay(q_real, q_pred, E, task, path, title='', fell_t=None):
         for t in range(0, n, step):
             ia, ib = min(t, len(qa) - 1), min(t, len(qb) - 1); a, b = qa[ia], qb[ib]
             p.d.qpos[:] = a; mujoco.mj_forward(p.m, p.d)
-            p.cam.lookat[:] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.15]
+            p.cam.lookat[:] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 0.15] if show_pred else [a[0], a[1], 0.15]
             p.r.update_scene(p.d, camera=p.cam, scene_option=p.opt); sc = p.r.scene
             _tint(m, sc, 0, REAL_C)
             d2.qpos[:] = b; mujoco.mj_forward(m, d2); n0 = sc.ngeom
             mujoco.mjv_addGeoms(m, d2, p.opt, mujoco.MjvPerturb(), mujoco.mjtCatBit.mjCAT_DYNAMIC, sc)
-            _tint(m, sc, n0, PRED_C)
+            fa = 1.0 if show_pred else 0.0
+            if pred_reset_s and show_pred:
+                ph = (t * .02) % pred_reset_s; fa = float(np.clip(min(ph, pred_reset_s - ph) / fade_s, 0, 1))
+            if fa < 1: sc.ngeom = n0 if fa == 0 else sc.ngeom
+            _tint(m, sc, n0, PRED_C[:3] + (PRED_C[3] * fa,))
             for pts, solid in lines:
                 for u, v in zip(pts[:-1:2], pts[2::2]): rm.add_line(sc, u, v, (1, 1, 1, .9) if solid else (.2, .3, .5, .9), .006 if solid else .012)
-            for u, v in zip(qb[:ib + 1:2, :2][:-1], qb[:ib + 1:2, :2][1:]): rm.add_line(sc, u, v, PRED_C[:3] + (1,), .01, z=.007)
+            tb = np.arange(0, ib + 1, 2) * .02; seg = (tb // pred_reset_s) if pred_reset_s else np.zeros_like(tb)
+            for j, (u, v) in enumerate(zip(qb[:ib + 1:2, :2][:-1], qb[:ib + 1:2, :2][1:])):
+                if show_pred and seg[j] == seg[j + 1]: rm.add_line(sc, u, v, PRED_C[:3] + (1,), .01, z=.007)
             for u, v in zip(qa[:ia + 1:2, :2][:-1], qa[:ia + 1:2, :2][1:]): rm.add_line(sc, u, v, REAL_C, .012, z=.009)
             img = p.r.render().copy(); gap = np.linalg.norm(a[:2] - b[:2])
             bad = fell_t is not None and t * .02 >= fell_t
-            st = f"t = {t * .02:4.1f} s   real moved {np.linalg.norm(a[:2]):.2f} m   TT-real gap {gap:.2f} m" + (f"   REAL FELL at {fell_t:.1f} s" if bad else '')
-            w.append_data(np.asarray(rm.label(img, title, 'green = MuJoCo real rollout   orange (translucent) = TT prediction', st, bad)))
+            st = (f"t = {t * .02:4.1f} s   real moved {np.linalg.norm(a[:2]):.2f} m" + (f"   TT-real gap {gap:.2f} m" if show_pred else '')) + (f"   REAL FELL at {fell_t:.1f} s" if bad else '')
+            w.append_data(np.asarray(rm.label(img, title, 'green = MuJoCo real rollout   orange (translucent) = TT prediction' if show_pred else 'MuJoCo real rollout (generated morphology + generated actions)', st, bad)))
     return path

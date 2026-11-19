@@ -363,3 +363,123 @@ class CorridorPolesReward(Poles3ForwardReward):
         L = self.finish_x + 0.3 if length is None else length
         return [(np.array([[0.0, y], [L, y]]), True) for y in (-self.half_width, self.half_width)] + \
                [(np.array([[self.finish_x, -self.half_width], [self.finish_x, self.half_width]]), False)]
+
+
+class CorridorPolesFastReward(CorridorPolesReward):
+    """2026-11-19 사용자 결정: corridor3 와 같은 통로 · 엇갈린 기둥 3 개, 끝선까지 최소 시간. 몸이 +x 를 볼 필요 없음.
+    - 진행 가중치 1 → 5 (최소 시간 쪽으로).
+    - 몸 방향 감점 기준 = +x 대신 실제 움직이는 방향 (xy 속도). 몸을 틀어 가는 쪽을 보며 가면 감점 0, 옆걸음 · 뒷걸음에 감점.
+      속도 0.2 m/s 미만은 비례해서 줄임 (거의 멈춘 순간의 방향은 의미 없음). 가중치 5 그대로."""
+
+    progress_weight = 5.0
+    heading_min_speed = 0.2
+
+    def __init__(self):
+        super().__init__()
+        self.rewards = {"progress": self.progress_weight}
+
+    def p_heading(self, x, m):
+        hz = float(os.environ.get("TT_CONTROL_HZ", "100"))
+        v = (x[:, 1:, POS] - x[:, :-1, POS]) * hz
+        v = torch.cat([v, v[:, -1:]], 1)
+        speed = v.norm(dim=-1)
+        d = v / speed.clamp_min(1e-6)[..., None]
+        n = torch.sqrt(x[..., COS] ** 2 + x[..., SIN] ** 2).clamp_min(1e-6)
+        out = (1 - (x[..., COS] * d[..., 0] + x[..., SIN] * d[..., 1]) / n) * (speed / self.heading_min_speed).clamp(max=1)
+        return (out * m).sum(1) / m.sum(1).clamp(min=1)
+
+    def describe(self):
+        return dict(super().describe(), task="corridor_poles3_fast", heading_ref="velocity_direction", heading_min_speed=self.heading_min_speed)
+
+
+class _TerrainForward(StraightReward):
+    """2026-11-19 사용자 결정 (지금 TT 로 역동적 과제가 되는지 확인): 지형 과제 공통. 끝선 finish_x 까지 최소 시간.
+    진행 = +x 전진 (끝선에서 자름) × 5, 통로 = 몸통 중심 |y| <= 0.40 밖 시간 비율 × 20, 몸 방향 기준 +x (× 5), 넘어짐 · 생존 20.
+    지형 상자는 add_scene 으로 MuJoCo 에 넣고 (이름 terrain_k = 발 접촉을 바닥으로 셈), 장애물은 obstacle_k (닿으면 접촉으로 셈)."""
+
+    finish_x = 3.0
+    corridor_half_width = 0.40
+    boxes = ()      # 바닥 지형 (x0, x1, 윗면 z) — 발이 딛는 곳
+    obstacles = ()  # 장애물 (x0, x1, 윗면 z) — 닿으면 안 되는 것
+    box_half_y = 1.0
+
+    def __init__(self):
+        super().__init__()
+        self.half_width = self.corridor_half_width
+        self.rewards = {"progress": 5.0}
+        self.penalties = dict(self.penalties, lane=20.0)
+
+    def r_progress(self, x, m):
+        px = x[..., 0].clamp(max=self.finish_x)
+        return ((px[:, 1:] - px[:, :-1]) * (m[:, 1:] & m[:, :-1])).sum(1)
+
+    def p_lane(self, x, m):
+        out = torch.sigmoid((x[..., 1].abs() - self.half_width) / 0.02)
+        return (out * m).sum(1) / m.sum(1).clamp(min=1)
+
+    def ground_h(self, px):
+        """x 위치의 바닥 높이 (m)."""
+        h = torch.zeros_like(px)
+        for x0, x1, top in self.boxes:
+            h = torch.where((px >= x0) & (px < x1), torch.full_like(px, top), h)
+        return h
+
+    def add_scene(self, spec):
+        import mujoco
+        for kind, items, rgba in (("terrain", self.boxes, [0.55, 0.55, 0.6, 1]), ("obstacle", self.obstacles, [0.85, 0.18, 0.12, 1])):
+            for k, (x0, x1, top) in enumerate(items):
+                spec.worldbody.add_geom(name=f"{kind}_{k}", type=mujoco.mjtGeom.mjGEOM_BOX, size=[(x1 - x0) / 2, self.box_half_y, top / 2],
+                                        pos=[(x0 + x1) / 2, 0, top / 2], rgba=rgba, contype=1, conaffinity=1)
+
+    def guide_lines(self, length=None):
+        L = self.finish_x + 0.3 if length is None else length
+        return [(np.array([[0.0, y], [L, y]]), True) for y in (-self.half_width, self.half_width)] + \
+               [(np.array([[self.finish_x, -self.half_width], [self.finish_x, self.half_width]]), False)]
+
+    def describe(self):
+        return dict(task=type(self).__name__, finish_x=self.finish_x, corridor_half_width=self.half_width, boxes=list(self.boxes),
+                    obstacles=list(self.obstacles), rewards=self.rewards, penalties=self.penalties, min_height_frac=self.min_height_frac)
+
+
+class Stairs5Reward(_TerrainForward):
+    """계단 5 칸 오르고 내리기: 1 칸 높이 0.10 m · 디딤 0.30 m (legacy stairsUpDown 과 같은 치수), x 1.0 부터 오르기 → 윗면 (0.5 m) 1.0 m → 5 칸 내리기 → 끝선 x 5.5.
+    추가 감점 height (× 100): 몸통 높이 - 발 아래 바닥 높이 가 출발 때 몸통 높이에서 벗어난 거리² 평균 (TT 계획이 계단 높이를 따라가게)."""
+
+    rise, tread, n_steps, x_start, top_len = 0.10, 0.30, 5, 1.0, 1.0
+    height_weight = 100.0
+
+    def __init__(self):
+        r, d, n, x0 = self.rise, self.tread, self.n_steps, self.x_start
+        up = [(x0 + i * d, x0 + (i + 1) * d, r * (i + 1)) for i in range(n - 1)]
+        xt = x0 + (n - 1) * d
+        top = [(xt, xt + d + self.top_len + d * 0, r * n)]
+        xd = xt + d + self.top_len
+        down = [(xd + i * d, xd + (i + 1) * d, r * (n - 1 - i)) for i in range(n - 1)]
+        self.boxes = tuple(up + top + down)
+        self.finish_x = xd + (n - 1) * d + 0.5
+        super().__init__()
+        self.penalties = dict(self.penalties, height=self.height_weight)
+
+    def p_height(self, x, m):
+        rel = x[..., Z] - self.ground_h(x[..., 0])
+        out = (rel - x[:, :1, Z]) ** 2
+        return (out * m).sum(1) / m.sum(1).clamp(min=1)
+
+
+class HurdleReward(_TerrainForward):
+    """허들 넘기: x 1.5 에 높이 0.10 m · 두께 0.04 m 허들 (폭 y ±1.0), 끝선 x 2.5.
+    추가 감점 clear (× 100): 몸통 중심이 허들 ± 0.35 m 안에 있을 때 몸통 높이가 (출발 높이 + 허들 높이) 보다 낮은 만큼² 평균 (뛰어 넘게)."""
+
+    hurdle_x, hurdle_h, hurdle_t = 1.5, 0.10, 0.04
+    clear_weight = 100.0
+
+    def __init__(self):
+        self.obstacles = ((self.hurdle_x - self.hurdle_t / 2, self.hurdle_x + self.hurdle_t / 2, self.hurdle_h),)
+        self.finish_x = self.hurdle_x + 1.0
+        super().__init__()
+        self.penalties = dict(self.penalties, clear=self.clear_weight)
+
+    def p_clear(self, x, m):
+        near = torch.sigmoid((0.35 - (x[..., 0] - self.hurdle_x).abs()) / 0.02)
+        low = torch.relu(x[:, :1, Z] + self.hurdle_h - x[..., Z]) ** 2
+        return (near * low * m).sum(1) / m.sum(1).clamp(min=1)

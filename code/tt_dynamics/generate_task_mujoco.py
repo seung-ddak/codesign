@@ -63,6 +63,7 @@ def make_physics(e, task=None):
     from pd_replay import build_model
 
     scene_fn = partial(add_slalom_poles, task=task) if isinstance(task, SlalomReward) else None
+    if hasattr(task, 'add_scene'): scene_fn = task.add_scene  # 2026-11-19 지형 과제 (계단 · 허들)
     model = build_model("00000011", uniforms=np.asarray(e, dtype=np.float64),
                         kp=30, torque_limit=33.5, flat_ground=True, scene_fn=scene_fn)
     model.opt.timestep = DT / SUBSTEPS

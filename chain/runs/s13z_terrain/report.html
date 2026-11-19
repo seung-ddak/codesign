@@ -1,0 +1,51 @@
+<title>s13z 계단 · 허들</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* 실험 노트: 위에서 아래로 요약 → 세기 비교 행렬 → 원본 비교 → 조건. 색 = 좋음/나쁨 의미에만 */
+:root{--bg:#f4f5f2;--panel:#ffffff;--fg:#1d211f;--muted:#5e6661;--line:#d9ddd8;--accent:#2d5d7b;--pos:#2f8a57;--neg:#c2473b;
+--sans:"IBM Plex Sans KR",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141716;--panel:#1c201f;--fg:#e6e9e6;--muted:#9aa39e;--line:#2e3432;--accent:#8cbbd8;--pos:#4fbf80;--neg:#e56f62;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141716;--panel:#1c201f;--fg:#e6e9e6;--muted:#9aa39e;--line:#2e3432;--accent:#8cbbd8;--pos:#4fbf80;--neg:#e56f62;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--sans)}
+main{max-width:1180px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:40px}
+h1{font-size:26px;margin:0;text-wrap:balance} h2{font-size:19px;margin:0 0 4px;text-wrap:balance} h3{font-size:16px;margin:0}
+.lede{color:var(--muted);margin:6px 0 0;max-width:70ch} .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.chip{font:12px var(--mono);border:1px solid var(--line);border-radius:4px;padding:2px 8px;color:var(--muted);background:var(--panel)}
+section{display:grid;gap:14px;min-width:0} section>p{margin:0;color:var(--muted);max-width:80ch}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:4px;align-content:start}
+.card code{font:12px var(--mono);color:var(--muted)} .big{font:600 30px var(--mono);margin:6px 0 0;color:var(--accent)} .lab{margin:0;color:var(--muted);font-size:13px}
+.pending{color:var(--muted)}
+dl{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;margin:12px 0 0} dl div{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding-top:4px}
+dt{color:var(--muted);font-size:13px} dd{margin:0;font:13px var(--mono)}
+.scroll{overflow-x:auto;min-width:0}
+table{border-collapse:collapse;width:100%;background:var(--panel);font-variant-numeric:tabular-nums}
+th,td{padding:8px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap} th:first-child,td:first-child{text-align:left}
+thead th{font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.02em} td{font-family:var(--mono);font-size:13px} td:first-child{font-family:var(--sans)}
+table.wrapcells td{white-space:normal;text-align:left;font-family:var(--sans)} table.wrapcells td:first-child{white-space:nowrap;color:var(--muted)}
+.mxs{display:grid;gap:18px} .mx{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.mx header{padding:14px 16px 10px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline} .mx header p{margin:0;color:var(--muted);font-size:13px}
+table.heat{table-layout:fixed;min-width:640px} table.heat th.metric{width:220px;text-align:left;font-weight:500;font-size:14px;color:var(--fg);font-family:var(--sans)}
+table.heat th.metric small{display:block;color:var(--muted);font-size:11.5px;font-weight:400;white-space:normal}
+table.heat thead th{text-align:center;font:600 15px var(--mono);color:var(--fg)} table.heat thead th small{display:block;font:400 11px var(--sans);color:var(--muted)}
+table.heat thead th.metric{font:500 12px var(--sans);color:var(--muted)}
+table.heat td{text-align:center;position:relative;font-size:14px} table.heat td.top .v{font-weight:600}
+table.heat td.top::after{content:"";position:absolute;inset:3px;border:2px solid var(--pos);border-radius:4px;pointer-events:none}
+.bar{position:absolute;left:0;bottom:0;height:4px;background:var(--accent);opacity:.75} .v{position:relative}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);align-items:center}
+.sw{display:inline-block;width:28px;height:12px;border-radius:2px;vertical-align:-1px;margin-right:6px}
+.pill{font:600 12px var(--sans);padding:1px 8px;border-radius:10px} .pill.ok{background:color-mix(in oklab,var(--pos) 22%,var(--panel));color:var(--pos)} .pill.ng{background:color-mix(in oklab,var(--neg) 22%,var(--panel));color:var(--neg)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px} .two>div{min-width:0;display:grid;gap:8px;align-content:start}
+h4{margin:0;font-size:14px;color:var(--muted);font-weight:500}
+</style>
+<main>
+<header><h1>s13z 지금 TT 로 계단 · 허들 과제</h1>
+<p class="lede">평지 trot 6 종 데이터로 학습한 TT (s9z) 를 그대로 써서, 계단 5 칸 오르고 내리기와 허들 넘기를 생성하고 MuJoCo 로 실행. 재학습 없이 되는지 확인하는 실험.</p>
+<div class="chips"><span class="chip">유도 세기 50</span><span class="chip">예측 구간 3.1 s</span><span class="chip">31 step 마다 재생성</span><span class="chip">warm start</span><span class="chip">seed 3 × 후보 8</span><span class="chip">2026-11-19 12:59</span></div></header>
+<section><h2>과제별 결과 (후보 24)</h2><div class="cards"><article class="card"><h3>계단 5 칸 오르고 내리기 <code>stairs</code></h3><p class="big">1.19 m</p><p class="lab">도달 0 · 최대 x 전진 (끝선 5.2 m) · 평균 0.88 m</p><dl><div><dt>목표 도달</dt><dd>0/24</dd></div><div><dt>넘어짐</dt><dd>24/24</dd></div><div><dt>총 회전량 평균</dt><dd>199°</dd></div><div><dt>통로 이탈</dt><dd>7/24</dd></div><div><dt>최대 |y|</dt><dd>0.35 m</dd></div><div><dt>제자리 회전</dt><dd>1/24</dd></div><div><dt>관절 오차</dt><dd>12.7°</dd></div><div><dt>위치 오차</dt><dd>12.1 cm</dd></div></dl></article><article class="card"><h3>허들 넘기 <code>hurdle</code></h3><p class="big">1.59 m</p><p class="lab">도달 0 · 최대 x 전진 (끝선 2.5 m) · 평균 1.34 m</p><dl><div><dt>목표 도달</dt><dd>0/24</dd></div><div><dt>넘어짐</dt><dd>6/24</dd></div><div><dt>허들 접촉</dt><dd>23/24</dd></div><div><dt>통로 이탈</dt><dd>0/24</dd></div><div><dt>최대 |y|</dt><dd>0.20 m</dd></div><div><dt>제자리 회전</dt><dd>1/24</dd></div><div><dt>관절 오차</dt><dd>5.5°</dd></div><div><dt>위치 오차</dt><dd>3.7 cm</dd></div></dl></article></div></section>
+<section><h2>최고 · 최악 후보</h2><div class="scroll"><table class=""><thead><tr><th>과제</th><th>구분</th><th>후보</th><th>끝</th><th>도달 (s)</th><th>실행 (s)</th><th>진행</th><th>허들 접촉</th><th>총 회전량 (°)</th><th>제자리 회전</th></tr></thead><tbody><tr><td>계단 5 칸 오르고 내리기</td><td><span class="pill ok">최고</span></td><td>s0 · c1</td><td>넘어짐</td><td>-</td><td>6.2</td><td>1.19 m</td><td>0</td><td>392</td><td>-</td></tr><tr><td>계단 5 칸 오르고 내리기</td><td><span class="pill ng">최악</span></td><td>s2 · c1</td><td>넘어짐</td><td>-</td><td>0.9</td><td>0.51 m</td><td>0</td><td>49</td><td>-</td></tr><tr><td>허들 넘기</td><td><span class="pill ok">최고</span></td><td>s2 · c5</td><td>넘어짐</td><td>-</td><td>3.5</td><td>1.59 m</td><td>1</td><td>115</td><td>-</td></tr><tr><td>허들 넘기</td><td><span class="pill ng">최악</span></td><td>s2 · c2</td><td>넘어짐</td><td>-</td><td>3.3</td><td>0.58 m</td><td>0</td><td>332</td><td>있음</td></tr></tbody></table></div></section>
+<section><h2>확인한 사실 · 예상 원인</h2><div class="scroll"><table class="wrapcells"><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody><tr><td>결과</td><td>계단 0/24 도달 (24 개 모두 넘어짐, 최대 x 1.19 m = 첫 칸 (x 1.0 ~ 1.3) 근처) · 허들 0/24 도달 (18 개 허들 앞 x 1.3 m 근처에서 30 s 동안 멈춤, 6 개 넘어짐, 23 개 허들 접촉)</td></tr><tr><td>TT 예측 오차</td><td>계단 관절 12.7° · 위치 12.1 cm, 허들 5.5° · 3.7 cm (평지 과제 s12z: 2.5 ~ 3.8° · 1.0 ~ 2.2 cm)</td></tr><tr><td>TT 학습 데이터</td><td>s8z rollout 30,540 개 = 평지 trot 6 종 (Forward · Backward · Left · Right · CW · CCW Slow) + CALM 변형. 계단 · 점프 없음. TT 입력에 지형 정보 없음 (발 접촉 4 개만)</td></tr><tr><td>예상 원인 1</td><td>TT 가 계단을 딛거나 몸을 띄우는 동작을 본 적이 없어, 보상 기울기 (높이 따라가기 · 허들 위로 몸 올리기) 로 밀어도 학습 범위 밖 계획이 나옴 → 실제와 크게 어긋남 (오차 4 ~ 5 배) → 넘어짐</td></tr><tr><td>예상 원인 2</td><td>허들: 평지 trot 의 발 높이로는 0.10 m 허들을 넘지 못하고 앞발이 걸려 멈춤. 전진 보상과 허들 감점이 맞서 허들 앞에 머무름</td></tr><tr><td>되려면 (선택지)</td><td>B: 계단 · 점프 모션을 데이터에 넣고 형상별 추종 정책 → rollout → TT 재학습 · C: B 에 형상 범위 (다리 길이 등) 확대</td></tr></tbody></table></div></section>
+<section><h2>생성 시간</h2><div class="scroll"><table class=""><thead><tr><th>과제</th><th>seed</th><th>생성 시간</th><th>재생성 횟수</th></tr></thead><tbody><tr><td>계단 5 칸 오르고 내리기</td><td>0</td><td>14.7 분</td><td>24</td></tr><tr><td>계단 5 칸 오르고 내리기</td><td>1</td><td>14.2 분</td><td>17</td></tr><tr><td>계단 5 칸 오르고 내리기</td><td>2</td><td>15.6 분</td><td>39</td></tr><tr><td>허들 넘기</td><td>0</td><td>10.1 분</td><td>96</td></tr><tr><td>허들 넘기</td><td>1</td><td>10.0 분</td><td>96</td></tr><tr><td>허들 넘기</td><td>2</td><td>9.9 분</td><td>96</td></tr></tbody></table></div></section>
+<section><h2>고정 환경 · 조건</h2><div class="scroll"><table class="wrapcells"><thead><tr><th>항목</th><th>값</th></tr></thead><tbody><tr><td>TT</td><td>chain/runs/s9z_tt_h32/tt (s8z rollout 100 Hz, H 32, 200k step)</td></tr><tr><td>MuJoCo</td><td>제어 100 Hz, physics 200 Hz, kp 30, 토크 ±33.5, 평지. 후보마다 상태 유지하며 31 step 씩 이어서 실행</td></tr><tr><td>과제</td><td>stairs = 계단 5 칸 (1 칸 높이 0.10 m · 디딤 0.30 m, legacy stairsUpDown 과 같은 치수): x 1.0 부터 오르기 → 윗면 0.5 m · 길이 1.3 m → 5 칸 내리기 → 끝선 x 5.2 m<br>hurdle = x 1.5 m 에 높이 0.10 m · 두께 0.04 m 허들, 끝선 x 2.5 m</td></tr><tr><td>끝</td><td>목표 도달 · 넘어짐 · 최대 시간 (stairs 60 s, hurdle 30 s)</td></tr><tr><td>보상</td><td>진행 = +x 전진 (끝선에서 자름) × 5 (최소 시간) + 통로 감점 (몸통 중심 |y| > 0.40 m 시간 비율) × 20 + 넘어짐 20 + 생존 20 + 몸 방향 (+x) 5 + 행동 변화 0.05<br>stairs 추가: height × 100 = (몸통 높이 − 발 아래 계단 높이) 가 출발 몸통 높이에서 벗어난 거리² 평균<br>hurdle 추가: clear × 100 = 몸통이 허들 ± 0.35 m 안일 때 (출발 높이 + 0.10 m) 보다 낮은 만큼² 평균</td></tr><tr><td>생성</td><td>유도 세기 50, 예측 구간 3.1 s 고정 (창 10 개 × 31 step), 31 step 실행마다 실제 상태에서 재생성 (형상 E 고정), warm start (이전 계획 한 창 밀고 noise 60/100 부터)</td></tr><tr><td>후보</td><td>seed 0 · 1 · 2 × 후보 8 = 24</td></tr><tr><td>순위 (최고 · 최악)</td><td>넘어짐 · 허들 접촉 · 통로 이탈 없음 → 목표 도달 → 도달 시간 → x 전진 클수록. 최악 = 같은 순위의 맨 끝</td></tr><tr><td>지형 판정</td><td>계단 상자 위 발 접촉 = 바닥 접촉 (TT 상태의 발 접촉 4 개), 허들에 몸 어디든 닿으면 접촉</td></tr><tr><td>영상</td><td>보고서에는 넣지 않음. 과제별 최고 · 최악 영상 (MuJoCo 실제 로봇만) = chain/runs/s13z_terrain/videos/</td></tr></tbody></table></div></section>
+</main>
